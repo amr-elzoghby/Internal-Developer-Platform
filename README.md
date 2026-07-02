@@ -206,7 +206,7 @@ The platform has **three layers**:
 - [x] Karpenter for node auto-scaling
 - [x] EKS Managed Addons (EBS CSI, CoreDNS, VPC CNI, kube-proxy)
 - [x] Metrics Server
-- [ ] Makefile (`make infra-up`, `make infra-down`)
+- [x] Makefile (`make infra-up`, `make infra-down`)
 
 ### Phase 2 — Multi-Tenancy
 > Isolated namespaces per team with RBAC, quotas, and network policies.
