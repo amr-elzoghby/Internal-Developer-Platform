@@ -109,6 +109,9 @@ The platform has **three layers**:
 | **Templates** | Backstage Software Templates | Golden path scaffolding |
 | **Multi-Tenancy** | Namespaces + RBAC + Quotas | Team isolation and resource control |
 | **Policy** | OPA Gatekeeper | Enforce security and best practices |
+| **Secrets Encryption** | AWS KMS | K8s Secrets encrypted at rest |
+| **Pod Isolation** | VPC CNI + IRSA | Per-pod IAM roles + native NetworkPolicies |
+| **Node Access** | SSM (no SSH) | Secure node debugging without open ports |
 | **Monitoring** | Prometheus + Grafana | Metrics and dashboards |
 | **Cost** | Kubecost | Per-team cost tracking |
 | **TLS** | cert-manager + Let's Encrypt | Automatic HTTPS |
@@ -122,9 +125,19 @@ The platform has **three layers**:
 ├── infrastructure/
 │   ├── terraform/
 │   │   ├── modules/
-│   │   │   ├── network/                # VPC, Subnets, Security Groups
-│   │   │   ├── eks/                    # EKS Cluster, Karpenter, Helm releases
-│   │   │   └── irsa/                   # IAM Roles for Service Accounts
+│   │   │   ├── network/
+│   │   │   │   ├── vpc.tf              # VPC, Subnets, IGW, Route Tables
+│   │   │   │   ├── security.tf         # Security Groups (EKS Nodes, VPC Endpoints)
+│   │   │   │   ├── endpoints.tf        # VPC Endpoints (S3, ECR, STS, EKS)
+│   │   │   │   ├── variables.tf
+│   │   │   │   └── outputs.tf
+│   │   │   └── eks/
+│   │   │       ├── cluster.tf          # EKS Cluster + KMS Encryption + Node Group
+│   │   │       ├── iam.tf              # IAM Roles + OIDC Provider (IRSA)
+│   │   │       ├── karpenter.tf        # Karpenter IRSA + Helm Release
+│   │   │       ├── addons.tf           # EBS CSI, CoreDNS, VPC CNI, Metrics Server
+│   │   │       ├── variables.tf
+│   │   │       └── outputs.tf
 │   │   └── environments/
 │   │       └── prod/
 │   │           ├── network/            # Prod VPC config
@@ -181,13 +194,18 @@ The platform has **three layers**:
 
 ## 🗺️ Roadmap
 
-### Phase 1 — Base Infrastructure
+### Phase 1 — Base Infrastructure ✅
 > EKS cluster with Terraform, Karpenter, and core networking.
 
-- [ ] VPC + Subnets + Security Groups (Terraform module)
-- [ ] EKS Cluster + On-Demand Node Group
-- [ ] Karpenter for node auto-scaling
-- [ ] Metrics Server + EBS CSI Driver
+- [x] VPC + Subnets + Security Groups (Terraform module)
+- [x] VPC Endpoints (S3, ECR, STS, EKS — no NAT Gateway needed)
+- [x] EKS Cluster + On-Demand Node Group
+- [x] KMS Encryption for K8s Secrets at rest
+- [x] IRSA (OIDC + VPC CNI per-pod IAM roles)
+- [x] Native NetworkPolicy support (VPC CNI)
+- [x] Karpenter for node auto-scaling
+- [x] EKS Managed Addons (EBS CSI, CoreDNS, VPC CNI, kube-proxy)
+- [x] Metrics Server
 - [ ] Makefile (`make infra-up`, `make infra-down`)
 
 ### Phase 2 — Multi-Tenancy
