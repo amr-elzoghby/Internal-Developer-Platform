@@ -1,0 +1,21 @@
+sync:
+  toHost:
+    services:
+      enabled: true
+    ingresses:
+      enabled: true
+  fromHost:
+    nodes:
+      enabled: false
+
+controlPlane:
+  statefulSet:
+    persistence:
+      volumeClaimTemplates:
+        - metadata:
+            name: data
+          spec:
+            accessModes: [ "ReadWriteOnce" ]
+            resources:
+              requests:
+                storage: 5Gi
