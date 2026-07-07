@@ -148,6 +148,13 @@ The platform has **three layers**:
 │       ├── compositions/               # Reusable infra templates (RDS, S3, Redis, SQS)
 │       └── claims/                     # Example developer requests
 ├── platform/
+│   ├── vcluster/                       # Virtual cluster Helm values for teams
+│   │   ├── base/
+│   │   │   └── values.yaml             # Base vCluster settings
+│   │   └── teams/
+│   │       ├── team-alpha.yaml         # Team Alpha values
+│   │       ├── team-beta.yaml          # Team Beta values
+│   │       └── team-gamma.yaml         # Team Gamma values
 │   ├── argocd/
 │   │   ├── install/                    # ArgoCD Helm values
 │   │   ├── applicationsets/            # Auto-generate apps per team
@@ -169,15 +176,10 @@ The platform has **three layers**:
 │       ├── templates/                  # Software templates (golden paths)
 │       └── Dockerfile
 ├── tenants/
-│   ├── base/                           # Base tenant config (Kustomize)
-│   │   ├── namespace.yaml
-│   │   ├── rbac.yaml
-│   │   ├── resource-quota.yaml
-│   │   ├── limit-range.yaml
-│   │   └── network-policy.yaml
-│   ├── team-alpha/                     # Team Alpha overlay
-│   ├── team-beta/                      # Team Beta overlay
-│   └── team-gamma/                     # Team Gamma overlay
+│   └── base/                           # Namespace isolation policies
+│       ├── resource-quota.yaml         # CPU/Mem caps per team namespace
+│       ├── limit-range.yaml            # Default container sizes
+│       └── network-policy.yaml         # Blocks cross-team namespace traffic
 ├── golden-paths/
 │   ├── nodejs-service/                 # Node.js template
 │   │   ├── skeleton/                   # App code + Dockerfile + K8s manifests
@@ -208,14 +210,14 @@ The platform has **three layers**:
 - [x] Metrics Server
 - [x] Makefile (`make infra-up`, `make infra-down`)
 
-### Phase 2 — Multi-Tenancy
-> Isolated namespaces per team with RBAC, quotas, and network policies.
+### Phase 2 — Multi-Tenancy ✅
+> Virtualized Kubernetes clusters (vCluster) and policy-based isolation per team.
 
-- [ ] Base tenant config with Kustomize
-- [ ] RBAC: team members access their namespace only
-- [ ] ResourceQuotas and LimitRanges per team
-- [ ] NetworkPolicies: default-deny + allow within namespace
-- [ ] Onboard 3 teams (alpha, beta, gamma)
+- [x] Base vCluster configuration (`values.yaml`)
+- [x] vCluster profiles for teams (`team-alpha`, `team-beta`, `team-gamma`)
+- [x] ResourceQuotas and LimitRanges per namespace for host-level safety
+- [x] NetworkPolicies: Deny traffic between team namespaces
+- [x] Makefile automation (`make cluster-up` installs namespaces, policies, and vClusters)
 
 ### Phase 3 — Crossplane (Infrastructure as Code)
 > Developers provision AWS resources by writing Kubernetes CRDs.
