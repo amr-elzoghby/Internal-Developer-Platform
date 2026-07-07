@@ -43,10 +43,27 @@ kubeconfig: ## Update local kubeconfig for the EKS cluster
 cluster-up: kubeconfig ## Apply all K8s manifests (Tenants + Platform + Karpenter)
 	@echo "$(YELLOW)Applying Karpenter NodePool & EC2NodeClass...$(NC)"
 	kubectl apply -f platform/karpenter/
-	@echo "$(GREEN)Cluster configuration complete!$(NC)"
+	@echo "$(YELLOW)Adding vCluster Helm repository...$(NC)"
+	helm repo add loft-sh https://charts.loft.sh --force-update || true
+	helm repo update
+	@echo "$(YELLOW)Creating namespaces and applying isolation policies...$(NC)"
+	@for team in team-alpha team-beta team-gamma; do \
+		kubectl create namespace $$team --dry-run=client -o yaml | kubectl apply -f -; \
+		kubectl apply -f tenants/base/ -n $$team; \
+		echo "$(YELLOW)Deploying vCluster for $$team...$(NC)"; \
+		helm upgrade --install $$team loft-sh/vcluster \
+			--namespace $$team \
+			-f platform/vcluster/base/values.yaml \
+			-f platform/vcluster/teams/$$team.yaml; \
+	done
+	@echo "$(GREEN)Cluster configuration and multi-tenant vClusters ready!$(NC)"
 
-cluster-down: ## Remove all K8s manifests
-	@echo "$(YELLOW)Cleaning up Kubernetes resources...$(NC)"
+cluster-down: ## Remove all K8s manifests and vClusters
+	@echo "$(YELLOW)Cleaning up vClusters and namespaces...$(NC)"
+	@for team in team-alpha team-beta team-gamma; do \
+		helm uninstall $$team --namespace $$team || true; \
+	done
+	kubectl delete namespace team-alpha team-beta team-gamma --ignore-not-found
 	kubectl delete -f platform/karpenter/ --ignore-not-found
 	@echo "$(GREEN)Cluster resources removed!$(NC)"
 
