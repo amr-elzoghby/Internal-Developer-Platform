@@ -1,0 +1,7 @@
+apiVersion: idp.io/v1alpha1
+kind: RedisInstance
+metadata:
+  name: team-alpha-cache
+  namespace: team-alpha
+spec:
+  size: small

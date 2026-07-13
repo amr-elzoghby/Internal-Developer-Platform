@@ -1,0 +1,7 @@
+apiVersion: idp.io/v1alpha1
+kind: ObjectBucket
+metadata:
+  name: team-alpha-s3-bucket
+  namespace: team-alpha
+spec:
+  region: us-east-1

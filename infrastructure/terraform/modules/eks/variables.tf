@@ -88,3 +88,10 @@ variable "network_remote_state_key" {
   type        = string
   default     = "prod/network/terraform.tfstate"
 }
+
+# ─── Crossplane ───────────────────────────────────────────────────────────────
+variable "crossplane_version" {
+  description = "Crossplane Helm chart version"
+  type        = string
+  default     = "1.18.0"
+}

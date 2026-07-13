@@ -1,0 +1,8 @@
+apiVersion: idp.io/v1alpha1
+kind: PostgresSQLInstance
+metadata:
+  name: team-alpha-db
+  namespace: team-alpha
+spec:
+  storageGB: 20
+  size: small

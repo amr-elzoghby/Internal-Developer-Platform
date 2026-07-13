@@ -37,3 +37,8 @@ output "kms_key_arn" {
   description = "KMS key ARN used for EKS secrets encryption"
   value       = aws_kms_key.eks.arn
 }
+
+output "crossplane_provider_role_arn" {
+  description = "IRSA role ARN for Crossplane AWS provider"
+  value       = module.crossplane_provider_irsa.iam_role_arn
+}

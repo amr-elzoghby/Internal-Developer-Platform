@@ -1,0 +1,128 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xredisinstances.idp.io
+spec:
+  group: idp.io
+  names:
+    kind: XRedisInstance
+    plural: xredisinstances
+  claimNames:
+    kind: RedisInstance
+    plural: redisinstances
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                size:
+                  type: string
+                  default: small
+              required:
+                - size
+
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xredisinstances.idp.io
+spec:
+  compositeTypeRef:
+    apiVersion: idp.io/v1alpha1
+    kind: XRedisInstance
+  mode: Pipeline
+  pipeline:
+    - step: python-script
+      functionRef:
+        name: function-python
+      input:
+        apiVersion: python.fn.crossplane.io/v1beta1
+        kind: Script
+        script: |
+          def compose(req, rsp):
+              composite = req.observed.composite.resource
+              size = composite.get("spec", {}).get("size", "small")
+              
+              node_type = "cache.t3.micro"
+              if size == "medium":
+                  node_type = "cache.t3.small"
+              elif size == "large":
+                  node_type = "cache.t3.medium"
+
+              # 1. Security Group for Redis
+              sg = {
+                  "apiVersion": "ec2.aws.upbound.io/v1beta1",
+                  "kind": "SecurityGroup",
+                  "spec": {
+                      "deletionPolicy": "Orphan",
+                      "forProvider": {
+                          "description": "Redis Security Group",
+                          "vpcIdSelector": {
+                              "matchLabels": {
+                                  "ManagedBy": "Terraform"
+                              }
+                          },
+                          "ingress": [
+                              {
+                                  "cidrBlocks": ["10.0.0.0/16"],
+                                  "fromPort": 6379,
+                                  "toPort": 6379,
+                                  "protocol": "tcp"
+                              }
+                          ]
+                      }
+                  }
+              }
+
+              # 2. ElastiCache Subnet Group
+              subnet_group = {
+                  "apiVersion": "elasticache.aws.upbound.io/v1beta1",
+                  "kind": "SubnetGroup",
+                  "spec": {
+                      "deletionPolicy": "Orphan",
+                      "forProvider": {
+                          "description": "Redis Subnet Group",
+                          "subnetIdSelector": {
+                              "matchLabels": {
+                                  "kubernetes.io/role/internal-elb": "1"
+                              }
+                          }
+                      }
+                  }
+              }
+
+              # 3. Redis Replication Group
+              redis = {
+                  "apiVersion": "elasticache.aws.upbound.io/v1beta1",
+                  "kind": "ReplicationGroup",
+                  "spec": {
+                      "deletionPolicy": "Orphan",
+                      "forProvider": {
+                          "replicationGroupDescription": "ElastiCache Redis cluster",
+                          "engine": "redis",
+                          "engineVersion": "7.0",
+                          "nodeType": node_type,
+                          "numCacheClusters": 1,
+                          "cacheSubnetGroupNameSelector": {
+                              "matchControllerRef": True
+                          },
+                          "securityGroupIdSelector": {
+                              "matchControllerRef": True
+                          }
+                      },
+                      "writeConnectionSecretToRef": {
+                          "name": f"{composite['metadata']['name']}-conn",
+                          "namespace": composite["metadata"].get("namespace", "default")
+                      }
+                  }
+              }
+
+              rsp.desired.resources["security-group"] = {"resource": sg}
+              rsp.desired.resources["subnet-group"] = {"resource": subnet_group}
+              rsp.desired.resources["redis-instance"] = {"resource": redis}

@@ -1,0 +1,65 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xobjectbuckets.idp.io
+spec:
+  group: idp.io
+  names:
+    kind: XObjectBucket
+    plural: xobjectbuckets
+  claimNames:
+    kind: ObjectBucket
+    plural: objectbuckets
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                region:
+                  type: string
+                  default: us-east-1
+              required:
+                - region
+
+---
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xobjectbuckets.idp.io
+spec:
+  compositeTypeRef:
+    apiVersion: idp.io/v1alpha1
+    kind: XObjectBucket
+  mode: Pipeline
+  pipeline:
+    - step: python-script
+      functionRef:
+        name: function-python
+      input:
+        apiVersion: python.fn.crossplane.io/v1beta1
+        kind: Script
+        script: |
+          def compose(req, rsp):
+              composite = req.observed.composite.resource
+              region = composite.get("spec", {}).get("region", "us-east-1")
+              
+              bucket = {
+                  "apiVersion": "s3.aws.upbound.io/v1beta1",
+                  "kind": "Bucket",
+                  "spec": {
+                      "deletionPolicy": "Orphan",
+                      "forProvider": {
+                          "region": region
+                      }
+                  }
+              }
+              
+              rsp.desired.resources["bucket"] = {
+                  "resource": bucket
+              }
