@@ -144,9 +144,17 @@ The platform has **three layers**:
 │   │           ├── eks/                # Prod EKS config
 │   │           └── storage/            # S3 (Terraform remote state)
 │   └── crossplane/
-│       ├── providers/                  # AWS Provider + credentials
-│       ├── compositions/               # Reusable infra templates (RDS, S3, Redis, SQS)
-│       └── claims/                     # Example developer requests
+│       ├── providers/
+│       │   ├── providers.yaml          # AWS Provider & Python function packages
+│       │   └── provider-config.yaml    # AWS ProviderConfig (IRSA credentials)
+│       ├── compositions/
+│       │   ├── s3-bucket.yaml          # S3 Composition using Python function
+│       │   ├── rds-postgres.yaml       # RDS PostgreSQL Composition using Python function
+│       │   └── redis-elasticache.yaml  # Redis ElastiCache Composition using Python function
+│       └── claims/
+│           ├── claim-s3.yaml           # Example developer request for S3
+│           ├── claim-rds.yaml          # Example developer request for RDS
+│           └── claim-redis.yaml        # Example developer request for Redis
 ├── platform/
 │   ├── vcluster/                       # Virtual cluster Helm values for teams
 │   │   ├── base/
@@ -219,14 +227,14 @@ The platform has **three layers**:
 - [x] NetworkPolicies: Deny traffic between team namespaces
 - [x] Makefile automation (`make cluster-up` installs namespaces, policies, and vClusters)
 
-### Phase 3 — Crossplane (Infrastructure as Code)
+### Phase 3 — Crossplane (Infrastructure as Code) ✅
 > Developers provision AWS resources by writing Kubernetes CRDs.
 
-- [ ] Install Crossplane + AWS Provider
-- [ ] PostgreSQL Composition (RDS + SecurityGroup + SubnetGroup)
-- [ ] S3 Bucket Composition
-- [ ] Redis Composition (ElastiCache)
-- [ ] Example Claims for developer self-service
+- [x] Install Crossplane + AWS Provider
+- [x] PostgreSQL Composition (RDS + SecurityGroup + SubnetGroup)
+- [x] S3 Bucket Composition
+- [x] Redis Composition (ElastiCache)
+- [x] Example Claims for developer self-service
 
 ### Phase 4 — GitOps & CI/CD
 > ArgoCD for deployments, Tekton for builds — all automated.
