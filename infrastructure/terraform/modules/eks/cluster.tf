@@ -66,7 +66,7 @@ resource "aws_eks_node_group" "stable" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${var.name_prefix}-stable"
   node_role_arn   = aws_iam_role.eks_nodes.arn
-  subnet_ids      = local.private_subnet_ids
+  subnet_ids      = local.public_subnet_ids
   instance_types  = [var.node_instance_type]
   capacity_type   = "ON_DEMAND"
 

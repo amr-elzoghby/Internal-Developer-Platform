@@ -23,6 +23,7 @@ resource "aws_subnet" "public" {
     Tier                                        = "Public"
     "kubernetes.io/role/elb"                     = "1"
     "kubernetes.io/cluster/${var.cluster_name}"  = "shared"
+    "karpenter.sh/discovery"                     = var.cluster_name
   }
 }
 
@@ -40,7 +41,6 @@ resource "aws_subnet" "private" {
     Tier                                        = "Private"
     "kubernetes.io/role/internal-elb"            = "1"
     "kubernetes.io/cluster/${var.cluster_name}"  = "shared"
-    "karpenter.sh/discovery"                     = var.cluster_name
   }
 }
 
