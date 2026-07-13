@@ -1,4 +1,4 @@
-.PHONY: help infra-up infra-down cluster-up cluster-down up down
+.PHONY: help infra-up infra-down kubeconfig cluster-up crossplane-config cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -7,89 +7,74 @@ NC     := \033[0m
 
 TF_DIR := infrastructure/terraform/environments/prod
 
-help: ## Show this help message
+help:
 	@echo "Usage: make [target]"
 	@echo ""
-	@echo "Full Deployment:"
-	@echo "  $(GREEN)up                  $(NC) Deploy everything (Infra + Cluster Config)"
-	@echo "  $(GREEN)down                $(NC) Destroy everything safely"
-	@echo ""
-	@echo "Individual Steps:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | grep -v 'up:\|down:' | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(NC) %s\n", $$1, $$2}'
+	@echo "Targets:"
+	@echo "  up                  Deploy all AWS infra and K8s platform configs"
+	@echo "  down                Destroy all AWS and K8s platform resources"
+	@echo "  status              Show cluster nodes and autoscaling status"
+	@echo "  validate            Validate Terraform configurations"
 
-# ─── Infrastructure (Terraform) ───────────────────────────────────────────────
-
-infra-up: ## Provision AWS Infrastructure (Network → EKS)
-	@echo "$(YELLOW)Provisioning Network Layer...$(NC)"
+# Deploy AWS infrastructure (VPC, Subnets, EKS)
+infra-up:
 	cd $(TF_DIR)/network && terraform init && terraform apply -auto-approve
-	@echo "$(YELLOW)Provisioning EKS Cluster...$(NC)"
 	cd $(TF_DIR)/eks && terraform init && terraform apply -auto-approve
-	@echo "$(GREEN)Infrastructure provisioning complete!$(NC)"
 
-infra-down: ## Destroy AWS Infrastructure (EKS → Network)
-	@echo "$(YELLOW)Destroying EKS Cluster...$(NC)"
+# Tear down EKS and network infrastructure
+infra-down:
 	cd $(TF_DIR)/eks && terraform destroy -auto-approve
-	@echo "$(YELLOW)Destroying Network Layer...$(NC)"
 	cd $(TF_DIR)/network && terraform destroy -auto-approve
-	@echo "$(GREEN)Infrastructure destroyed successfully!$(NC)"
 
-# ─── Cluster Configuration ────────────────────────────────────────────────────
-
-kubeconfig: ## Update local kubeconfig for the EKS cluster
-	@echo "$(YELLOW)Updating kubeconfig...$(NC)"
+# Update local Kubernetes kubeconfig credentials
+kubeconfig:
 	aws eks update-kubeconfig --name idp-prod --region us-east-1
-	@echo "$(GREEN)kubeconfig updated!$(NC)"
 
-cluster-up: kubeconfig ## Apply all K8s manifests (Tenants + Platform + Karpenter)
-	@echo "$(YELLOW)Applying Karpenter NodePool & EC2NodeClass...$(NC)"
+# Deploy Kubernetes platform components
+cluster-up: kubeconfig
 	kubectl apply -f platform/karpenter/
-	@echo "$(YELLOW)Adding vCluster Helm repository...$(NC)"
 	helm repo add loft-sh https://charts.loft.sh --force-update || true
 	helm repo update
-	@echo "$(YELLOW)Creating namespaces and applying isolation policies...$(NC)"
 	@for team in team-alpha team-beta team-gamma; do \
 		kubectl create namespace $$team --dry-run=client -o yaml | kubectl apply -f -; \
 		kubectl apply -f tenants/base/ -n $$team; \
-		echo "$(YELLOW)Deploying vCluster for $$team...$(NC)"; \
 		helm upgrade --install $$team loft-sh/vcluster \
 			--namespace $$team \
 			-f platform/vcluster/base/values.yaml \
 			-f platform/vcluster/teams/$$team.yaml; \
 	done
-	@echo "$(GREEN)Cluster configuration and multi-tenant vClusters ready!$(NC)"
+	$(MAKE) crossplane-config
 
-cluster-down: ## Remove all K8s manifests and vClusters
-	@echo "$(YELLOW)Cleaning up vClusters and namespaces...$(NC)"
+# Configure Crossplane providers and custom Python compositions
+crossplane-config:
+	kubectl apply -f infrastructure/crossplane/providers/providers.yaml
+	sleep 30
+	kubectl wait --for=condition=Healthy provider.pkg.crossplane.io --all --timeout=300s
+	kubectl wait --for=condition=Healthy function.pkg.crossplane.io --all --timeout=300s
+	kubectl apply -f infrastructure/crossplane/providers/provider-config.yaml
+	kubectl apply -f infrastructure/crossplane/compositions/
+
+# Clean up namespaces and Helm releases from the cluster
+cluster-down:
 	@for team in team-alpha team-beta team-gamma; do \
 		helm uninstall $$team --namespace $$team || true; \
 	done
 	kubectl delete namespace team-alpha team-beta team-gamma --ignore-not-found
 	kubectl delete -f platform/karpenter/ --ignore-not-found
-	@echo "$(GREEN)Cluster resources removed!$(NC)"
 
-# ─── Full Deployment ──────────────────────────────────────────────────────────
+# Full environment bootstrap
+up: infra-up cluster-up
 
-up: infra-up cluster-up ## Full End-to-End Deployment
-	@echo "$(GREEN)🚀 Internal Developer Platform is live!$(NC)"
+# Full environment teardown
+down: cluster-down infra-down
 
-down: cluster-down infra-down ## Destroy Everything
-	@echo "$(GREEN)All resources destroyed. No charges will be incurred.$(NC)"
-
-# ─── Utilities ────────────────────────────────────────────────────────────────
-
-status: ## Show cluster and node status
-	@echo "$(YELLOW)Cluster Info:$(NC)"
+# View status of EKS nodes and Karpenter NodePools
+status:
 	@kubectl cluster-info 2>/dev/null || echo "$(RED)Cluster not reachable$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Nodes:$(NC)"
 	@kubectl get nodes -o wide 2>/dev/null || echo "$(RED)No nodes found$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Karpenter NodePools:$(NC)"
 	@kubectl get nodepools 2>/dev/null || echo "$(RED)No NodePools found$(NC)"
 
-validate: ## Validate all Terraform configurations
-	@echo "$(YELLOW)Validating Network module...$(NC)"
+# Validate Terraform formatting and syntax
+validate:
 	cd $(TF_DIR)/network && terraform init -backend=false && terraform validate
-	@echo "$(YELLOW)Validating EKS module...$(NC)"
 	cd $(TF_DIR)/eks && terraform init -backend=false && terraform validate
-	@echo "$(GREEN)All configurations valid!$(NC)"
