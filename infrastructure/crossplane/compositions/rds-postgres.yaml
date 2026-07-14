@@ -74,15 +74,26 @@ spec:
                               "matchLabels": {
                                   "ManagedBy": "Terraform"
                               }
+                          }
+                      }
+                  }
+              }
+
+              # 1b. Security Group Rule for RDS
+              sg_rule = {
+                  "apiVersion": "ec2.aws.upbound.io/v1beta1",
+                  "kind": "SecurityGroupRule",
+                  "spec": {
+                      "deletionPolicy": "Orphan",
+                      "forProvider": {
+                          "securityGroupIdSelector": {
+                              "matchControllerRef": True
                           },
-                          "ingress": [
-                              {
-                                  "cidrBlocks": ["10.0.0.0/16"],
-                                  "fromPort": 5432,
-                                  "toPort": 5432,
-                                  "protocol": "tcp"
-                              }
-                          ]
+                          "type": "ingress",
+                          "fromPort": 5432,
+                          "toPort": 5432,
+                          "protocol": "tcp",
+                          "cidrBlocks": ["10.0.0.0/16"]
                       }
                   }
               }
@@ -133,5 +144,6 @@ spec:
               }
 
               rsp.desired.resources["security-group"].resource.update(sg)
+              rsp.desired.resources["security-group-rule"].resource.update(sg_rule)
               rsp.desired.resources["subnet-group"].resource.update(subnet_group)
               rsp.desired.resources["rds-instance"].resource.update(rds)
