@@ -23,3 +23,6 @@ dist/
 *.pem
 *.key
 .env
+
+# Offline Reports
+troubleshooting_report

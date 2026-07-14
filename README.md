@@ -236,6 +236,21 @@ The platform has **three layers**:
 - [x] Redis Composition (ElastiCache)
 - [x] Example Claims for developer self-service
 
+#### 📸 Database Provisioning Workflow Showcase
+
+| Step 1: Apply Developer Database Claim | Step 2: Check Developer Claim Sync Pending |
+| :---: | :---: |
+| <img src="docs/images/Screenshot%202026-07-14%20134211.png" width="100%"> | <img src="docs/images/Screenshot%202026-07-14%20134350.png" width="100%"> |
+
+| Step 3: Underlying AWS Composed Resources | Step 4: Verify Composite Resource Sync |
+| :---: | :---: |
+| <img src="docs/images/Screenshot%202026-07-14%20134411.png" width="100%"> | <img src="docs/images/Screenshot%202026-07-14%20134444.png" width="100%"> |
+
+##### 🏆 Final Result: Database Provisioned & Connection Secret Generated (READY = True)
+<p align="center">
+  <img src="docs/images/Screenshot%202026-07-14%20152451.png" width="90%">
+</p>
+
 ### Phase 4 — GitOps & CI/CD
 > ArgoCD for deployments, Tekton for builds — all automated.
 
