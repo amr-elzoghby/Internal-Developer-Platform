@@ -65,11 +65,7 @@ spec:
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "Redis Security Group",
-                          "vpcIdSelector": {
-                              "matchLabels": {
-                                  "ManagedBy": "Terraform"
-                              }
-                          }
+                          "vpcId": "${VPC_ID}"
                       }
                   }
               }
@@ -103,11 +99,7 @@ spec:
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "Redis Subnet Group",
-                          "subnetIdSelector": {
-                              "matchLabels": {
-                                  "kubernetes.io/role/internal-elb": "1"
-                              }
-                          }
+                          "subnetIds": ["${PRIVATE_SUBNET_1}", "${PRIVATE_SUBNET_2}"]
                       }
                   }
               }

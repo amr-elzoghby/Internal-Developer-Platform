@@ -52,7 +52,19 @@ crossplane-config:
 	kubectl wait --for=condition=Healthy provider.pkg.crossplane.io --all --timeout=300s
 	kubectl wait --for=condition=Healthy function.pkg.crossplane.io --all --timeout=300s
 	kubectl apply -f infrastructure/crossplane/providers/provider-config.yaml
-	kubectl apply -f infrastructure/crossplane/compositions/
+	@echo "$(GREEN)Fetching VPC/Subnet IDs from Terraform...$(NC)"
+	$(eval VPC_ID := $(shell cd $(TF_DIR)/network && terraform output -raw vpc_id))
+	$(eval PRIVATE_SUBNETS := $(shell cd $(TF_DIR)/network && terraform output -json private_subnet_ids))
+	$(eval PRIVATE_SUBNET_1 := $(shell echo '$(PRIVATE_SUBNETS)' | jq -r '.[0]'))
+	$(eval PRIVATE_SUBNET_2 := $(shell echo '$(PRIVATE_SUBNETS)' | jq -r '.[1]'))
+	@echo "$(GREEN)VPC: $(VPC_ID) | Subnets: $(PRIVATE_SUBNET_1), $(PRIVATE_SUBNET_2)$(NC)"
+	@mkdir -p /tmp/crossplane-rendered
+	@for f in infrastructure/crossplane/compositions/*.yaml; do \
+		VPC_ID=$(VPC_ID) PRIVATE_SUBNET_1=$(PRIVATE_SUBNET_1) PRIVATE_SUBNET_2=$(PRIVATE_SUBNET_2) \
+		envsubst '$$VPC_ID $$PRIVATE_SUBNET_1 $$PRIVATE_SUBNET_2' < $$f > /tmp/crossplane-rendered/$$(basename $$f); \
+	done
+	kubectl apply -f /tmp/crossplane-rendered/
+	@rm -rf /tmp/crossplane-rendered
 
 # Clean up namespaces and Helm releases from the cluster
 cluster-down:
