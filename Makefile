@@ -47,6 +47,9 @@ cluster-up: kubeconfig
 
 # Configure Crossplane providers and custom Python compositions
 crossplane-config:
+	@echo "$(GREEN)Configuring Crossplane Runtime with IRSA Role...$(NC)"
+	$(eval CROSSPLANE_ROLE_ARN := $(shell cd $(TF_DIR)/eks && terraform output -raw crossplane_provider_role_arn))
+	@CROSSPLANE_ROLE_ARN=$(CROSSPLANE_ROLE_ARN) envsubst < infrastructure/crossplane/providers/deployment-runtime-config.yaml | kubectl apply -f -
 	kubectl apply -f infrastructure/crossplane/providers/providers.yaml
 	sleep 30
 	kubectl wait --for=condition=Healthy provider.pkg.crossplane.io --all --timeout=300s
@@ -55,8 +58,8 @@ crossplane-config:
 	@echo "$(GREEN)Fetching VPC/Subnet IDs from Terraform...$(NC)"
 	$(eval VPC_ID := $(shell cd $(TF_DIR)/network && terraform output -raw vpc_id))
 	$(eval PRIVATE_SUBNETS := $(shell cd $(TF_DIR)/network && terraform output -json private_subnet_ids))
-	$(eval PRIVATE_SUBNET_1 := $(shell echo '$(PRIVATE_SUBNETS)' | jq -r '.[0]'))
-	$(eval PRIVATE_SUBNET_2 := $(shell echo '$(PRIVATE_SUBNETS)' | jq -r '.[1]'))
+	$(eval PRIVATE_SUBNET_1 := $(shell echo '$(PRIVATE_SUBNETS)' | python3 -c "import sys, json; print(json.load(sys.stdin)[0])"))
+	$(eval PRIVATE_SUBNET_2 := $(shell echo '$(PRIVATE_SUBNETS)' | python3 -c "import sys, json; print(json.load(sys.stdin)[1])"))
 	@echo "$(GREEN)VPC: $(VPC_ID) | Subnets: $(PRIVATE_SUBNET_1), $(PRIVATE_SUBNET_2)$(NC)"
 	@mkdir -p /tmp/crossplane-rendered
 	@for f in infrastructure/crossplane/compositions/*.yaml; do \

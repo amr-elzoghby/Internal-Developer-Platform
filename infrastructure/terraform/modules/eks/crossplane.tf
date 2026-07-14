@@ -10,36 +10,54 @@ resource "helm_release" "crossplane" {
   depends_on = [aws_eks_node_group.stable]
 }
 
-module "crossplane_provider_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
+data "aws_iam_policy_document" "crossplane_assume_role_policy" {
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    effect  = "Allow"
 
-  role_name = "${var.name_prefix}-crossplane-provider-aws"
+    principals {
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+      type        = "Federated"
+    }
 
-  oidc_providers = {
-    ex = {
-      provider_arn               = aws_iam_openid_connect_provider.eks.arn
-      namespace_service_accounts = ["crossplane-system:provider-aws-*"]
+    condition {
+      test     = "StringLike"
+      variable = "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:sub"
+      values = [
+        "system:serviceaccount:crossplane-system:provider-aws-*",
+        "system:serviceaccount:crossplane-system:upbound-provider-family-aws-*"
+      ]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:aud"
+      values   = ["sts.amazonaws.com"]
     }
   }
 }
 
+resource "aws_iam_role" "crossplane_provider_aws" {
+  name               = "${var.name_prefix}-crossplane-provider-aws"
+  assume_role_policy = data.aws_iam_policy_document.crossplane_assume_role_policy.json
+}
+
 resource "aws_iam_role_policy_attachment" "crossplane_s3" {
-  role       = module.crossplane_provider_irsa.iam_role_name
+  role       = aws_iam_role.crossplane_provider_aws.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
 
 resource "aws_iam_role_policy_attachment" "crossplane_rds" {
-  role       = module.crossplane_provider_irsa.iam_role_name
+  role       = aws_iam_role.crossplane_provider_aws.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonRDSFullAccess"
 }
 
 resource "aws_iam_role_policy_attachment" "crossplane_elasticache" {
-  role       = module.crossplane_provider_irsa.iam_role_name
+  role       = aws_iam_role.crossplane_provider_aws.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonElastiCacheFullAccess"
 }
 
 resource "aws_iam_role_policy_attachment" "crossplane_ec2_networking" {
-  role       = module.crossplane_provider_irsa.iam_role_name
+  role       = aws_iam_role.crossplane_provider_aws.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
 }
