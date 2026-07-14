@@ -112,7 +112,7 @@ spec:
 
               # 3. RDS Instance
               claim_ns = composite["spec"]["claimRef"]["namespace"] if "spec" in composite and "claimRef" in composite["spec"] and "namespace" in composite["spec"]["claimRef"] else "default"
-              db_name = composite["metadata"]["name"] if "metadata" in composite and "name" in composite["metadata"] else "rds-db"
+              db_name = composite["spec"]["claimRef"]["name"] if "spec" in composite and "claimRef" in composite["spec"] and "name" in composite["spec"]["claimRef"] else "rds-db"
 
               rds = {
                   "apiVersion": "rds.aws.upbound.io/v1beta1",
