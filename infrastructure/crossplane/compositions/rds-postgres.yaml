@@ -151,10 +151,10 @@ spec:
               def is_ready(name):
                   if name in req.observed.resources:
                       obs = req.observed.resources[name].resource
-                      status = obs.get("status", {})
-                      conditions = status.get("conditions", [])
+                      status = obs["status"] if "status" in obs else {}
+                      conditions = status["conditions"] if "conditions" in status else []
                       for cond in conditions:
-                          if cond.get("type") == "Ready" and cond.get("status") == "True":
+                          if "type" in cond and cond["type"] == "Ready" and "status" in cond and cond["status"] == "True":
                               return True
                   return False
 
