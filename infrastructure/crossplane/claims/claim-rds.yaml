@@ -6,3 +6,5 @@ metadata:
 spec:
   storageGB: 20
   size: small
+  writeConnectionSecretToRef:
+    name: team-alpha-db-conn
