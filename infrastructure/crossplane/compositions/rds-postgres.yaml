@@ -129,7 +129,7 @@ spec:
                               "matchControllerRef": True
                           },
                           "engine": "postgres",
-                          "engineVersion": "15.4",
+                          "engineVersion": "15.13",
                           "instanceClass": instance_class,
                           "publiclyAccessible": False,
                           "skipFinalSnapshot": True,
