@@ -63,6 +63,7 @@ spec:
                   "spec": {
                       "deletionPolicy": "Orphan",
                       "forProvider": {
+                          "region": "us-east-1",
                           "description": "Redis Security Group",
                           "vpcIdSelector": {
                               "matchLabels": {
@@ -80,6 +81,7 @@ spec:
                   "spec": {
                       "deletionPolicy": "Orphan",
                       "forProvider": {
+                          "region": "us-east-1",
                           "securityGroupIdSelector": {
                               "matchControllerRef": True
                           },
@@ -99,6 +101,7 @@ spec:
                   "spec": {
                       "deletionPolicy": "Orphan",
                       "forProvider": {
+                          "region": "us-east-1",
                           "description": "Redis Subnet Group",
                           "subnetIdSelector": {
                               "matchLabels": {
@@ -110,12 +113,16 @@ spec:
               }
 
               # 3. Redis Replication Group
+              claim_ns = composite["spec"]["claimRef"]["namespace"] if "spec" in composite and "claimRef" in composite["spec"] and "namespace" in composite["spec"]["claimRef"] else "default"
+              redis_name = composite["metadata"]["name"] if "metadata" in composite and "name" in composite["metadata"] else "redis-db"
+
               redis = {
                   "apiVersion": "elasticache.aws.upbound.io/v1beta1",
                   "kind": "ReplicationGroup",
                   "spec": {
                       "deletionPolicy": "Orphan",
                       "forProvider": {
+                          "region": "us-east-1",
                           "replicationGroupDescription": "ElastiCache Redis cluster",
                           "engine": "redis",
                           "engineVersion": "7.0",
@@ -129,8 +136,8 @@ spec:
                           }
                       },
                       "writeConnectionSecretToRef": {
-                          "name": f"{composite['metadata']['name']}-conn" if "metadata" in composite and "name" in composite["metadata"] else "redis-conn",
-                          "namespace": composite["metadata"]["namespace"] if "metadata" in composite and "namespace" in composite["metadata"] else "default"
+                          "name": f"{redis_name}-conn",
+                          "namespace": claim_ns
                       }
                   }
               }

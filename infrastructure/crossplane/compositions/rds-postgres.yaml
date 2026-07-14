@@ -69,6 +69,7 @@ spec:
                   "spec": {
                       "deletionPolicy": "Orphan",
                       "forProvider": {
+                          "region": "us-east-1",
                           "description": "RDS Instance Security Group",
                           "vpcIdSelector": {
                               "matchLabels": {
@@ -86,6 +87,7 @@ spec:
                   "spec": {
                       "deletionPolicy": "Orphan",
                       "forProvider": {
+                          "region": "us-east-1",
                           "securityGroupIdSelector": {
                               "matchControllerRef": True
                           },
@@ -105,6 +107,7 @@ spec:
                   "spec": {
                       "deletionPolicy": "Orphan",
                       "forProvider": {
+                          "region": "us-east-1",
                           "description": "DB Subnet Group for RDS",
                           "subnetIdSelector": {
                               "matchLabels": {
@@ -116,12 +119,16 @@ spec:
               }
 
               # 3. RDS Instance
+              claim_ns = composite["spec"]["claimRef"]["namespace"] if "spec" in composite and "claimRef" in composite["spec"] and "namespace" in composite["spec"]["claimRef"] else "default"
+              db_name = composite["metadata"]["name"] if "metadata" in composite and "name" in composite["metadata"] else "rds-db"
+
               rds = {
                   "apiVersion": "rds.aws.upbound.io/v1beta1",
                   "kind": "Instance",
                   "spec": {
                       "deletionPolicy": "Orphan",
                       "forProvider": {
+                          "region": "us-east-1",
                           "allocatedStorage": storage,
                           "dbSubnetGroupNameSelector": {
                               "matchControllerRef": True
@@ -134,11 +141,16 @@ spec:
                           "instanceClass": instance_class,
                           "publiclyAccessible": False,
                           "skipFinalSnapshot": True,
-                          "username": "postgres"
+                          "username": "postgres",
+                          "passwordSecretRef": {
+                              "name": f"{db_name}-password",
+                              "namespace": claim_ns,
+                              "key": "password"
+                          }
                       },
                       "writeConnectionSecretToRef": {
-                          "name": f"{composite['metadata']['name']}-conn" if "metadata" in composite and "name" in composite["metadata"] else "rds-conn",
-                          "namespace": composite["metadata"]["namespace"] if "metadata" in composite and "namespace" in composite["metadata"] else "default"
+                          "name": f"{db_name}-conn",
+                          "namespace": claim_ns
                       }
                   }
               }
