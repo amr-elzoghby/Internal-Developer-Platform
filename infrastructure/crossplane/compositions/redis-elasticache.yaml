@@ -47,7 +47,8 @@ spec:
         script: |
           def compose(req, rsp):
               composite = req.observed.composite.resource
-              size = composite.get("spec", {}).get("size", "small")
+              spec = composite["spec"] if "spec" in composite else {}
+              size = spec["size"] if "size" in spec else "small"
               
               node_type = "cache.t3.micro"
               if size == "medium":
@@ -117,12 +118,12 @@ spec:
                           }
                       },
                       "writeConnectionSecretToRef": {
-                          "name": f"{composite['metadata']['name']}-conn",
-                          "namespace": composite["metadata"].get("namespace", "default")
+                          "name": f"{composite['metadata']['name']}-conn" if "metadata" in composite and "name" in composite["metadata"] else "redis-conn",
+                          "namespace": composite["metadata"]["namespace"] if "metadata" in composite and "namespace" in composite["metadata"] else "default"
                       }
                   }
               }
 
-              rsp.desired.resources["security-group"] = {"resource": sg}
-              rsp.desired.resources["subnet-group"] = {"resource": subnet_group}
-              rsp.desired.resources["redis-instance"] = {"resource": redis}
+              rsp.desired.resources["security-group"].resource.update(sg)
+              rsp.desired.resources["subnet-group"].resource.update(subnet_group)
+              rsp.desired.resources["redis-instance"].resource.update(redis)

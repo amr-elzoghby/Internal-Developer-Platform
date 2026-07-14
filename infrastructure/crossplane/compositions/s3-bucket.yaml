@@ -47,7 +47,8 @@ spec:
         script: |
           def compose(req, rsp):
               composite = req.observed.composite.resource
-              region = composite.get("spec", {}).get("region", "us-east-1")
+              spec = composite["spec"] if "spec" in composite else {}
+              region = spec["region"] if "region" in spec else "us-east-1"
               
               bucket = {
                   "apiVersion": "s3.aws.upbound.io/v1beta1",
@@ -60,6 +61,4 @@ spec:
                   }
               }
               
-              rsp.desired.resources["bucket"] = {
-                  "resource": bucket
-              }
+              rsp.desired.resources["bucket"].resource.update(bucket)
