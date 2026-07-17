@@ -59,3 +59,7 @@ output "oidc_provider_arn" {
 output "crossplane_provider_role_arn" {
   value = module.eks.crossplane_provider_role_arn
 }
+
+output "github_actions_role_arn" {
+  value = module.eks.github_actions_role_arn
+}

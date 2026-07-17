@@ -42,3 +42,8 @@ output "crossplane_provider_role_arn" {
   description = "IRSA role ARN for Crossplane AWS provider"
   value       = aws_iam_role.crossplane_provider_aws.arn
 }
+
+output "github_actions_role_arn" {
+  description = "ARN of the IAM role for GitHub Actions OIDC integration"
+  value       = aws_iam_role.github_actions.arn
+}
