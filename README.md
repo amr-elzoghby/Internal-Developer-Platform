@@ -253,13 +253,13 @@ The platform has **three layers**:
   <img src="docs/images/Screenshot%202026-07-14%20152451.png" width="90%">
 </p>
 
-### Phase 4 — GitOps & Continuous Delivery
+### Phase 4 — GitOps & Continuous Delivery ✅
 > ArgoCD for deployments, GitHub Actions for builds — all driven from Git.
 
-- [ ] ArgoCD install + multi-tenant projects per team/vCluster
-- [ ] ApplicationSets: auto-generate apps & Crossplane Claims from Git
-- [ ] GitHub Actions workflows: build → scan → push to ECR
-- [ ] Auto-trigger on PR/merge to main
+- [x] ArgoCD install + multi-tenant projects per team/vCluster
+- [x] ApplicationSets: auto-generate apps & Crossplane Claims from Git
+- [x] GitHub Actions workflows: build → scan → push to ECR (AWS OIDC + Trivy scanner)
+- [x] Auto-trigger on PR/merge to main
 
 ### Phase 5 — Security & Policy Engine (The "K" in BACK)
 > Kyverno as the Kubernetes-native policy controller — guardrails before self-service.
