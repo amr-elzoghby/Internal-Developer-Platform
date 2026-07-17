@@ -1,0 +1,57 @@
+global:
+  logging:
+    level: info
+
+server:
+  extraArgs:
+    - --insecure
+  service:
+    type: ClusterIP
+  metrics:
+    enabled: true
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    annotations:
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - argocd.idp-prod.local
+    paths:
+      - /
+
+controller:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+repoServer:
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+applicationSet:
+  enabled: true
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+configs:
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      g, platform-admin, role:admin
+  params:
+    server.insecure: "true"

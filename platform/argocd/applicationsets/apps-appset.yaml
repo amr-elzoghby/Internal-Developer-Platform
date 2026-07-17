@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: developer-apps
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
+        revision: HEAD
+        directories:
+          - path: apps/*/*
+  template:
+    metadata:
+      name: '{{path.segments[1]}}-{{path.segments[2]}}'
+    spec:
+      project: '{{path.segments[1]}}'
+      source:
+        repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
+        targetRevision: HEAD
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{path.segments[1]}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

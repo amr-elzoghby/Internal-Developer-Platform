@@ -1,0 +1,82 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-alpha
+  namespace: argocd
+spec:
+  description: "ArgoCD Project for Team Alpha"
+  destinations:
+    - namespace: team-alpha
+      server: https://kubernetes.default.svc
+    - namespace: team-alpha-*
+      server: https://kubernetes.default.svc
+  sourceRepos:
+    - '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  clusterResourceWhitelist: []
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-beta
+  namespace: argocd
+spec:
+  description: "ArgoCD Project for Team Beta"
+  destinations:
+    - namespace: team-beta
+      server: https://kubernetes.default.svc
+    - namespace: team-beta-*
+      server: https://kubernetes.default.svc
+  sourceRepos:
+    - '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  clusterResourceWhitelist: []
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: team-gamma
+  namespace: argocd
+spec:
+  description: "ArgoCD Project for Team Gamma"
+  destinations:
+    - namespace: team-gamma
+      server: https://kubernetes.default.svc
+    - namespace: team-gamma-*
+      server: https://kubernetes.default.svc
+  sourceRepos:
+    - '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  clusterResourceWhitelist: []
+
+---
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-infra
+  namespace: argocd
+spec:
+  description: "ArgoCD Project for Platform Infrastructure & Crossplane Claims"
+  destinations:
+    - namespace: default
+      server: https://kubernetes.default.svc
+    - namespace: crossplane-system
+      server: https://kubernetes.default.svc
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+  sourceRepos:
+    - '*'
+  namespaceResourceWhitelist:
+    - group: '*'
+      kind: '*'
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'

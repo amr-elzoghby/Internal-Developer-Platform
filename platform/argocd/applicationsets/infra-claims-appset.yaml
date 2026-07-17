@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: infra-claims
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
+        revision: HEAD
+        directories:
+          - path: infrastructure/crossplane/claims/*
+  template:
+    metadata:
+      name: '{{path.segments[3]}}-infra-claims'
+    spec:
+      project: platform-infra
+      source:
+        repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
+        targetRevision: HEAD
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: default
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
