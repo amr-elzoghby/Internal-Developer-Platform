@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: login-app
-          image: 851236938302.dkr.ecr.us-east-1.amazonaws.com/idp-team-alpha-login-app:befedfe543b777041df3e5a22b28a18aca82bf9a
+          image: 851236938302.dkr.ecr.us-east-1.amazonaws.com/idp-team-alpha-login-app:50c70615bf76636ad921b781e9f22898acd17004
           ports:
             - containerPort: 3000
           env:
