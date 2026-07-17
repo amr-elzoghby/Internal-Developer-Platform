@@ -61,14 +61,42 @@ resource "aws_kms_alias" "eks" {
   target_key_id = aws_kms_key.eks.key_id
 }
 
+# ─── Launch Template for Stable Node Group (Enforces IMDSv2) ──────────────────
+resource "aws_launch_template" "stable" {
+  name_prefix   = "${var.name_prefix}-stable-lt-"
+  description   = "Launch template for stable node group forcing IMDSv2"
+  instance_type = var.node_instance_type
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 2
+    http_protocol_ipv6          = "disabled"
+  }
+
+  tag_specifications {
+    resource_type = "instance"
+    tags = {
+      Name = "${var.name_prefix}-stable-node"
+    }
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # ─── Stable Node Group (On-Demand — platform controllers) ────────────────────
 resource "aws_eks_node_group" "stable" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${var.name_prefix}-stable"
   node_role_arn   = aws_iam_role.eks_nodes.arn
   subnet_ids      = local.public_subnet_ids
-  instance_types  = [var.node_instance_type]
-  capacity_type   = "ON_DEMAND"
+
+  launch_template {
+    id      = aws_launch_template.stable.id
+    version = aws_launch_template.stable.latest_version
+  }
 
   labels = {
     role = "stable"
