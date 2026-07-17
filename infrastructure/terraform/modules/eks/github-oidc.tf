@@ -61,6 +61,7 @@ resource "aws_iam_policy" "github_actions_ecr" {
       {
         Effect   = "Allow"
         Action   = [
+          "ecr:CreateRepository",
           "ecr:BatchCheckLayerAvailability",
           "ecr:GetDownloadUrlForLayer",
           "ecr:GetRepositoryPolicy",

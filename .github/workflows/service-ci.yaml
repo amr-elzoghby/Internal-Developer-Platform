@@ -48,6 +48,13 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Ensure ECR Repository Exists
+        run: |
+          aws ecr describe-repositories --repository-names ${{ steps.info.outputs.ecr_repository }} || \
+          aws ecr create-repository --repository-name ${{ steps.info.outputs.ecr_repository }} \
+            --image-scanning-configuration scanOnPush=true \
+            --encryption-configuration encryptionType=AES256
+
       - name: Build Docker Image
         run: |
           docker build -t ${{ env.ECR_REGISTRY }}/${{ steps.info.outputs.ecr_repository }}:${{ steps.info.outputs.image_tag }} ./${{ steps.info.outputs.service_path }}
