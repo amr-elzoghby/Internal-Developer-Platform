@@ -44,6 +44,7 @@ cluster-up: kubeconfig
 			-f platform/vcluster/teams/$$team.yaml; \
 	done
 	$(MAKE) crossplane-config
+	$(MAKE) argocd-up
 
 # Configure Crossplane providers and custom Python compositions
 crossplane-config:
@@ -69,12 +70,22 @@ crossplane-config:
 	kubectl apply -f /tmp/crossplane-rendered/
 	@rm -rf /tmp/crossplane-rendered
 
+# Configure ArgoCD and multi-tenant GitOps
+argocd-up:
+	@echo "$(GREEN)Installing ArgoCD...$(NC)"
+	./platform/argocd/install/install.sh
+	@echo "$(GREEN)Waiting for ArgoCD CRDs...$(NC)"
+	kubectl wait --for=condition=Established crd/applicationsets.argoproj.io --timeout=120s
+	@echo "$(GREEN)Applying ArgoCD Projects and ApplicationSets...$(NC)"
+	kubectl apply -f platform/argocd/projects/
+	kubectl apply -f platform/argocd/applicationsets/
+
 # Clean up namespaces and Helm releases from the cluster
 cluster-down:
 	@for team in team-alpha team-beta team-gamma; do \
 		helm uninstall $$team --namespace $$team || true; \
 	done
-	kubectl delete namespace team-alpha team-beta team-gamma --ignore-not-found
+	kubectl delete namespace team-alpha team-beta team-gamma argocd --ignore-not-found
 	kubectl delete -f platform/karpenter/ --ignore-not-found
 
 # Full environment bootstrap

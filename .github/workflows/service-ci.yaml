@@ -1,0 +1,79 @@
+name: Service CI/CD
+
+on:
+  push:
+    paths:
+      - 'apps/**'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: write
+
+env:
+  AWS_REGION: us-east-1
+  AWS_ROLE_ARN: arn:aws:iam::851236938302:role/idp-prod-github-actions-role
+  ECR_REGISTRY: 851236938302.dkr.ecr.us-east-1.amazonaws.com
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Detect Service Path
+        id: info
+        run: |
+          # Extract team and service name from path (apps/<team>/<service>)
+          SERVICE_PATH=$(echo "${{ github.event.head_commit.modified[0] }}" | cut -d'/' -f1-3)
+          if [ -z "$SERVICE_PATH" ] || [ "$SERVICE_PATH" = "." ]; then
+            SERVICE_PATH="apps/team-alpha/login-app"
+          fi
+          TEAM=$(echo "$SERVICE_PATH" | cut -d'/' -f2)
+          APP=$(echo "$SERVICE_PATH" | cut -d'/' -f3)
+          echo "service_path=$SERVICE_PATH" >> $GITHUB_OUTPUT
+          echo "team=$TEAM" >> $GITHUB_OUTPUT
+          echo "app=$APP" >> $GITHUB_OUTPUT
+          echo "ecr_repository=idp-$TEAM-$APP" >> $GITHUB_OUTPUT
+          echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ env.ECR_REGISTRY }}/${{ steps.info.outputs.ecr_repository }}:${{ steps.info.outputs.image_tag }} ./${{ steps.info.outputs.service_path }}
+
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@0.20.0
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/${{ steps.info.outputs.ecr_repository }}:${{ steps.info.outputs.image_tag }}
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL'
+
+      - name: Push Image to ECR
+        run: |
+          docker push ${{ env.ECR_REGISTRY }}/${{ steps.info.outputs.ecr_repository }}:${{ steps.info.outputs.image_tag }}
+
+      - name: Update GitOps Manifest Tag
+        run: |
+          MANIFEST_FILE="./${{ steps.info.outputs.service_path }}/deployment.yaml"
+          if [ -f "$MANIFEST_FILE" ]; then
+            sed -i "s|image: .*|image: ${{ env.ECR_REGISTRY }}/${{ steps.info.outputs.ecr_repository }}:${{ steps.info.outputs.image_tag }}|g" "$MANIFEST_FILE"
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git add "$MANIFEST_FILE"
+            git commit -m "image: update ${{ steps.info.outputs.app }} tag to ${{ steps.info.outputs.image_tag }} [skip ci]"
+            git push
+          fi
