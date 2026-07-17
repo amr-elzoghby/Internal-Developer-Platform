@@ -114,6 +114,7 @@ The platform has **three layers**:
 | **Secrets Encryption** | AWS KMS | K8s Secrets encrypted at rest |
 | **Pod Isolation** | VPC CNI + IRSA | Per-pod IAM roles + native NetworkPolicies |
 | **Node Access** | SSM (no SSH) | Secure node debugging without open ports |
+| **Metadata Protection** | IMDSv2 (Enforced) | Enforced on all EC2 nodes — prevents SSRF metadata attacks |
 | **Monitoring** | Prometheus + Grafana | Metrics and dashboards |
 | **Cost** | Kubecost | Per-team cost tracking |
 | **TLS** | cert-manager + Let's Encrypt | Automatic HTTPS |
@@ -216,6 +217,7 @@ The platform has **three layers**:
 - [x] Karpenter for node auto-scaling
 - [x] EKS Managed Addons (EBS CSI, CoreDNS, VPC CNI, kube-proxy)
 - [x] Metrics Server
+- [x] IMDSv2 enforced on all node groups (stable & Karpenter) to block SSRF metadata attacks
 - [x] Makefile (`make infra-up`, `make infra-down`)
 
 ### Phase 2 — Multi-Tenancy ✅
