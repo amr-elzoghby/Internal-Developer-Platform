@@ -11,6 +11,7 @@ module "karpenter" {
 
   create_node_iam_role = false
   node_iam_role_arn    = aws_iam_role.eks_nodes.arn
+  create_access_entry  = false
 
   enable_spot_termination = true
 
