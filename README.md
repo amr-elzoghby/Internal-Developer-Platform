@@ -8,6 +8,8 @@
 [![Terraform](https://img.shields.io/badge/Terraform-1.5+-7B42BC?logo=terraform&logoColor=white)](https://terraform.io)
 [![AWS EKS](https://img.shields.io/badge/AWS-EKS-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/eks/)
 [![Crossplane](https://img.shields.io/badge/Crossplane-IaC-blue?logo=crossplane&logoColor=white)](https://crossplane.io)
+[![ArgoCD](https://img.shields.io/badge/ArgoCD-GitOps-EF7B4D?logo=argo&logoColor=white)](https://argoproj.github.io/cd/)
+[![Kyverno](https://img.shields.io/badge/Kyverno-Policy-00599C?logo=kubernetes&logoColor=white)](https://kyverno.io)
 [![Backstage](https://img.shields.io/badge/Backstage-Portal-9BF0E1?logo=backstage&logoColor=black)](https://backstage.io)
 
 Self-service platform on **AWS EKS** where developers provision services, databases, and environments — **no DevOps bottleneck.**
@@ -72,7 +74,7 @@ The platform has **three layers**:
 | Layer | Components | Purpose |
 |:--|:--|:--|
 | **Developer Experience** | Backstage Portal, Golden Path Templates | Self-service UI + ready-to-use templates |
-| **Platform Core** | ArgoCD, Tekton, Crossplane, Karpenter, Gatekeeper | GitOps, CI/CD, infra provisioning, scaling, policies |
+| **Platform Core** | ArgoCD, GitHub Actions, Crossplane, Karpenter, Kyverno | GitOps, CI/CD, infra provisioning, scaling, policies |
 | **AWS Resources** | RDS, S3, SQS, ElastiCache, ECR | Managed services provisioned automatically by Crossplane |
 
 ### How It Works
@@ -80,16 +82,16 @@ The platform has **three layers**:
 ```
                     Backstage Portal
                          │
-              ┌──────────┼──────────┐
-              ▼          ▼          ▼
-           ArgoCD    Crossplane   Tekton
-          (deploy)  (provision)  (build)
-              │          │          │
-              ▼          ▼          ▼
-        ┌─────────┐  ┌──────┐  ┌─────┐
-        │ Team NS │  │ RDS  │  │ ECR │
-        │ (pods)  │  │ S3   │  │     │
-        └─────────┘  │ SQS  │  └─────┘
+               ┌──────────┼──────────────┐
+               ▼          ▼              ▼
+            ArgoCD    Crossplane   GitHub Actions
+           (deploy)  (provision)     (build)
+               │          │              │
+               ▼          ▼              ▼
+         ┌─────────┐  ┌──────┐      ┌─────┐
+         │ Team NS │  │ RDS  │      │ ECR │
+         │ (pods)  │  │ S3   │      │     │
+         └─────────┘  │ SQS  │      └─────┘
                      └──────┘
 ```
 
@@ -103,12 +105,12 @@ The platform has **three layers**:
 | **Cluster** | AWS EKS (K8s 1.30) | Container orchestration |
 | **Node Scaling** | Karpenter | Fast node provisioning (Spot + On-Demand) |
 | **GitOps** | ArgoCD + ApplicationSets | Multi-tenant continuous delivery |
-| **CI/CD** | Tekton Pipelines | Build, scan, push — natively in K8s |
+| **CI/CD** | GitHub Actions | Build, scan, push — triggered on every PR/merge |
 | **Infra Provisioning** | Crossplane | AWS resources as Kubernetes CRDs |
 | **Developer Portal** | Backstage | Service catalog + self-service UI |
 | **Templates** | Backstage Software Templates | Golden path scaffolding |
 | **Multi-Tenancy** | Namespaces + RBAC + Quotas | Team isolation and resource control |
-| **Policy** | OPA Gatekeeper | Enforce security and best practices |
+| **Policy** | Kyverno | Kubernetes-native policy engine (the "K" in BACK) |
 | **Secrets Encryption** | AWS KMS | K8s Secrets encrypted at rest |
 | **Pod Isolation** | VPC CNI + IRSA | Per-pod IAM roles + native NetworkPolicies |
 | **Node Access** | SSM (no SSH) | Secure node debugging without open ports |
@@ -155,6 +157,8 @@ The platform has **three layers**:
 │           ├── claim-s3.yaml           # Example developer request for S3
 │           ├── claim-rds.yaml          # Example developer request for RDS
 │           └── claim-redis.yaml        # Example developer request for Redis
+├── .github/
+│   └── workflows/                      # GitHub Actions CI/CD pipelines
 ├── platform/
 │   ├── vcluster/                       # Virtual cluster Helm values for teams
 │   │   ├── base/
@@ -167,16 +171,12 @@ The platform has **three layers**:
 │   │   ├── install/                    # ArgoCD Helm values
 │   │   ├── applicationsets/            # Auto-generate apps per team
 │   │   └── projects/                   # ArgoCD project per team
-│   ├── tekton/
-│   │   ├── pipelines/                  # Build → Scan → Push → Deploy
-│   │   ├── tasks/                      # Reusable build tasks
-│   │   └── triggers/                   # GitHub webhook triggers
 │   ├── monitoring/
 │   │   ├── prometheus/                 # Prometheus Helm values
 │   │   ├── grafana/                    # Dashboards
 │   │   └── kubecost/                   # Cost tracking
 │   ├── security/
-│   │   ├── gatekeeper/                 # OPA constraint templates
+│   │   ├── kyverno/                    # Kyverno policies (pod security, Crossplane guardrails)
 │   │   └── cert-manager/               # TLS certificates
 │   └── backstage/
 │       ├── app-config.yaml             # Backstage config
@@ -251,29 +251,31 @@ The platform has **three layers**:
   <img src="docs/images/Screenshot%202026-07-14%20152451.png" width="90%">
 </p>
 
-### Phase 4 — GitOps & CI/CD
-> ArgoCD for deployments, Tekton for builds — all automated.
+### Phase 4 — GitOps & Continuous Delivery
+> ArgoCD for deployments, GitHub Actions for builds — all driven from Git.
 
-- [ ] ArgoCD install + multi-tenant projects
-- [ ] ApplicationSets: auto-create apps from Git directories
-- [ ] Tekton Pipelines: git-clone → build → scan → push to ECR
-- [ ] Tekton Triggers: GitHub webhook → auto-build
+- [ ] ArgoCD install + multi-tenant projects per team/vCluster
+- [ ] ApplicationSets: auto-generate apps & Crossplane Claims from Git
+- [ ] GitHub Actions workflows: build → scan → push to ECR
+- [ ] Auto-trigger on PR/merge to main
 
-### Phase 5 — Golden Paths & Security
-> Production-ready templates + policy enforcement.
+### Phase 5 — Security & Policy Engine (The "K" in BACK)
+> Kyverno as the Kubernetes-native policy controller — guardrails before self-service.
 
-- [ ] Node.js service template (code + Dockerfile + K8s + CI/CD)
-- [ ] Python FastAPI template
-- [ ] React frontend template
-- [ ] OPA Gatekeeper: require labels, enforce limits, block NodePort
+- [ ] Kyverno installation as the cluster Policy Controller
+- [ ] Best-practice policies: require labels, block privileged pods, enforce resource limits
+- [ ] Crossplane guardrails: restrict instance sizes, enforce naming conventions
+- [ ] Image signature verification & registry whitelisting
 
-### Phase 6 — Developer Portal (Backstage)
-> Web UI for self-service: create services, view catalog, manage infra.
+### Phase 6 — Developer Self-Service (Backstage Portal)
+> The portal that ties it all together — developers click, platform delivers.
 
-- [ ] Backstage setup + configuration
+- [ ] Backstage setup + app-config
+- [ ] Software Templates (Scaffolder): Golden Paths for Node.js, Python, React
+- [ ] Crossplane Claims via UI: developers request databases with a form
+- [ ] Kubernetes plugin (view pods, deployments, logs)
+- [ ] ArgoCD plugin (deployment status & sync)
 - [ ] Service catalog integration
-- [ ] Register golden path templates
-- [ ] Kubernetes plugin (view pods, deployments)
 
 ### Phase 7 — Monitoring, Cost & Documentation
 > Observability, cost tracking, and project documentation.
