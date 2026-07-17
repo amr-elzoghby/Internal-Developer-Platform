@@ -155,9 +155,11 @@ The platform has **three layers**:
 │       │   ├── rds-postgres.yaml       # RDS PostgreSQL Composition using Python function
 │       │   └── redis-elasticache.yaml  # Redis ElastiCache Composition using Python function
 │       └── claims/
-│           ├── claim-s3.yaml           # Example developer request for S3
-│           ├── claim-rds.yaml          # Example developer request for RDS
-│           └── claim-redis.yaml        # Example developer request for Redis
+│           └── team-alpha/
+│               ├── claim-s3.yaml           # Example developer request for S3
+│               ├── claim-rds.yaml          # Example developer request for RDS
+│               ├── claim-redis.yaml        # Example developer request for Redis
+│               └── db-password-secret.yaml # Database master password secret
 ├── .github/
 │   └── workflows/                      # GitHub Actions CI/CD pipelines
 ├── platform/
@@ -170,7 +172,11 @@ The platform has **three layers**:
 │   │       └── team-gamma.yaml         # Team Gamma values
 │   ├── argocd/
 │   │   ├── install/                    # ArgoCD Helm values
-│   │   ├── applicationsets/            # Auto-generate apps per team
+│   │   ├── applicationsets/            # Auto-generate apps per team:
+│   │   │   ├── infra-claims-appset.yaml
+│   │   │   ├── team-alpha-apps.yaml
+│   │   │   ├── team-beta-apps.yaml
+│   │   │   └── team-gamma-apps.yaml
 │   │   └── projects/                   # ArgoCD project per team
 │   ├── monitoring/
 │   │   ├── prometheus/                 # Prometheus Helm values
