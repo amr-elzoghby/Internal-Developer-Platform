@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: infra-claims
+  name: team-alpha-apps
   namespace: argocd
 spec:
   generators:
@@ -9,19 +9,19 @@ spec:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
         revision: HEAD
         directories:
-          - path: infrastructure/crossplane/claims/*
+          - path: apps/team-alpha/*
   template:
     metadata:
-      name: '{{path.basename}}-infra-claims'
+      name: 'team-alpha-{{path.basename}}'
     spec:
-      project: platform-infra
+      project: team-alpha
       source:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
         targetRevision: HEAD
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: default
+        namespace: team-alpha
       syncPolicy:
         automated:
           prune: true
