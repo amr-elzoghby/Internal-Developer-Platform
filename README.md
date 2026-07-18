@@ -267,9 +267,9 @@ The platform has **three layers**:
 - [x] GitHub Actions workflows: build → scan → push to ECR (AWS OIDC + Trivy scanner)
 - [x] Auto-trigger on PR/merge to main
 
-#### 📹 GitOps & CI/CD Pipeline Demo Video
+#### 📹 GitOps & CI/CD Pipeline Demo
 <p align="center">
-  <video src="docs/images/lv_0_20260717210321.mp4" width="90%" controls></video>
+  <img src="docs/images/demo-showcase.gif" width="90%">
 </p>
 
 
