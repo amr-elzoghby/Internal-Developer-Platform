@@ -267,6 +267,12 @@ The platform has **three layers**:
 - [x] GitHub Actions workflows: build → scan → push to ECR (AWS OIDC + Trivy scanner)
 - [x] Auto-trigger on PR/merge to main
 
+#### 📹 GitOps & CI/CD Pipeline Demo Video
+<p align="center">
+  <video src="docs/images/lv_0_20260717210321.mp4" width="90%" controls></video>
+</p>
+
+
 ### Phase 5 — Security & Policy Engine (The "K" in BACK)
 > Kyverno as the Kubernetes-native policy controller — guardrails before self-service.
 
