@@ -153,12 +153,14 @@ The platform has **three layers**:
 │       ├── compositions/
 │       │   ├── s3-bucket.yaml          # S3 Composition using Python function
 │       │   ├── rds-postgres.yaml       # RDS PostgreSQL Composition using Python function
-│       │   └── redis-elasticache.yaml  # Redis ElastiCache Composition using Python function
+│       │   ├── redis-elasticache.yaml  # Redis ElastiCache Composition using Python function
+│       │   └── ec2-server.yaml         # EC2 Server & Security Group Composition
 │       └── claims/
 │           └── team-alpha/
 │               ├── claim-s3.yaml           # Example developer request for S3
 │               ├── claim-rds.yaml          # Example developer request for RDS
 │               ├── claim-redis.yaml        # Example developer request for Redis
+│               ├── claim-ec2.yaml          # Example developer request for EC2 Server
 │               └── db-password-secret.yaml # Database master password secret
 ├── .github/
 │   └── workflows/                      # GitHub Actions CI/CD pipelines
@@ -242,6 +244,7 @@ The platform has **three layers**:
 - [x] PostgreSQL Composition (RDS + SecurityGroup + SubnetGroup)
 - [x] S3 Bucket Composition
 - [x] Redis Composition (ElastiCache)
+- [x] EC2 Server Composition (Instance + SecurityGroup + SecurityGroupRule)
 - [x] Example Claims for developer self-service
 
 #### 📸 Database Provisioning Workflow Showcase

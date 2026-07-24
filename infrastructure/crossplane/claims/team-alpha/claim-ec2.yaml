@@ -1,0 +1,7 @@
+apiVersion: idp.io/v1alpha1
+kind: ServerInstance
+metadata:
+  name: team-alpha-web-server
+  namespace: team-alpha
+spec:
+  size: small
