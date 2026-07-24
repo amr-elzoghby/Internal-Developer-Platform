@@ -276,13 +276,13 @@ The platform has **three layers**:
 </p>
 
 
-### Phase 5 — Security & Policy Engine (The "K" in BACK)
+### Phase 5 — Security & Policy Engine (The "K" in BACK) ✅
 > Kyverno as the Kubernetes-native policy controller — guardrails before self-service.
 
-- [ ] Kyverno installation as the cluster Policy Controller
-- [ ] Best-practice policies: require labels, block privileged pods, enforce resource limits
-- [ ] Crossplane guardrails: restrict instance sizes, enforce naming conventions
-- [ ] Image signature verification & registry whitelisting
+- [x] Kyverno installation & Helm configuration (`values.yaml`)
+- [x] Best-practice pod policies: require team labels, block privileged containers, enforce CPU/memory limits, block `:latest` tags
+- [x] Crossplane guardrails: restrict RDS and EC2 instance sizes (`small` / `medium`), enforce S3 region compliance
+- [x] Kustomize root manifest (`kustomization.yaml`) for clean GitOps policy deployment
 
 ### Phase 6 — Developer Self-Service (Backstage Portal)
 > The portal that ties it all together — developers click, platform delivers.
