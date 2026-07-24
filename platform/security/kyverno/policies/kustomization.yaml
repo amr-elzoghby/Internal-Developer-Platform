@@ -1,0 +1,11 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - pod-security/disallow-privileged.yaml
+  - pod-security/disallow-latest-tag.yaml
+  - pod-security/enforce-resource-limits.yaml
+  - pod-security/require-team-labels.yaml
+  - crossplane-guardrails/restrict-rds-size.yaml
+  - crossplane-guardrails/restrict-ec2-size.yaml
+  - crossplane-guardrails/enforce-s3-encryption.yaml

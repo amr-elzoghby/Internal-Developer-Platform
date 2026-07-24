@@ -1,0 +1,27 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: restrict-crossplane-ec2-size
+  annotations:
+    policies.kyverno.io/title: Restrict EC2 Server Instance Size
+    policies.kyverno.io/category: Crossplane Infrastructure Guardrails
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: ServerInstance
+    policies.kyverno.io/description: >-
+      To prevent runaway AWS cloud costs, developer server claims are restricted
+      to approved tier sizes ('small' or 'medium'). Large instances are blocked.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-ec2-size
+      match:
+        any:
+          - resources:
+              kinds:
+                - idp.io/v1alpha1/ServerInstance
+      validate:
+        message: "Server size '{{request.object.spec.size}}' is not allowed. Approved sizes are 'small' or 'medium'."
+        pattern:
+          spec:
+            size: "small | medium"

@@ -1,0 +1,35 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-team-labels
+  annotations:
+    policies.kyverno.io/title: Require Team Labels
+    policies.kyverno.io/category: Multi-Tenancy & Governance
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Deployment, Pod
+    policies.kyverno.io/description: >-
+      To ensure multi-tenant organization and accurate cost attribution, all workloads
+      must define the 'team' label.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-team-label
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+      exclude:
+        resources:
+          namespaces:
+            - kube-system
+            - kyverno
+            - crossplane-system
+            - argocd
+      validate:
+        message: "Every Deployment must specify a 'team' label in metadata.labels (e.g. team: team-alpha)."
+        pattern:
+          metadata:
+            labels:
+              team: "?*"

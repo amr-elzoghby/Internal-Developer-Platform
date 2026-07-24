@@ -1,0 +1,26 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-crossplane-s3-region
+  annotations:
+    policies.kyverno.io/title: Enforce S3 Bucket Region
+    policies.kyverno.io/category: Crossplane Infrastructure Guardrails
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: ObjectBucket
+    policies.kyverno.io/description: >-
+      Ensures all Crossplane ObjectBucket requests are provisioned in approved AWS region (us-east-1).
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-s3-region
+      match:
+        any:
+          - resources:
+              kinds:
+                - idp.io/v1alpha1/ObjectBucket
+      validate:
+        message: "S3 Bucket region must be set to 'us-east-1'."
+        pattern:
+          spec:
+            region: "us-east-1"
