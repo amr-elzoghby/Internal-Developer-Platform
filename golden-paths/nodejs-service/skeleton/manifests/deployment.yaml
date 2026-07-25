@@ -1,0 +1,44 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${{ values.component_id }}
+  namespace: ${{ values.owner }}
+  labels:
+    app: ${{ values.component_id }}
+    team: ${{ values.owner }}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: ${{ values.component_id }}
+  template:
+    metadata:
+      labels:
+        app: ${{ values.component_id }}
+        team: ${{ values.owner }}
+    spec:
+      containers:
+        - name: app
+          image: ${{ values.component_id }}:latest
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${{ values.component_id }}
+  namespace: ${{ values.owner }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 3000
+  selector:
+    app: ${{ values.component_id }}

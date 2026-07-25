@@ -1,0 +1,89 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: request-cloud-infrastructure
+  title: Request AWS Cloud Infrastructure (Crossplane Self-Service)
+  description: Self-service portal template for developers to request AWS RDS Postgres, S3 Bucket, ElastiCache Redis, or EC2 Instances via Crossplane CRDs.
+  tags:
+    - aws
+    - crossplane
+    - rds
+    - s3
+    - ec2
+    - redis
+spec:
+  owner: team-alpha
+  type: resource
+
+  parameters:
+    - title: Resource Configuration
+      required:
+        - resource_name
+        - resource_type
+        - owner
+      properties:
+        resource_name:
+          title: Resource Name
+          type: string
+          description: Name of the AWS resource (e.g. app-db, user-uploads)
+          ui:autofocus: true
+        resource_type:
+          title: Infrastructure Type
+          type: string
+          enum:
+            - RDS PostgreSQL Database
+            - S3 Object Bucket
+            - ElastiCache Redis Cluster
+            - EC2 Server Instance
+          default: RDS PostgreSQL Database
+        size:
+          title: Tier Size
+          type: string
+          enum:
+            - small
+            - medium
+          default: small
+          description: Approved instance tier size (small or medium - large is blocked by Kyverno policy)
+        owner:
+          title: Requesting Team
+          type: string
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Platform GitOps Repository Destination
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Platform Repository
+          type: string
+          default: github.com?repo=Internal-Developer-Platform&owner=amr-elzoghby
+          ui:field: RepoUrlPicker
+
+  steps:
+    - id: fetch-claim-template
+      name: Generate Crossplane Infrastructure Claim
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          resource_name: ${{ parameters.resource_name }}
+          resource_type: ${{ parameters.resource_type }}
+          size: ${{ parameters.size }}
+          owner: ${{ parameters.owner }}
+
+    - id: publish-pr
+      name: Create Pull Request to Infrastructure Repository
+      action: publish:github:pull-request
+      input:
+        repoUrl: ${{ parameters.repoUrl }}
+        branchName: infra-claim-${{ parameters.resource_name }}
+        title: "feat(crossplane): add ${{ parameters.resource_type }} claim for ${{ parameters.owner }}"
+        description: Automated Crossplane cloud infrastructure request submitted via Backstage Developer Portal.
+
+  output:
+    links:
+      - title: Infrastructure Pull Request
+        url: ${{ steps['publish-pr'].output.remoteUrl }}

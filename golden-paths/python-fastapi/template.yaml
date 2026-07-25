@@ -1,0 +1,83 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: create-python-fastapi-service
+  title: Create Python FastAPI Service (Golden Path)
+  description: Scaffold a high-performance Python FastAPI service with Docker, GitHub Actions CI/CD, and Kubernetes manifests.
+  tags:
+    - python
+    - fastapi
+    - kubernetes
+    - gitops
+spec:
+  owner: team-alpha
+  type: service
+
+  parameters:
+    - title: Service Configuration
+      required:
+        - component_id
+        - owner
+      properties:
+        component_id:
+          title: Component Name
+          type: string
+          description: Unique name for your Python microservice
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          default: Production Python FastAPI Microservice
+        owner:
+          title: Owner Team
+          type: string
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Git Repository Destination
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Target Repository URL
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-skeleton
+      name: Fetch Python Golden Path Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          component_id: ${{ parameters.component_id }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+
+    - id: publish-github
+      name: Publish Repository to GitHub
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+
+    - id: register-catalog
+      name: Register Component in Backstage Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish-github'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: GitHub Repository
+        url: ${{ steps['publish-github'].output.remoteUrl }}
+      - title: View in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register-catalog'].output.entityRef }}

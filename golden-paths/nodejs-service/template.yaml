@@ -1,0 +1,101 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: create-nodejs-microservice
+  title: Create Node.js Microservice (Golden Path)
+  description: Scaffold a production-ready Node.js Express service with Docker, GitHub Actions CI/CD, and Kubernetes manifests.
+  tags:
+    - nodejs
+    - express
+    - kubernetes
+    - gitops
+spec:
+  owner: team-alpha
+  type: service
+
+  parameters:
+    - title: Service Configuration
+      required:
+        - component_id
+        - owner
+      properties:
+        component_id:
+          title: Component Name
+          type: string
+          description: Unique name for your microservice (e.g., payment-service)
+          ui:autofocus: true
+        description:
+          title: Description
+          type: string
+          description: Short explanation of what this service does
+          default: Production Node.js Microservice
+        owner:
+          title: Owner Team
+          type: string
+          description: Select the team that owns this microservice
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: Group
+
+    - title: Infrastructure Options
+      properties:
+        include_db:
+          title: Provision AWS RDS Database?
+          type: boolean
+          default: false
+          description: Check if your microservice requires an AWS RDS Postgres database via Crossplane.
+        include_s3:
+          title: Provision AWS S3 Bucket?
+          type: boolean
+          default: false
+          description: Check if your microservice requires an AWS S3 Object Storage bucket via Crossplane.
+
+    - title: Git Repository Destination
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Target Repository URL
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+
+  steps:
+    - id: fetch-skeleton
+      name: Fetch Golden Path Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          component_id: ${{ parameters.component_id }}
+          description: ${{ parameters.description }}
+          owner: ${{ parameters.owner }}
+          include_db: ${{ parameters.include_db }}
+          include_s3: ${{ parameters.include_s3 }}
+
+    - id: publish-github
+      name: Publish Repository to GitHub
+      action: publish:github
+      input:
+        description: ${{ parameters.description }}
+        repoUrl: ${{ parameters.repoUrl }}
+        defaultBranch: main
+        protectDefaultBranch: true
+
+    - id: register-catalog
+      name: Register Component in Backstage Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish-github'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+
+  output:
+    links:
+      - title: GitHub Repository
+        url: ${{ steps['publish-github'].output.remoteUrl }}
+      - title: View in Catalog
+        icon: catalog
+        entityRef: ${{ steps['register-catalog'].output.entityRef }}
