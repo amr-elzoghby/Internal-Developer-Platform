@@ -284,15 +284,14 @@ The platform has **three layers**:
 - [x] Crossplane guardrails: restrict RDS and EC2 instance sizes (`small` / `medium`), enforce S3 region compliance
 - [x] Kustomize root manifest (`kustomization.yaml`) for clean GitOps policy deployment
 
-### Phase 6 — Developer Self-Service (Backstage Portal)
+### Phase 6 — Developer Self-Service (Backstage Portal) ✅
 > The portal that ties it all together — developers click, platform delivers.
 
-- [ ] Backstage setup + app-config
-- [ ] Software Templates (Scaffolder): Golden Paths for Node.js, Python, React
-- [ ] Crossplane Claims via UI: developers request databases with a form
-- [ ] Kubernetes plugin (view pods, deployments, logs)
-- [ ] ArgoCD plugin (deployment status & sync)
-- [ ] Service catalog integration
+- [x] Backstage setup + production `app-config.yaml` & Dockerfile
+- [x] Scaffolder Golden Path Templates (`scaffolder.backstage.io/v1beta3`): Node.js, Python FastAPI
+- [x] Crossplane Cloud Infrastructure Self-Service Template (RDS, S3, Redis, EC2)
+- [x] System Catalog registration (`all-components.yaml` for teams, domains, systems)
+- [x] Kubernetes & ArgoCD plugin configuration for live pod health & deployment sync
 
 ### Phase 7 — Monitoring, Cost & Documentation
 > Observability, cost tracking, and project documentation.
