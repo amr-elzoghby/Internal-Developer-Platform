@@ -1,0 +1,69 @@
+app:
+  title: Internal Developer Platform (IDP)
+  baseUrl: http://localhost:3000
+
+organization:
+  name: Internal Developer Platform
+
+backend:
+  baseUrl: http://localhost:7007
+  listen:
+    port: 7007
+  csp:
+    connect-src: ["'self'", 'http:', 'https:']
+  cors:
+    origin: http://localhost:3000
+    methods: [GET, POST, PUT, DELETE]
+    credentials: true
+  database:
+    client: better-sqlite3
+    connection: ':memory:'
+
+integrations:
+  github:
+    - host: github.com
+      token: ${GITHUB_TOKEN}
+
+techdocs:
+  builder: 'local'
+  generator:
+    runIn: 'local'
+  publisher:
+    type: 'local'
+
+auth:
+  environment: development
+  providers:
+    guest: {}
+
+scaffolder:
+  defaultAuthor:
+    name: Platform Engineer
+    email: platform@idp.internal
+
+catalog:
+  import:
+    entityFilename: catalog-info.yaml
+  rules:
+    - allow: [Component, System, API, Resource, Location, Template, Group, User]
+  locations:
+    - type: file
+      target: ./catalog/all-components.yaml
+    
+    - type: file
+      target: ../../golden-paths/nodejs-service/template.yaml
+    - type: file
+      target: ../../golden-paths/python-fastapi/template.yaml
+    - type: file
+      target: ../../golden-paths/infra-database/template.yaml
+
+kubernetes:
+  serviceLocatorMethod:
+    type: 'singleTenant'
+  clusterLocatorMethods:
+    - type: 'config'
+      clusters:
+        - name: idp-prod-eks
+          url: ${KUBERNETES_EXEC_HOST}
+          authProvider: 'serviceAccount'
+          skipTLSVerify: false
