@@ -23,7 +23,7 @@ function parseBody(req) {
   });
 }
 
-// ─── CROSSPLANE & PLATFORM CLAIM GENERATORS (WITH CUSTOM CLAIM NAMES) ────
+// ─── CROSSPLANE & PLATFORM CLAIM GENERATORS (WITH PARAMETRIC CONFIG) ─────
 
 function generateClaimYaml(serviceName, claimType, params = {}) {
   const claimId = (params.customClaimName || claimType).toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -44,7 +44,7 @@ metadata:
 spec:
   parameters:
     storageGB: ${params.storageGB || 20}
-    engineVersion: "15"
+    engineVersion: "${params.engineVersion || '15'}"
   writeConnectionSecretToRef:
     name: ${secretName}
 `
@@ -59,8 +59,8 @@ metadata:
   namespace: default
 spec:
   parameters:
-    memoryMB: 512
-    version: "7.0"
+    memoryMB: ${params.memoryMB || 512}
+    version: "${params.redisVersion || '7.0'}"
   writeConnectionSecretToRef:
     name: ${secretName}
 `
@@ -76,7 +76,8 @@ metadata:
 spec:
   parameters:
     bucketName: ${serviceName.toLowerCase()}-${claimId}-bucket
-    acl: private
+    acl: ${params.bucketAcl || 'private'}
+    versioning: ${params.versioning === 'true' || params.versioning === true ? 'true' : 'false'}
 `
       };
     case 'kafka':
@@ -90,8 +91,8 @@ metadata:
 spec:
   parameters:
     topicName: ${serviceName.toLowerCase()}-${claimId}
-    partitions: 3
-    replicationFactor: 2
+    partitions: ${params.partitions || 3}
+    replicationFactor: ${params.replicationFactor || 2}
 `
       };
     case 'ssl':
@@ -105,10 +106,10 @@ metadata:
 spec:
   secretName: ${serviceName}-${claimId}-tls-secret
   issuerRef:
-    name: letsencrypt-prod
+    name: ${params.issuer || 'letsencrypt-prod'}
     kind: ClusterIssuer
   dnsNames:
-    - ${serviceName.toLowerCase()}.shopscale.io
+    - ${params.domainName || serviceName.toLowerCase() + '.shopscale.io'}
 `
       };
     case 'oauth':
@@ -121,10 +122,9 @@ metadata:
   namespace: default
 spec:
   parameters:
-    provider: Stripe
+    provider: ${params.provider || 'Stripe'}
     scopes:
-      - charges.read
-      - charges.write
+      - ${params.scopes || 'charges.read'}
   writeConnectionSecretToRef:
     name: ${secretName}
 `
@@ -139,10 +139,9 @@ metadata:
   namespace: default
 spec:
   parameters:
-    folder: Platform-Microservices
+    folder: ${params.folder || 'Platform-Microservices'}
     metrics:
-      - http_requests_total
-      - http_request_duration_seconds
+      - ${params.metrics || 'http_requests_total'}
 `
       };
     case 'slack':
@@ -155,10 +154,10 @@ metadata:
   namespace: default
 spec:
   parameters:
-    channel: "#alerts-platform"
+    channel: "${params.slackChannel || '#alerts-platform-prod'}"
+    webhookUrl: "${params.slackWebhookUrl || 'https://slack.workspace.internal/webhook-endpoint'}"
     events:
-      - PodCrashLoopBackOff
-      - HighCpuUsage
+      - ${params.alertEvents || 'PodCrashLoopBackOff'}
 `
       };
     case 'domain':
@@ -171,10 +170,10 @@ metadata:
   namespace: default
 spec:
   rules:
-  - host: api.${serviceName.toLowerCase()}.shopscale.com
+  - host: ${params.subdomainHost || 'api.' + serviceName.toLowerCase() + '.shopscale.com'}
     http:
       paths:
-      - path: /
+      - path: ${params.pathPrefix || '/'}
         pathType: Prefix
         backend:
           service:
@@ -257,9 +256,10 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── API 2: Request Infrastructure Claim with Custom Identifier ──
+  // ── API 2: Request Infrastructure Claim with Custom Params ──
   if (req.method === 'POST' && req.url === '/api/request-infra') {
-    const { projectName, claimType, customClaimName, storageGB } = await parseBody(req);
+    const params = await parseBody(req);
+    const { projectName, claimType, customClaimName } = params;
     const projectDir = path.join(PROJECTS_DIR, projectName);
 
     if (!fs.existsSync(projectDir)) {
@@ -271,7 +271,7 @@ const server = http.createServer(async (req, res) => {
       const infraDir = path.join(projectDir, 'infra');
       fs.mkdirSync(infraDir, { recursive: true });
 
-      const claimSpec = generateClaimYaml(projectName, claimType, { customClaimName, storageGB });
+      const claimSpec = generateClaimYaml(projectName, claimType, params);
       fs.writeFileSync(path.join(projectDir, claimSpec.file), claimSpec.content);
 
       // Update catalog-info.yaml metadata
@@ -279,8 +279,10 @@ const server = http.createServer(async (req, res) => {
       if (fs.existsSync(catalogPath)) {
         let catText = fs.readFileSync(catalogPath, 'utf8');
         const claimIdName = customClaimName || claimType;
-        catText = catText.replace('dependsOn:', `dependsOn:\n    - resource:${projectName}-${claimIdName}-claim`);
-        fs.writeFileSync(catalogPath, catText);
+        if (!catText.includes(claimIdName)) {
+          catText = catText.replace('dependsOn:', `dependsOn:\n    - resource:${projectName}-${claimIdName}-claim`);
+          fs.writeFileSync(catalogPath, catText);
+        }
       }
 
       // Git Commit in project repo
@@ -305,8 +307,8 @@ const server = http.createServer(async (req, res) => {
         claimFile: claimSpec.file,
         appUrl: 'http://localhost:4000',
         steps: [
-          { id: 1, name: `Generated Crossplane K8s Secret Spec: ${claimSpec.file}`, status: 'success' },
-          { id: 2, name: `Configured writeConnectionSecretToRef.name: ${projectName.toLowerCase()}-${(customClaimName || claimType).toLowerCase()}-secret`, status: 'success' },
+          { id: 1, name: `Generated Crossplane / K8s Spec: ${claimSpec.file}`, status: 'success' },
+          { id: 2, name: `Embedded parametric spec parameters`, status: 'success' },
           { id: 3, name: `Updated ${projectName}/catalog-info.yaml dependsOn metadata`, status: 'success' },
           { id: 4, name: `Git Commit: feat(infra): add ${customClaimName || claimType} claim`, status: 'success' }
         ]
