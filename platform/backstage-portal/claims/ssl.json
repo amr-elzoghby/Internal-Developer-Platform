@@ -1,0 +1,20 @@
+{
+  "claimType": "ssl",
+  "displayName": "SSL/TLS Certificate (Cert-Manager)",
+  "defaultSecretIdentifier": "api-tls-cert",
+  "parameters": [
+    {
+      "name": "domainName",
+      "label": "Target Domain Name (FQDN)",
+      "type": "text",
+      "default": "auth.shopscale.io"
+    },
+    {
+      "name": "issuer",
+      "label": "ClusterIssuer Authority",
+      "type": "select",
+      "options": ["letsencrypt-prod", "letsencrypt-staging"],
+      "default": "letsencrypt-prod"
+    }
+  ]
+}
