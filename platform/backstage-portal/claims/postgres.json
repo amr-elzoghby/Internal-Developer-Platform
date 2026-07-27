@@ -1,0 +1,20 @@
+{
+  "claimType": "postgres",
+  "displayName": "PostgreSQL RDS Database",
+  "defaultSecretIdentifier": "users-db",
+  "parameters": [
+    {
+      "name": "storageGB",
+      "label": "Storage Size (GB)",
+      "type": "number",
+      "default": 20
+    },
+    {
+      "name": "engineVersion",
+      "label": "Engine Version",
+      "type": "select",
+      "options": ["15", "16"],
+      "default": "15"
+    }
+  ]
+}
