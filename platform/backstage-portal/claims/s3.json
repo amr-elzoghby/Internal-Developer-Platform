@@ -1,0 +1,21 @@
+{
+  "claimType": "s3",
+  "displayName": "AWS S3 Cloud Storage Bucket",
+  "defaultSecretIdentifier": "user-uploads",
+  "parameters": [
+    {
+      "name": "bucketAcl",
+      "label": "Bucket ACL Access Control",
+      "type": "select",
+      "options": ["private", "public-read"],
+      "default": "private"
+    },
+    {
+      "name": "versioning",
+      "label": "Object Versioning",
+      "type": "select",
+      "options": ["true", "false"],
+      "default": "true"
+    }
+  ]
+}
