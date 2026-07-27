@@ -289,7 +289,9 @@ The platform has **three layers**:
 
 - [x] Backstage setup + production `app-config.yaml` & Dockerfile
 - [x] Scaffolder Golden Path Templates (`scaffolder.backstage.io/v1beta3`): Node.js, Python FastAPI
-- [x] Crossplane Cloud Infrastructure Self-Service Claims (RDS, S3, Redis, Kafka, SSL, OAuth, Grafana, Slack Alerts, Subdomains)
+- [x] 🔑 Passcode-Protected Team Login & RBAC Role Authentication Modal (`alpha2026`, `beta2026`, `gamma2026`)
+- [x] 🗄️ Custom Resource Secret Identifier Input (`writeConnectionSecretToRef.name`) to prevent environment variable conflicts
+- [x] 🛠️ 9 Parametric Infrastructure Self-Service Claims (PostgreSQL RDS, Redis ElastiCache, AWS S3, Kafka Topics, SSL Certs, Payment OAuth Keys, Grafana Dashboards, Slack Webhooks, Custom Subdomains)
 - [x] System Catalog registration (`all-components.yaml` for teams, domains, systems)
 - [x] Kubernetes & ArgoCD plugin configuration for live pod health & deployment sync
 - [x] Single Pane of Glass multi-tab Component Inspector (Overview, CI/CD Security, K8s Pods, Infra Claims)
@@ -314,3 +316,4 @@ The platform has **three layers**:
 <p align="center">
   Built with ❤️ by <a href="https://github.com/amr-elzoghby">Amr Elzoghby</a>
 </p>
+
