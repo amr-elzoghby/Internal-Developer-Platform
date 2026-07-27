@@ -1,0 +1,20 @@
+{
+  "claimType": "oauth",
+  "displayName": "Payment OAuth & API Credentials",
+  "defaultSecretIdentifier": "stripe-payment",
+  "parameters": [
+    {
+      "name": "provider",
+      "label": "Payment Gateway Provider",
+      "type": "select",
+      "options": ["Stripe", "PayPal", "Paymob"],
+      "default": "Stripe"
+    },
+    {
+      "name": "scopes",
+      "label": "API Access Scopes",
+      "type": "text",
+      "default": "charges.read,charges.write"
+    }
+  ]
+}
