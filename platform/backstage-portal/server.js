@@ -23,17 +23,20 @@ function parseBody(req) {
   });
 }
 
-// ─── CROSSPLANE & PLATFORM CLAIM GENERATORS (ALL 9 CLAIMS) ─────────
+// ─── CROSSPLANE & PLATFORM CLAIM GENERATORS (WITH CUSTOM CLAIM NAMES) ────
 
 function generateClaimYaml(serviceName, claimType, params = {}) {
+  const claimId = (params.customClaimName || claimType).toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const secretName = `${serviceName.toLowerCase()}-${claimId}-secret`;
+
   switch (claimType) {
     case 'postgres':
       return {
-        file: 'infra/postgres-claim.yaml',
+        file: `infra/${claimId}-claim.yaml`,
         content: `apiVersion: database.shopscale.io/v1alpha1
 kind: PostgreSQLInstance
 metadata:
-  name: ${serviceName}-postgres-claim
+  name: ${serviceName}-${claimId}-claim
   namespace: default
   labels:
     app.kubernetes.io/managed-by: crossplane
@@ -43,64 +46,64 @@ spec:
     storageGB: ${params.storageGB || 20}
     engineVersion: "15"
   writeConnectionSecretToRef:
-    name: ${serviceName}-db-credentials
+    name: ${secretName}
 `
       };
     case 'redis':
       return {
-        file: 'infra/redis-claim.yaml',
+        file: `infra/${claimId}-claim.yaml`,
         content: `apiVersion: cache.shopscale.io/v1alpha1
 kind: RedisCacheInstance
 metadata:
-  name: ${serviceName}-redis-claim
+  name: ${serviceName}-${claimId}-claim
   namespace: default
 spec:
   parameters:
     memoryMB: 512
     version: "7.0"
   writeConnectionSecretToRef:
-    name: ${serviceName}-redis-credentials
+    name: ${secretName}
 `
       };
     case 's3':
       return {
-        file: 'infra/s3-claim.yaml',
+        file: `infra/${claimId}-claim.yaml`,
         content: `apiVersion: storage.shopscale.io/v1alpha1
 kind: S3BucketClaim
 metadata:
-  name: ${serviceName}-s3-claim
+  name: ${serviceName}-${claimId}-claim
   namespace: default
 spec:
   parameters:
-    bucketName: ${serviceName.toLowerCase()}-cloud-storage
+    bucketName: ${serviceName.toLowerCase()}-${claimId}-bucket
     acl: private
 `
       };
     case 'kafka':
       return {
-        file: 'infra/kafka-topic-claim.yaml',
+        file: `infra/${claimId}-topic-claim.yaml`,
         content: `apiVersion: messaging.shopscale.io/v1alpha1
 kind: KafkaTopicClaim
 metadata:
-  name: ${serviceName}-kafka-topic
+  name: ${serviceName}-${claimId}-topic
   namespace: default
 spec:
   parameters:
-    topicName: ${serviceName.toLowerCase()}-events
+    topicName: ${serviceName.toLowerCase()}-${claimId}
     partitions: 3
     replicationFactor: 2
 `
       };
     case 'ssl':
       return {
-        file: 'infra/ssl-cert-claim.yaml',
+        file: `infra/${claimId}-cert-claim.yaml`,
         content: `apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: ${serviceName}-tls-cert
+  name: ${serviceName}-${claimId}-cert
   namespace: default
 spec:
-  secretName: ${serviceName}-tls-secret
+  secretName: ${serviceName}-${claimId}-tls-secret
   issuerRef:
     name: letsencrypt-prod
     kind: ClusterIssuer
@@ -110,11 +113,11 @@ spec:
       };
     case 'oauth':
       return {
-        file: 'infra/payment-credentials-claim.yaml',
+        file: `infra/${claimId}-credentials-claim.yaml`,
         content: `apiVersion: security.shopscale.io/v1alpha1
 kind: PaymentOAuthCredentialsClaim
 metadata:
-  name: ${serviceName}-payment-oauth
+  name: ${serviceName}-${claimId}
   namespace: default
 spec:
   parameters:
@@ -123,16 +126,16 @@ spec:
       - charges.read
       - charges.write
   writeConnectionSecretToRef:
-    name: ${serviceName}-payment-api-secret
+    name: ${secretName}
 `
       };
     case 'grafana':
       return {
-        file: 'infra/grafana-dashboard-claim.yaml',
+        file: `infra/${claimId}-dashboard-claim.yaml`,
         content: `apiVersion: observability.shopscale.io/v1alpha1
 kind: GrafanaDashboardClaim
 metadata:
-  name: ${serviceName}-monitoring-dashboard
+  name: ${serviceName}-${claimId}
   namespace: default
 spec:
   parameters:
@@ -140,16 +143,15 @@ spec:
     metrics:
       - http_requests_total
       - http_request_duration_seconds
-      - process_cpu_seconds_total
 `
       };
     case 'slack':
       return {
-        file: 'infra/slack-alerts-claim.yaml',
+        file: `infra/${claimId}-alerts-claim.yaml`,
         content: `apiVersion: notification.shopscale.io/v1alpha1
 kind: SlackAlertWebhookClaim
 metadata:
-  name: ${serviceName}-slack-alerts
+  name: ${serviceName}-${claimId}
   namespace: default
 spec:
   parameters:
@@ -157,16 +159,15 @@ spec:
     events:
       - PodCrashLoopBackOff
       - HighCpuUsage
-      - HighErrorRate
 `
       };
     case 'domain':
       return {
-        file: 'infra/subdomain-ingress-claim.yaml',
+        file: `infra/${claimId}-ingress-claim.yaml`,
         content: `apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ${serviceName}-subdomain-ingress
+  name: ${serviceName}-${claimId}-ingress
   namespace: default
 spec:
   rules:
@@ -201,15 +202,21 @@ const server = http.createServer(async (req, res) => {
         if (fs.existsSync(catalogPath)) {
           const content = fs.readFileSync(catalogPath, 'utf8');
 
-          const hasPg = fs.existsSync(path.join(PROJECTS_DIR, d, 'infra', 'postgres-claim.yaml'));
-          const hasRedis = fs.existsSync(path.join(PROJECTS_DIR, d, 'infra', 'redis-claim.yaml'));
-          const hasS3 = fs.existsSync(path.join(PROJECTS_DIR, d, 'infra', 's3-claim.yaml'));
-          const hasKafka = fs.existsSync(path.join(PROJECTS_DIR, d, 'infra', 'kafka-topic-claim.yaml'));
-          const hasSsl = fs.existsSync(path.join(PROJECTS_DIR, d, 'infra', 'ssl-cert-claim.yaml'));
-          const hasOauth = fs.existsSync(path.join(PROJECTS_DIR, d, 'infra', 'payment-credentials-claim.yaml'));
-          const hasGrafana = fs.existsSync(path.join(PROJECTS_DIR, d, 'infra', 'grafana-dashboard-claim.yaml'));
-          const hasSlack = fs.existsSync(path.join(PROJECTS_DIR, d, 'infra', 'slack-alerts-claim.yaml'));
-          const hasDomain = fs.existsSync(path.join(PROJECTS_DIR, d, 'infra', 'subdomain-ingress-claim.yaml'));
+          const infraDir = path.join(PROJECTS_DIR, d, 'infra');
+          let infraFiles = [];
+          if (fs.existsSync(infraDir)) {
+            infraFiles = fs.readdirSync(infraDir).filter(f => f.endsWith('.yaml'));
+          }
+
+          const hasPg = infraFiles.some(f => f.includes('postgres') || f.includes('db'));
+          const hasRedis = infraFiles.some(f => f.includes('redis') || f.includes('cache'));
+          const hasS3 = infraFiles.some(f => f.includes('s3') || f.includes('storage'));
+          const hasKafka = infraFiles.some(f => f.includes('kafka') || f.includes('topic'));
+          const hasSsl = infraFiles.some(f => f.includes('ssl') || f.includes('cert'));
+          const hasOauth = infraFiles.some(f => f.includes('oauth') || f.includes('payment'));
+          const hasGrafana = infraFiles.some(f => f.includes('grafana') || f.includes('dashboard'));
+          const hasSlack = infraFiles.some(f => f.includes('slack') || f.includes('alert'));
+          const hasDomain = infraFiles.some(f => f.includes('ingress') || f.includes('subdomain'));
 
           const nameMatch = content.match(/name:\s*(.+)/);
           const ownerMatch = content.match(/owner:\s*(.+)/);
@@ -221,6 +228,7 @@ const server = http.createServer(async (req, res) => {
             type: typeMatch ? typeMatch[1].trim() : 'service',
             lifecycle: 'production',
             path: path.join(PROJECTS_DIR, d),
+            infraFiles,
             claims: {
               postgres: hasPg,
               redis: hasRedis,
@@ -249,9 +257,9 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── API 2: Request Infrastructure Claim for Service ────────
+  // ── API 2: Request Infrastructure Claim with Custom Identifier ──
   if (req.method === 'POST' && req.url === '/api/request-infra') {
-    const { projectName, claimType, storageGB } = await parseBody(req);
+    const { projectName, claimType, customClaimName, storageGB } = await parseBody(req);
     const projectDir = path.join(PROJECTS_DIR, projectName);
 
     if (!fs.existsSync(projectDir)) {
@@ -263,24 +271,20 @@ const server = http.createServer(async (req, res) => {
       const infraDir = path.join(projectDir, 'infra');
       fs.mkdirSync(infraDir, { recursive: true });
 
-      const claimSpec = generateClaimYaml(projectName, claimType, { storageGB });
+      const claimSpec = generateClaimYaml(projectName, claimType, { customClaimName, storageGB });
       fs.writeFileSync(path.join(projectDir, claimSpec.file), claimSpec.content);
 
       // Update catalog-info.yaml metadata
       const catalogPath = path.join(projectDir, 'catalog-info.yaml');
       if (fs.existsSync(catalogPath)) {
         let catText = fs.readFileSync(catalogPath, 'utf8');
-        if (!catText.includes(claimType)) {
-          catText = catText.replace('dependsOn:', `dependsOn:\n    - resource:${projectName}-${claimType}-claim`);
-          if (!catText.includes('dependsOn:')) {
-            catText += `\n  dependsOn:\n    - resource:${projectName}-${claimType}-claim`;
-          }
-          fs.writeFileSync(catalogPath, catText);
-        }
+        const claimIdName = customClaimName || claimType;
+        catText = catText.replace('dependsOn:', `dependsOn:\n    - resource:${projectName}-${claimIdName}-claim`);
+        fs.writeFileSync(catalogPath, catText);
       }
 
       // Git Commit in project repo
-      exec(`cd ${projectDir} && git add . && git commit -m "feat(infra): add ${claimType} claim via Backstage Self-Service"`, () => {});
+      exec(`cd ${projectDir} && git add . && git commit -m "feat(infra): add ${customClaimName || claimType} claim (${claimSpec.file}) via Backstage"`, () => {});
 
       // Launch / Restart Service on port 4000
       if (projectName === 'Demo-login-app-IDB' || fs.existsSync(path.join(projectDir, 'server.js'))) {
@@ -289,10 +293,7 @@ const server = http.createServer(async (req, res) => {
           PORT: '4000',
           DB_HOST: 'postgres-rds.internal.aws',
           REDIS_HOST: 'redis-cluster.internal.aws',
-          S3_BUCKET: `${projectName.toLowerCase()}-cloud-storage`,
-          KAFKA_BROKER: 'kafka-cluster.internal.aws:9092',
-          PAYMENT_API_KEY: 'sk_live_shopscale_enterprise_key',
-          SUBDOMAIN: `api.${projectName.toLowerCase()}.shopscale.com`
+          S3_BUCKET: `${projectName.toLowerCase()}-cloud-storage`
         });
         runningAppProcess = spawn('node', ['server.js'], { cwd: projectDir, env, stdio: 'inherit' });
       }
@@ -300,14 +301,14 @@ const server = http.createServer(async (req, res) => {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         success: true,
-        message: `Claim for ${claimType.toUpperCase()} generated in ${projectName}!`,
+        message: `Claim "${customClaimName || claimType}" generated in ${projectName}!`,
         claimFile: claimSpec.file,
         appUrl: 'http://localhost:4000',
         steps: [
-          { id: 1, name: `Generated Crossplane / K8s spec: ${claimSpec.file}`, status: 'success' },
-          { id: 2, name: `Updated ${projectName}/catalog-info.yaml dependsOn metadata`, status: 'success' },
-          { id: 3, name: `Git Commit: feat(infra): add ${claimType} claim`, status: 'success' },
-          { id: 4, name: `Crossplane provisioned cloud resource & updated K8s Secrets`, status: 'success' }
+          { id: 1, name: `Generated Crossplane K8s Secret Spec: ${claimSpec.file}`, status: 'success' },
+          { id: 2, name: `Configured writeConnectionSecretToRef.name: ${projectName.toLowerCase()}-${(customClaimName || claimType).toLowerCase()}-secret`, status: 'success' },
+          { id: 3, name: `Updated ${projectName}/catalog-info.yaml dependsOn metadata`, status: 'success' },
+          { id: 4, name: `Git Commit: feat(infra): add ${customClaimName || claimType} claim`, status: 'success' }
         ]
       }));
     } catch (err) {

@@ -23,7 +23,7 @@
       --text-muted: #9ca3af;
       --text-dim: #6b7280;
       --success: #10b981;
-      --warning: #f59e0b;
+      --danger: #ef4444;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
@@ -44,12 +44,13 @@
     /* MAIN AREA */
     .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: radial-gradient(circle at 100% 0%, rgba(0, 216, 150, 0.03) 0%, transparent 60%); }
     .top-navbar { height: 64px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; background: rgba(11, 15, 23, 0.8); backdrop-filter: blur(10px); }
-    .search-box { width: 380px; position: relative; }
+    .search-box { width: 320px; position: relative; }
     .search-input { width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 14px 8px 36px; color: #fff; font-size: 13px; outline: none; }
     .search-input:focus { border-color: var(--primary); }
     .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-dim); font-size: 13px; }
 
-    .user-profile { display: flex; align-items: center; gap: 10px; }
+    .team-auth-container { display: flex; align-items: center; gap: 14px; }
+    .user-profile { display: flex; align-items: center; gap: 10px; padding-left: 14px; border-left: 1px solid var(--border-color); }
     .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #38bdf8, #0284c7); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
 
     /* CONTENT AREA */
@@ -69,6 +70,7 @@
     .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
     .badge-prod { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
     .badge-claim { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.3); margin-right: 4px; margin-bottom: 4px; display: inline-block; }
+    .badge-rbac { background: rgba(168, 85, 247, 0.15); color: var(--accent-purple); border: 1px solid rgba(168, 85, 247, 0.3); font-size: 10.5px; }
 
     /* CARDS & GRID */
     .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
@@ -82,10 +84,10 @@
     .btn-secondary { background: rgba(255, 255, 255, 0.08); color: #fff; border: 1px solid var(--border-color); }
     .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
 
-    /* SINGLE PANE INSPECTOR MODAL */
+    /* MODALS */
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); z-index: 100; justify-content: center; align-items: center; padding: 20px; }
     .modal-overlay.active { display: flex; }
-    .modal-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; width: 100%; max-width: 780px; padding: 24px; max-height: 90vh; overflow-y: auto; }
+    .modal-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; width: 100%; max-width: 620px; padding: 24px; max-height: 90vh; overflow-y: auto; }
 
     .tabs-header { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; gap: 8px; }
     .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
@@ -94,6 +96,7 @@
     .form-group { margin-bottom: 16px; }
     .form-group label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; color: var(--text-muted); }
     .form-group input, .form-group select { width: 100%; background: var(--bg-root); border: 1px solid var(--border-color); color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 13.5px; outline: none; }
+    .form-help { font-size: 11.5px; color: var(--text-dim); margin-top: 4px; }
 
     .log-box { background: var(--bg-root); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; font-family: 'Fira Code', monospace; font-size: 12px; color: var(--accent-blue); max-height: 220px; overflow-y: auto; margin-top: 14px; }
     .log-step { margin-bottom: 6px; opacity: 0; transition: opacity 0.2s; }
@@ -102,6 +105,8 @@
 
     .result-box { background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 16px; margin-top: 16px; }
     .result-box code { display: block; background: var(--bg-root); padding: 6px 10px; border-radius: 6px; font-family: 'Fira Code', monospace; font-size: 12px; color: var(--accent-blue); margin: 6px 0; border: 1px solid var(--border-color); }
+
+    .error-banner { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--danger); padding: 10px; border-radius: 6px; font-size: 12.5px; margin-top: 10px; display: none; }
 
     .hidden { display: none !important; }
   </style>
@@ -136,9 +141,18 @@
         <span class="search-icon">🔍</span>
         <input type="text" class="search-input" placeholder="Search registered services or claims..." />
       </div>
-      <div class="user-profile">
-        <div class="avatar">AE</div>
-        <div style="font-size: 13px;"><strong>Amr Elzoghby</strong> <span style="color:var(--text-dim);">(team-alpha)</span></div>
+
+      <!-- TEAM AUTHENTICATION CONTAINER -->
+      <div class="team-auth-container">
+        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="openLoginModal()">🔑 Switch Team / Login</button>
+
+        <div class="user-profile">
+          <div class="avatar" id="user-avatar">AE</div>
+          <div style="font-size: 13px;">
+            <strong id="user-name">Amr Elzoghby</strong>
+            <span class="badge badge-rbac" id="user-role-badge">team-alpha • Owner</span>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -172,7 +186,7 @@
           </div>
         </div>
 
-        <!-- PAGE 2: INFRASTRUCTURE CLAIMS (ALL 9 CLAIMS) -->
+        <!-- PAGE 2: INFRASTRUCTURE CLAIMS (ALL 9 CLAIMS WITH CUSTOM IDENTIFIER) -->
         <div id="page-infra" class="hidden">
           <div class="page-header">
             <h1>Self-Service Platform Infrastructure Claims</h1>
@@ -180,57 +194,66 @@
           </div>
 
           <div class="grid">
+            <!-- 1. PostgreSQL -->
             <div class="card">
               <h3>🗄️ PostgreSQL RDS Database</h3>
-              <p>Injects <code>infra/postgres-claim.yaml</code> into your service repository. Crossplane provisions AWS RDS PostgreSQL instance & updates K8s connection secrets.</p>
+              <p>Injects <code>infra/users-db-claim.yaml</code> into your service repository. Crossplane provisions AWS RDS PostgreSQL & binds Secret identifier.</p>
               <button class="btn" onclick="openInfraModal('postgres')">Request PostgreSQL Claim</button>
             </div>
 
+            <!-- 2. Redis -->
             <div class="card">
               <h3>⚡ Redis ElastiCache Instance</h3>
-              <p>Injects <code>infra/redis-claim.yaml</code> into your repository for Redis in-memory caching.</p>
+              <p>Injects <code>infra/session-redis-claim.yaml</code> into your repository for Redis in-memory caching.</p>
               <button class="btn" onclick="openInfraModal('redis')">Request Redis Claim</button>
             </div>
 
+            <!-- 3. S3 -->
             <div class="card">
               <h3>📦 AWS S3 Cloud Storage Bucket</h3>
-              <p>Injects <code>infra/s3-claim.yaml</code> into your service for cloud file storage and object uploads.</p>
+              <p>Injects <code>infra/user-uploads-claim.yaml</code> into your service for cloud file storage and object uploads.</p>
               <button class="btn" onclick="openInfraModal('s3')">Request S3 Bucket Claim</button>
             </div>
 
+            <!-- 4. Kafka -->
             <div class="card">
               <h3>📨 Kafka Event Stream Topic</h3>
-              <p>Injects <code>infra/kafka-topic-claim.yaml</code> for asynchronous event streaming & pub/sub messaging.</p>
-              <button class="btn btn-secondary" onclick="openInfraModal('kafka')">Request Kafka Topic Claim</button>
+              <p>Injects <code>infra/order-events-topic-claim.yaml</code> for asynchronous event streaming & pub/sub messaging.</p>
+              <button class="btn" onclick="openInfraModal('kafka')">Request Kafka Topic Claim</button>
             </div>
 
+            <!-- 5. SSL Cert -->
             <div class="card">
               <h3>🔒 SSL/TLS Certificate (Cert-Manager)</h3>
-              <p>Injects <code>infra/ssl-cert-claim.yaml</code> to auto-provision Let's Encrypt SSL/TLS certs for your service endpoint.</p>
-              <button class="btn btn-secondary" onclick="openInfraModal('ssl')">Request SSL Certificate</button>
+              <p>Injects <code>infra/api-tls-cert-claim.yaml</code> to auto-provision Let's Encrypt SSL/TLS certs for your service endpoint.</p>
+              <button class="btn" onclick="openInfraModal('ssl')">Request SSL Certificate</button>
             </div>
 
+            <!-- 6. OAuth / Payment API Key -->
             <div class="card">
               <h3>🔑 Payment OAuth & API Keys</h3>
-              <p>Injects <code>infra/payment-credentials-claim.yaml</code> to request Stripe/Payment gateway OAuth client secrets.</p>
-              <button class="btn btn-secondary" onclick="openInfraModal('oauth')">Request Payment API Credentials</button>
+              <p>Injects <code>infra/stripe-payment-credentials-claim.yaml</code> to request Stripe/Payment gateway OAuth client secrets.</p>
+              <button class="btn" onclick="openInfraModal('oauth')">Request Payment API Credentials</button>
             </div>
 
+            <!-- 7. Grafana -->
             <div class="card">
               <h3>📊 Grafana Observability Dashboard</h3>
-              <p>Injects <code>infra/grafana-dashboard-claim.yaml</code> to auto-generate CPU, Memory & Latency Grafana monitoring dashboards.</p>
+              <p>Injects <code>infra/metrics-dashboard-claim.yaml</code> to auto-generate CPU, Memory & Latency Grafana monitoring dashboards.</p>
               <button class="btn btn-secondary" onclick="openInfraModal('grafana')">Request Grafana Dashboard</button>
             </div>
 
+            <!-- 8. Slack Alerts -->
             <div class="card">
               <h3>🔔 Slack Incident Webhook Alerting</h3>
-              <p>Injects <code>infra/slack-alerts-claim.yaml</code> to route service crash or outage alerts to your team's Slack channel.</p>
+              <p>Injects <code>infra/prod-slack-alerts-claim.yaml</code> to route service crash or outage alerts to your team's Slack channel.</p>
               <button class="btn btn-secondary" onclick="openInfraModal('slack')">Request Slack Webhook Alerts</button>
             </div>
 
+            <!-- 9. Subdomain -->
             <div class="card">
               <h3>🌐 Custom Subdomain Ingress</h3>
-              <p>Injects <code>infra/subdomain-ingress-claim.yaml</code> to route custom domain (e.g. api.service.shopscale.com) to your service.</p>
+              <p>Injects <code>infra/api-ingress-claim.yaml</code> to route custom domain (e.g. api.service.shopscale.com) to your service.</p>
               <button class="btn btn-secondary" onclick="openInfraModal('domain')">Request Subdomain Ingress</button>
             </div>
           </div>
@@ -249,9 +272,7 @@
             </select>
           </div>
 
-          <div class="grid" id="singlepane-grid">
-            <!-- Cards rendered via JS -->
-          </div>
+          <div class="grid" id="singlepane-grid"></div>
         </div>
 
         <!-- PAGE 4: TECHDOCS VIEWER -->
@@ -321,7 +342,36 @@
     </main>
   </div>
 
-  <!-- INFRA CLAIM MODAL -->
+  <!-- TEAM AUTHENTICATION MODAL -->
+  <div class="modal-overlay" id="modal-login">
+    <div class="modal-box">
+      <h2 style="margin-bottom:6px;">🔑 Developer Identity & Team Login</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Enter your company team credentials to authenticate your RBAC permissions.</p>
+
+      <div class="form-group">
+        <label>Select Team</label>
+        <select id="login-team-select">
+          <option value="team-alpha">team-alpha (Frontend & Auth Systems)</option>
+          <option value="team-beta">team-beta (Platform Engineering)</option>
+          <option value="team-gamma">team-gamma (Data Engineering)</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Team Access Token / Passcode</label>
+        <input type="password" id="login-passcode" placeholder="Enter team passcode (e.g. alpha2026, beta2026, gamma2026)" />
+      </div>
+
+      <div class="error-banner" id="login-error-banner"></div>
+
+      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+        <button class="btn btn-secondary" onclick="closeModal('modal-login')">Cancel</button>
+        <button class="btn" onclick="executeTeamLogin()">Authenticate Session</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INFRA CLAIM MODAL (WITH CUSTOM CLAIM NAME FOR ALL 9 CLAIMS) -->
   <div class="modal-overlay" id="modal-infra">
     <div class="modal-box">
       <h2 style="margin-bottom:12px;" id="infra-title">Request Infrastructure Claim</h2>
@@ -330,6 +380,13 @@
           <label>Select Target Microservice Component</label>
           <select id="infra-target-project"></select>
         </div>
+
+        <div class="form-group">
+          <label>Resource Secret Identifier / Claim Name (Customize for your code binding)</label>
+          <input type="text" id="infra-custom-name" placeholder="e.g. users-db, orders-db, session-redis, user-uploads, stripe-payment" />
+          <div class="form-help">Defines <code>writeConnectionSecretToRef.name</code> (e.g. project-users-db-secret) and file name.</div>
+        </div>
+
         <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
           <button class="btn btn-secondary" onclick="closeModal('modal-infra')">Cancel</button>
           <button class="btn" onclick="executeInfraClaim()">Submit Resource Claim</button>
@@ -362,6 +419,30 @@
     let currentInfraType = 'postgres';
     let currentComponentData = null;
     let allServicesData = [];
+    let activeUserSession = {
+      team: 'team-alpha',
+      name: 'Amr Elzoghby',
+      role: 'team-alpha • Owner',
+      avatar: 'AE'
+    };
+
+    const teamPasscodes = {
+      'team-alpha': 'alpha2026',
+      'team-beta': 'beta2026',
+      'team-gamma': 'gamma2026'
+    };
+
+    const claimDefaultNames = {
+      'postgres': 'users-db',
+      'redis': 'session-redis',
+      's3': 'user-uploads',
+      'kafka': 'order-events',
+      'ssl': 'api-tls-cert',
+      'oauth': 'stripe-payment',
+      'grafana': 'metrics-dashboard',
+      'slack': 'prod-slack-alerts',
+      'domain': 'api-ingress'
+    };
 
     function showPage(pageId) {
       ['catalog', 'infra', 'singlepane', 'techdocs', 'security'].forEach(t => {
@@ -381,6 +462,40 @@
     }
 
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    function openLoginModal() {
+      document.getElementById('login-passcode').value = '';
+      document.getElementById('login-error-banner').style.display = 'none';
+      document.getElementById('modal-login').classList.add('active');
+    }
+
+    function executeTeamLogin() {
+      const team = document.getElementById('login-team-select').value;
+      const passcode = document.getElementById('login-passcode').value.trim();
+      const errorBanner = document.getElementById('login-error-banner');
+
+      if (passcode !== teamPasscodes[team]) {
+        errorBanner.innerText = `❌ Access Denied: Invalid passcode for ${team}! (Try ${teamPasscodes[team]})`;
+        errorBanner.style.display = 'block';
+        return;
+      }
+
+      errorBanner.style.display = 'none';
+      if (team === 'team-alpha') {
+        activeUserSession = { team: 'team-alpha', name: 'Amr Elzoghby', role: 'team-alpha • Owner', avatar: 'AE' };
+      } else if (team === 'team-beta') {
+        activeUserSession = { team: 'team-beta', name: 'John Doe', role: 'team-beta • Platform Eng', avatar: 'JD' };
+      } else if (team === 'team-gamma') {
+        activeUserSession = { team: 'team-gamma', name: 'Sarah Smith', role: 'team-gamma • Developer', avatar: 'SS' };
+      }
+
+      document.getElementById('user-avatar').innerText = activeUserSession.avatar;
+      document.getElementById('user-name').innerText = activeUserSession.name;
+      document.getElementById('user-role-badge').innerText = activeUserSession.role;
+
+      closeModal('modal-login');
+      refreshCatalog();
+    }
 
     async function refreshCatalog() {
       try {
@@ -430,6 +545,7 @@
       document.getElementById('infra-form').classList.remove('hidden');
       document.getElementById('infra-result').classList.add('hidden');
       document.getElementById('infra-title').innerText = `Request ${type.toUpperCase()} Infrastructure Claim`;
+      document.getElementById('infra-custom-name').value = claimDefaultNames[type] || `${type}-claim`;
 
       const sel = document.getElementById('infra-target-project');
       sel.innerHTML = '';
@@ -453,6 +569,7 @@
 
     async function executeInfraClaim() {
       const projectName = document.getElementById('infra-target-project').value;
+      const customClaimName = document.getElementById('infra-custom-name').value.trim() || claimDefaultNames[currentInfraType];
 
       document.getElementById('infra-form').classList.add('hidden');
       const resDiv = document.getElementById('infra-result');
@@ -462,7 +579,8 @@
       const logBox = document.getElementById('infra-log');
       const steps = [
         `⏳ Connecting to service repository: /home/amr/${projectName}/...`,
-        `⏳ Writing Crossplane spec: infra/${currentInfraType}-claim.yaml...`,
+        `⏳ Writing Crossplane spec: infra/${customClaimName}-claim.yaml...`,
+        `⏳ Setting writeConnectionSecretToRef.name: ${projectName.toLowerCase()}-${customClaimName.toLowerCase()}-secret...`,
         '⏳ Updating catalog-info.yaml dependsOn metadata...',
         '⏳ Git commit: feat(infra): add claim via Backstage Self-Service...',
         '⏳ Provisioning cloud infrastructure & updating Kubernetes connection secrets...'
@@ -481,7 +599,7 @@
       const res = await fetch('/api/request-infra', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ projectName, claimType: currentInfraType })
+        body: JSON.stringify({ projectName, claimType: currentInfraType, customClaimName })
       });
       const data = await res.json();
 
@@ -496,7 +614,7 @@
 
         resDiv.innerHTML += `
           <div class="result-box">
-            <h4 style="color:var(--success);">🎉 Crossplane Claim Added to ${projectName}!</h4>
+            <h4 style="color:var(--success);">🎉 Crossplane Claim "${customClaimName}" Generated!</h4>
             <p style="font-size:12px; color:var(--text-muted); margin:6px 0;">YAML Spec generated in repository root:</p>
             <code>📄 ${projectName}/${data.claimFile}</code>
             <p style="font-size:12px; color:var(--text-muted); margin-top:10px;">
@@ -565,22 +683,12 @@
             <p style="margin-top:6px;"><strong>Restarts:</strong> 0 (Stable)</p>
           </div>`;
       } else if (tab === 'claims') {
-        const claimsList = [];
-        if (c.claims.postgres) claimsList.push('🗄️ PostgreSQL RDS Instance (infra/postgres-claim.yaml)');
-        if (c.claims.redis) claimsList.push('⚡ Redis ElastiCache Instance (infra/redis-claim.yaml)');
-        if (c.claims.s3) claimsList.push('📦 AWS S3 Bucket Storage (infra/s3-claim.yaml)');
-        if (c.claims.kafka) claimsList.push('📨 Kafka Event Topic (infra/kafka-topic-claim.yaml)');
-        if (c.claims.ssl) claimsList.push('🔒 TLS Certificate (infra/ssl-cert-claim.yaml)');
-        if (c.claims.oauth) claimsList.push('🔑 Payment OAuth Credentials (infra/payment-credentials-claim.yaml)');
-        if (c.claims.grafana) claimsList.push('📊 Grafana Dashboard (infra/grafana-dashboard-claim.yaml)');
-        if (c.claims.slack) claimsList.push('🔔 Slack Webhook Alerts (infra/slack-alerts-claim.yaml)');
-        if (c.claims.domain) claimsList.push('🌐 Custom Subdomain Ingress (infra/subdomain-ingress-claim.yaml)');
-
+        let claimsList = c.infraFiles || [];
         content.innerHTML = `
           <div style="background:var(--bg-root); padding:16px; border-radius:10px; border:1px solid var(--border-color); font-size:13px;">
             <p style="font-weight:600; margin-bottom:12px;">Active Crossplane / K8s Infrastructure Claims (${claimsList.length}):</p>
             ${claimsList.length > 0 
-              ? claimsList.map(item => `<div style="background:var(--bg-card); padding:8px 12px; border-radius:6px; margin-bottom:6px; border:1px solid var(--border-color); color:var(--accent-blue);">${item}</div>`).join('')
+              ? claimsList.map(item => `<div style="background:var(--bg-card); padding:8px 12px; border-radius:6px; margin-bottom:6px; border:1px solid var(--border-color); color:var(--accent-blue);">📄 infra/${item}</div>`).join('')
               : '<p style="color:var(--text-dim);">No Infrastructure Claims attached yet. Use the Self-Service portal to request resources!</p>'}
           </div>`;
       }
@@ -611,17 +719,7 @@
       const c = allServicesData.find(x => x.name === name);
       if (!c) return;
 
-      const claimsList = [];
-      if (c.claims.postgres) claimsList.push('🗄️ PostgreSQL RDS Instance');
-      if (c.claims.redis) claimsList.push('⚡ Redis ElastiCache Instance');
-      if (c.claims.s3) claimsList.push('📦 AWS S3 Bucket Storage');
-      if (c.claims.kafka) claimsList.push('📨 Kafka Event Topic');
-      if (c.claims.ssl) claimsList.push('🔒 TLS Certificate');
-      if (c.claims.oauth) claimsList.push('🔑 Payment OAuth Credentials');
-      if (c.claims.grafana) claimsList.push('📊 Grafana Dashboard');
-      if (c.claims.slack) claimsList.push('🔔 Slack Webhook Alerts');
-      if (c.claims.domain) claimsList.push('🌐 Custom Subdomain Ingress');
-
+      const claimsList = c.infraFiles || [];
       const grid = document.getElementById('singlepane-grid');
       grid.innerHTML = `
         <div class="card">
@@ -649,7 +747,7 @@
         <div class="card">
           <h3>🗄️ Active Claims (${claimsList.length})</h3>
           <div style="font-size:12.5px; color:var(--accent-blue); line-height:1.6;">
-            ${claimsList.length > 0 ? claimsList.map(item => `<div>• ${item}</div>`).join('') : '<span style="color:var(--text-dim);">No Active Claims</span>'}
+            ${claimsList.length > 0 ? claimsList.map(item => `<div>• 📄 infra/${item}</div>`).join('') : '<span style="color:var(--text-dim);">No Active Claims</span>'}
           </div>
         </div>
       `;
