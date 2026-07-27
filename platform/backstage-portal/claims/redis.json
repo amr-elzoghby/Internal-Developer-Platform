@@ -1,0 +1,20 @@
+{
+  "claimType": "redis",
+  "displayName": "Redis ElastiCache Instance",
+  "defaultSecretIdentifier": "session-redis",
+  "parameters": [
+    {
+      "name": "memoryMB",
+      "label": "Allocated Memory (MB)",
+      "type": "number",
+      "default": 512
+    },
+    {
+      "name": "redisVersion",
+      "label": "Redis Version",
+      "type": "select",
+      "options": ["7.0", "6.2"],
+      "default": "7.0"
+    }
+  ]
+}
