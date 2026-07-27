@@ -187,9 +187,21 @@ The platform has **three layers**:
 │   ├── security/
 │   │   ├── kyverno/                    # Kyverno policies (pod security, Crossplane guardrails)
 │   │   └── cert-manager/               # TLS certificates
-│   └── backstage/
-│       ├── app-config.yaml             # Backstage config
-│       ├── catalog/                    # Service catalog
+│   └── backstage-portal/
+│       ├── app-config.yaml             # Backstage portal config
+│       ├── catalog/                    # Service catalog specs
+│       ├── claims/                     # Modular Infrastructure Claim Spec Definitions (9 Capabilities)
+│       │   ├── postgres.json           # PostgreSQL RDS Claim Parameters (storageGB, engineVersion)
+│       │   ├── redis.json              # Redis ElastiCache Claim Parameters (memoryMB, version)
+│       │   ├── s3.json                 # AWS S3 Storage Claim Parameters (acl, versioning)
+│       │   ├── kafka.json              # Kafka Topic Claim Parameters (partitions, replicationFactor)
+│       │   ├── ssl.json                # SSL Cert-Manager Claim Parameters (domainName, issuer)
+│       │   ├── oauth.json              # Payment OAuth Claim Parameters (provider, scopes)
+│       │   ├── grafana.json            # Grafana Dashboard Claim Parameters (folder, metrics)
+│       │   ├── slack.json              # Slack Alerts Claim Parameters (channel, webhookUrl, events)
+│       │   └── domain.json             # Custom Subdomain Claim Parameters (subdomainHost, pathPrefix)
+│       ├── public/                     # Enterprise Material 3 Backstage Portal UI
+│       ├── server.js                   # Enterprise Portal Server with dynamic claims loader & GitOps sync
 │       ├── templates/                  # Software templates (golden paths)
 │       └── Dockerfile
 ├── tenants/
