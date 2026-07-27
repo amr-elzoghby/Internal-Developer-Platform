@@ -5,6 +5,7 @@ const { exec, spawn } = require('child_process');
 
 const PORT = 3000;
 const PROJECTS_DIR = '/home/amr';
+const CLAIMS_DIR = path.join(__dirname, 'claims');
 let runningAppProcess = null;
 
 function serveFile(res, filePath, contentType) {
@@ -23,7 +24,27 @@ function parseBody(req) {
   });
 }
 
-// ─── CROSSPLANE & PLATFORM CLAIM GENERATORS (WITH PARAMETRIC CONFIG) ─────
+// ─── MODULAR CLAIM FILE LOADER ──────────────────────────────────────
+
+function loadClaimSpecs() {
+  const specs = {};
+  if (fs.existsSync(CLAIMS_DIR)) {
+    const files = fs.readdirSync(CLAIMS_DIR).filter(f => f.endsWith('.json'));
+    for (const f of files) {
+      try {
+        const content = JSON.parse(fs.readFileSync(path.join(CLAIMS_DIR, f), 'utf8'));
+        if (content.claimType) {
+          specs[content.claimType] = content;
+        }
+      } catch (e) {
+        console.error(`Error loading claim spec file ${f}:`, e);
+      }
+    }
+  }
+  return specs;
+}
+
+// ─── CROSSPLANE & PLATFORM CLAIM GENERATORS ──────────────────────────
 
 function generateClaimYaml(serviceName, claimType, params = {}) {
   const claimId = (params.customClaimName || claimType).toLowerCase().replace(/[^a-z0-9-]/g, '-');
@@ -256,7 +277,15 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // ── API 2: Request Infrastructure Claim with Custom Params ──
+  // ── API 2: Fetch Modular Claim Specifications ──────────────
+  if (req.method === 'GET' && req.url === '/api/claims/specs') {
+    const specs = loadClaimSpecs();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(specs));
+    return;
+  }
+
+  // ── API 3: Request Infrastructure Claim ────────────────────
   if (req.method === 'POST' && req.url === '/api/request-infra') {
     const params = await parseBody(req);
     const { projectName, claimType, customClaimName } = params;
