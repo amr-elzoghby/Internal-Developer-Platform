@@ -289,9 +289,17 @@ The platform has **three layers**:
 
 - [x] Backstage setup + production `app-config.yaml` & Dockerfile
 - [x] Scaffolder Golden Path Templates (`scaffolder.backstage.io/v1beta3`): Node.js, Python FastAPI
-- [x] Crossplane Cloud Infrastructure Self-Service Template (RDS, S3, Redis, EC2)
+- [x] Crossplane Cloud Infrastructure Self-Service Claims (RDS, S3, Redis, Kafka, SSL, OAuth, Grafana, Slack Alerts, Subdomains)
 - [x] System Catalog registration (`all-components.yaml` for teams, domains, systems)
 - [x] Kubernetes & ArgoCD plugin configuration for live pod health & deployment sync
+- [x] Single Pane of Glass multi-tab Component Inspector (Overview, CI/CD Security, K8s Pods, Infra Claims)
+
+#### 📸 Backstage Enterprise Developer Portal Showcase
+
+| Software Catalog & Active Claims | Single Pane Inspector View | TechDocs Documentation Viewer |
+| :---: | :---: | :---: |
+| <img src="docs/images/Screenshot%202026-07-27%20193755.png" width="100%"> | <img src="docs/images/Screenshot%202026-07-27%20193806.png" width="100%"> | <img src="docs/images/Screenshot%202026-07-27%20193850.png" width="100%"> |
+
 
 ### Phase 7 — Monitoring, Cost & Documentation
 > Observability, cost tracking, and project documentation.
