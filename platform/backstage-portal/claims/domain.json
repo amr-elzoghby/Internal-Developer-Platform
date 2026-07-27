@@ -1,0 +1,19 @@
+{
+  "claimType": "domain",
+  "displayName": "Custom Subdomain Ingress Routing",
+  "defaultSecretIdentifier": "api-ingress",
+  "parameters": [
+    {
+      "name": "subdomainHost",
+      "label": "Custom Subdomain Host FQDN",
+      "type": "text",
+      "default": "api.auth.shopscale.com"
+    },
+    {
+      "name": "pathPrefix",
+      "label": "Routing Path Prefix",
+      "type": "text",
+      "default": "/"
+    }
+  ]
+}
