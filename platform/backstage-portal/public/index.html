@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Backstage IDP — Enterprise Developer Portal (2026 Edition)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-root: #0b0f17;
+      --bg-sidebar: #111827;
+      --bg-card: #1f2937;
+      --bg-card-hover: #374151;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --primary: #00D896;       /* Spotify Backstage Green */
+      --primary-hover: #00b87f;
+      --primary-dim: rgba(0, 216, 150, 0.12);
+      --accent-blue: #38bdf8;
+      --accent-purple: #c084fc;
+      --text-main: #f9fafb;
+      --text-muted: #9ca3af;
+      --text-dim: #6b7280;
+      --success: #10b981;
+      --warning: #f59e0b;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+    body { background: var(--bg-root); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+    /* SIDEBAR */
+    .sidebar { width: 260px; background: var(--bg-sidebar); border-right: 1px solid var(--border-color); display: flex; flex-direction: column; flex-shrink: 0; }
+    .brand-header { height: 64px; display: flex; align-items: center; gap: 12px; padding: 0 20px; border-bottom: 1px solid var(--border-color); }
+    .brand-logo { width: 32px; height: 32px; background: var(--primary); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #000; font-weight: 800; }
+    .brand-title { font-size: 16px; font-weight: 700; color: #fff; }
+
+    .nav-group { padding: 16px 12px 8px; }
+    .nav-label { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--text-dim); padding: 0 8px; margin-bottom: 6px; letter-spacing: 0.5px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; color: var(--text-muted); font-size: 13.5px; font-weight: 500; cursor: pointer; transition: all 0.15s; margin-bottom: 2px; text-decoration: none; }
+    .nav-item:hover { background: rgba(255, 255, 255, 0.04); color: var(--text-main); }
+    .nav-item.active { background: var(--primary-dim); color: var(--primary); font-weight: 600; border-left: 3px solid var(--primary); }
+
+    /* MAIN AREA */
+    .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: radial-gradient(circle at 100% 0%, rgba(0, 216, 150, 0.03) 0%, transparent 60%); }
+    .top-navbar { height: 64px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; padding: 0 28px; background: rgba(11, 15, 23, 0.8); backdrop-filter: blur(10px); }
+    .search-box { width: 380px; position: relative; }
+    .search-input { width: 100%; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 8px; padding: 8px 14px 8px 36px; color: #fff; font-size: 13px; outline: none; }
+    .search-input:focus { border-color: var(--primary); }
+    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-dim); font-size: 13px; }
+
+    .user-profile { display: flex; align-items: center; gap: 10px; }
+    .avatar { width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #38bdf8, #0284c7); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+
+    /* CONTENT AREA */
+    .content-scroll { flex: 1; overflow-y: auto; padding: 32px; }
+    .page-container { max-width: 1240px; margin: 0 auto; }
+    .page-header { margin-bottom: 24px; }
+    .page-header h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+    .page-header p { color: var(--text-muted); font-size: 13.5px; }
+
+    /* CATALOG TABLE */
+    .table-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { background: rgba(0, 0, 0, 0.2); padding: 12px 18px; font-size: 11px; text-transform: uppercase; color: var(--text-dim); font-weight: 700; border-bottom: 1px solid var(--border-color); }
+    td { padding: 14px 18px; font-size: 13px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
+
+    .badge { padding: 3px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+    .badge-prod { background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid rgba(16, 185, 129, 0.3); }
+    .badge-claim { background: rgba(56, 189, 248, 0.15); color: var(--accent-blue); border: 1px solid rgba(56, 189, 248, 0.3); margin-right: 4px; margin-bottom: 4px; display: inline-block; }
+
+    /* CARDS & GRID */
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
+    .card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 12px; padding: 20px; display: flex; flex-direction: column; transition: all 0.2s; }
+    .card:hover { border-color: var(--primary); transform: translateY(-2px); }
+    .card h3 { font-size: 15.5px; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .card p { color: var(--text-muted); font-size: 13px; line-height: 1.5; margin-bottom: 20px; flex: 1; }
+
+    .btn { background: var(--primary); color: #000; border: none; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary { background: rgba(255, 255, 255, 0.08); color: #fff; border: 1px solid var(--border-color); }
+    .btn-secondary:hover { background: rgba(255, 255, 255, 0.15); }
+
+    /* SINGLE PANE INSPECTOR MODAL */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(8px); z-index: 100; justify-content: center; align-items: center; padding: 20px; }
+    .modal-overlay.active { display: flex; }
+    .modal-box { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 14px; width: 100%; max-width: 780px; padding: 24px; max-height: 90vh; overflow-y: auto; }
+
+    .tabs-header { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; gap: 8px; }
+    .tab-btn { padding: 8px 16px; font-size: 13px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 6px; color: var(--text-muted); }
+    .form-group input, .form-group select { width: 100%; background: var(--bg-root); border: 1px solid var(--border-color); color: #fff; padding: 10px 14px; border-radius: 6px; font-size: 13.5px; outline: none; }
+
+    .log-box { background: var(--bg-root); border: 1px solid var(--border-color); border-radius: 8px; padding: 14px; font-family: 'Fira Code', monospace; font-size: 12px; color: var(--accent-blue); max-height: 220px; overflow-y: auto; margin-top: 14px; }
+    .log-step { margin-bottom: 6px; opacity: 0; transition: opacity 0.2s; }
+    .log-step.visible { opacity: 1; }
+    .log-step.success { color: var(--success); }
+
+    .result-box { background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; padding: 16px; margin-top: 16px; }
+    .result-box code { display: block; background: var(--bg-root); padding: 6px 10px; border-radius: 6px; font-family: 'Fira Code', monospace; font-size: 12px; color: var(--accent-blue); margin: 6px 0; border: 1px solid var(--border-color); }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand-header">
+      <div class="brand-logo">B</div>
+      <span class="brand-title">Backstage IDP</span>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Developer Portal</div>
+      <a class="nav-item active" id="nav-catalog" onclick="showPage('catalog')">📊 Software Catalog</a>
+      <a class="nav-item" id="nav-infra" onclick="showPage('infra')">🗄️ Self-Service Infra (9 Claims)</a>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-label">Unified Observability</div>
+      <a class="nav-item" id="nav-singlepane" onclick="showPage('singlepane')">🖥️ Single Pane Dashboard</a>
+      <a class="nav-item" id="nav-techdocs" onclick="showPage('techdocs')">📚 TechDocs Viewer</a>
+      <a class="nav-item" id="nav-security" onclick="showPage('security')">🛡️ Security & Compliance</a>
+    </div>
+  </aside>
+
+  <!-- MAIN WRAPPER -->
+  <div class="main-wrapper">
+    <header class="top-navbar">
+      <div class="search-box">
+        <span class="search-icon">🔍</span>
+        <input type="text" class="search-input" placeholder="Search registered services or claims..." />
+      </div>
+      <div class="user-profile">
+        <div class="avatar">AE</div>
+        <div style="font-size: 13px;"><strong>Amr Elzoghby</strong> <span style="color:var(--text-dim);">(team-alpha)</span></div>
+      </div>
+    </header>
+
+    <main class="content-scroll">
+      <div class="page-container">
+
+        <!-- PAGE 1: SOFTWARE CATALOG -->
+        <div id="page-catalog">
+          <div class="page-header">
+            <h1>Workspace Software Catalog</h1>
+            <p>Single Pane of Glass for all registered microservices in your engineering workspace.</p>
+          </div>
+
+          <div class="table-card">
+            <table>
+              <thead>
+                <tr>
+                  <th>Service Name</th>
+                  <th>Owner Team</th>
+                  <th>System</th>
+                  <th>Lifecycle</th>
+                  <th>Active Infrastructure Claims</th>
+                  <th>ArgoCD GitOps</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="catalog-table">
+                <tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-muted);">Loading workspace services...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- PAGE 2: INFRASTRUCTURE CLAIMS (ALL 9 CLAIMS) -->
+        <div id="page-infra" class="hidden">
+          <div class="page-header">
+            <h1>Self-Service Platform Infrastructure Claims</h1>
+            <p>Request cloud databases, caches, messaging topics, security credentials, or observability for your existing service.</p>
+          </div>
+
+          <div class="grid">
+            <div class="card">
+              <h3>🗄️ PostgreSQL RDS Database</h3>
+              <p>Injects <code>infra/postgres-claim.yaml</code> into your service repository. Crossplane provisions AWS RDS PostgreSQL instance & updates K8s connection secrets.</p>
+              <button class="btn" onclick="openInfraModal('postgres')">Request PostgreSQL Claim</button>
+            </div>
+
+            <div class="card">
+              <h3>⚡ Redis ElastiCache Instance</h3>
+              <p>Injects <code>infra/redis-claim.yaml</code> into your repository for Redis in-memory caching.</p>
+              <button class="btn" onclick="openInfraModal('redis')">Request Redis Claim</button>
+            </div>
+
+            <div class="card">
+              <h3>📦 AWS S3 Cloud Storage Bucket</h3>
+              <p>Injects <code>infra/s3-claim.yaml</code> into your service for cloud file storage and object uploads.</p>
+              <button class="btn" onclick="openInfraModal('s3')">Request S3 Bucket Claim</button>
+            </div>
+
+            <div class="card">
+              <h3>📨 Kafka Event Stream Topic</h3>
+              <p>Injects <code>infra/kafka-topic-claim.yaml</code> for asynchronous event streaming & pub/sub messaging.</p>
+              <button class="btn btn-secondary" onclick="openInfraModal('kafka')">Request Kafka Topic Claim</button>
+            </div>
+
+            <div class="card">
+              <h3>🔒 SSL/TLS Certificate (Cert-Manager)</h3>
+              <p>Injects <code>infra/ssl-cert-claim.yaml</code> to auto-provision Let's Encrypt SSL/TLS certs for your service endpoint.</p>
+              <button class="btn btn-secondary" onclick="openInfraModal('ssl')">Request SSL Certificate</button>
+            </div>
+
+            <div class="card">
+              <h3>🔑 Payment OAuth & API Keys</h3>
+              <p>Injects <code>infra/payment-credentials-claim.yaml</code> to request Stripe/Payment gateway OAuth client secrets.</p>
+              <button class="btn btn-secondary" onclick="openInfraModal('oauth')">Request Payment API Credentials</button>
+            </div>
+
+            <div class="card">
+              <h3>📊 Grafana Observability Dashboard</h3>
+              <p>Injects <code>infra/grafana-dashboard-claim.yaml</code> to auto-generate CPU, Memory & Latency Grafana monitoring dashboards.</p>
+              <button class="btn btn-secondary" onclick="openInfraModal('grafana')">Request Grafana Dashboard</button>
+            </div>
+
+            <div class="card">
+              <h3>🔔 Slack Incident Webhook Alerting</h3>
+              <p>Injects <code>infra/slack-alerts-claim.yaml</code> to route service crash or outage alerts to your team's Slack channel.</p>
+              <button class="btn btn-secondary" onclick="openInfraModal('slack')">Request Slack Webhook Alerts</button>
+            </div>
+
+            <div class="card">
+              <h3>🌐 Custom Subdomain Ingress</h3>
+              <p>Injects <code>infra/subdomain-ingress-claim.yaml</code> to route custom domain (e.g. api.service.shopscale.com) to your service.</p>
+              <button class="btn btn-secondary" onclick="openInfraModal('domain')">Request Subdomain Ingress</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE 3: SINGLE PANE DASHBOARD -->
+        <div id="page-singlepane" class="hidden">
+          <div class="page-header">
+            <h1>Single Pane of Glass Dashboard</h1>
+            <p>Unified engineering telemetry eliminating the need to open 10 separate Chrome tabs.</p>
+          </div>
+
+          <div style="margin-bottom:20px; display:flex; gap:12px; align-items:center;">
+            <label style="font-weight:600; font-size:13px;">Select Target Component:</label>
+            <select id="singlepane-select-service" style="background:var(--bg-card); color:#fff; border:1px solid var(--border-color); padding:8px 14px; border-radius:6px; font-size:13px;" onchange="renderSinglePaneDashboard(this.value)">
+            </select>
+          </div>
+
+          <div class="grid" id="singlepane-grid">
+            <!-- Cards rendered via JS -->
+          </div>
+        </div>
+
+        <!-- PAGE 4: TECHDOCS VIEWER -->
+        <div id="page-techdocs" class="hidden">
+          <div class="page-header">
+            <h1>TechDocs Documentation Viewer</h1>
+            <p>Docs-like-code specs automatically extracted from <code>catalog-info.yaml</code> in your repository.</p>
+          </div>
+
+          <div class="card" style="max-width:900px;">
+            <h3>📚 Demo-login-app-IDB — Architecture & Runbook</h3>
+            <p style="color:var(--text-dim); margin-bottom:16px;">Source: <code>/home/amr/Demo-login-app-IDB/catalog-info.yaml</code></p>
+            <div style="background:var(--bg-root); padding:20px; border-radius:8px; border:1px solid var(--border-color); font-size:13.5px; line-height:1.7;">
+              <h4 style="color:var(--primary); margin-bottom:8px;">1. Service Overview</h4>
+              <p>The <strong>Demo-login-app-IDB</strong> microservice manages authentication, session handling, and credential verification for the ShopScale platform.</p>
+              
+              <h4 style="color:var(--primary); margin-top:16px; margin-bottom:8px;">2. Active Infrastructure & Environment Binding</h4>
+              <p>When Infrastructure Claims (PostgreSQL, Redis, S3) are requested via Backstage Self-Service, Crossplane generates Custom Resource YAMLs in <code>infra/</code> and injects connection secrets into process environment variables (<code>DB_HOST</code>, <code>REDIS_HOST</code>, <code>S3_BUCKET</code>).</p>
+              
+              <h4 style="color:var(--primary); margin-top:16px; margin-bottom:8px;">3. Operational Playbook</h4>
+              <p>• <strong>Health Check:</strong> <code>GET /healthz</code><br/>• <strong>ArgoCD GitOps Sync:</strong> Automatic upon <code>git push main</code><br/>• <strong>Emergency Rollback:</strong> <code>argocd app sync demo-login-app --revision HEAD~1</code></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE 5: SECURITY & COMPLIANCE -->
+        <div id="page-security" class="hidden">
+          <div class="page-header">
+            <h1>Security & Compliance Governance (Soundcheck)</h1>
+            <p>Automated security vulnerability scanning, Kyverno ClusterPolicy enforcement, and SonarQube metrics.</p>
+          </div>
+
+          <div class="grid">
+            <div class="card">
+              <h3>🛡️ Trivy Container & FS Scanner</h3>
+              <p>Scans project dependencies and Dockerfile layers for known CVEs.</p>
+              <div style="background:var(--bg-root); padding:12px; border-radius:8px; margin-top:10px; font-size:12.5px;">
+                <p style="color:var(--success); font-weight:600;">● Critical Vulnerabilities: 0</p>
+                <p style="color:var(--success); font-weight:600; margin-top:4px;">● High Vulnerabilities: 0</p>
+                <p style="color:var(--text-muted); margin-top:4px;">● Low Vulnerabilities: 2 (Non-blocking)</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>⚙️ Kyverno ClusterPolicy Governance</h3>
+              <p>Enforces Kubernetes cluster security policies prior to deployment.</p>
+              <div style="background:var(--bg-root); padding:12px; border-radius:8px; margin-top:10px; font-size:12.5px;">
+                <p style="color:var(--success); font-weight:600;">● disallow-root-user: Pass</p>
+                <p style="color:var(--success); font-weight:600; margin-top:4px;">● require-ro-rootfs: Pass</p>
+                <p style="color:var(--success); font-weight:600; margin-top:4px;">● require-cpu-mem-limits: Pass</p>
+              </div>
+            </div>
+
+            <div class="card">
+              <h3>📊 SonarQube Quality Gate</h3>
+              <p>Code coverage, code smells, and maintainability rating.</p>
+              <div style="background:var(--bg-root); padding:12px; border-radius:8px; margin-top:10px; font-size:12.5px;">
+                <p style="color:var(--success); font-weight:600;">● Quality Gate: PASSED (Grade A)</p>
+                <p style="color:var(--text-muted); margin-top:4px;">● Code Coverage: 88.4%</p>
+                <p style="color:var(--text-muted); margin-top:4px;">● Security Hotspots: 0</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- INFRA CLAIM MODAL -->
+  <div class="modal-overlay" id="modal-infra">
+    <div class="modal-box">
+      <h2 style="margin-bottom:12px;" id="infra-title">Request Infrastructure Claim</h2>
+      <div id="infra-form">
+        <div class="form-group">
+          <label>Select Target Microservice Component</label>
+          <select id="infra-target-project"></select>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+          <button class="btn btn-secondary" onclick="closeModal('modal-infra')">Cancel</button>
+          <button class="btn" onclick="executeInfraClaim()">Submit Resource Claim</button>
+        </div>
+      </div>
+      <div id="infra-result" class="hidden"></div>
+    </div>
+  </div>
+
+  <!-- SINGLE PANE OF GLASS INSPECTOR MODAL -->
+  <div class="modal-overlay" id="modal-entity">
+    <div class="modal-box">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <h2 id="entity-modal-name">Component Inspector (Single Pane of Glass)</h2>
+        <button class="btn btn-secondary" style="padding:4px 8px;" onclick="closeModal('modal-entity')">✕</button>
+      </div>
+
+      <div class="tabs-header">
+        <div class="tab-btn active" onclick="switchInspectorTab('overview', this)">Overview</div>
+        <div class="tab-btn" onclick="switchInspectorTab('cicd', this)">CI/CD & Security</div>
+        <div class="tab-btn" onclick="switchInspectorTab('k8s', this)">Kubernetes Health</div>
+        <div class="tab-btn" onclick="switchInspectorTab('claims', this)">Infrastructure Claims</div>
+      </div>
+
+      <div id="inspector-content"></div>
+    </div>
+  </div>
+
+  <script>
+    let currentInfraType = 'postgres';
+    let currentComponentData = null;
+    let allServicesData = [];
+
+    function showPage(pageId) {
+      ['catalog', 'infra', 'singlepane', 'techdocs', 'security'].forEach(t => {
+        const pageEl = document.getElementById('page-' + t);
+        const navEl = document.getElementById('nav-' + t);
+        if (pageEl) pageEl.classList.add('hidden');
+        if (navEl) navEl.classList.remove('active');
+      });
+
+      const activePage = document.getElementById('page-' + pageId);
+      const activeNav = document.getElementById('nav-' + pageId);
+      if (activePage) activePage.classList.remove('hidden');
+      if (activeNav) activeNav.classList.add('active');
+
+      if (pageId === 'catalog') refreshCatalog();
+      if (pageId === 'singlepane') loadSinglePanePage();
+    }
+
+    function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+    async function refreshCatalog() {
+      try {
+        const res = await fetch('/api/catalog');
+        allServicesData = await res.json();
+        const tbody = document.getElementById('catalog-table');
+
+        if (!allServicesData || allServicesData.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--text-muted);">No services found in workspace.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = allServicesData.map(s => {
+          const claims = [];
+          if (s.claims.postgres) claims.push('<span class="badge badge-claim">🗄️ PostgreSQL</span>');
+          if (s.claims.redis) claims.push('<span class="badge badge-claim">⚡ Redis</span>');
+          if (s.claims.s3) claims.push('<span class="badge badge-claim">📦 S3 Storage</span>');
+          if (s.claims.kafka) claims.push('<span class="badge badge-claim">📨 Kafka</span>');
+          if (s.claims.ssl) claims.push('<span class="badge badge-claim">🔒 TLS Cert</span>');
+          if (s.claims.oauth) claims.push('<span class="badge badge-claim">🔑 Payment OAuth</span>');
+          if (s.claims.grafana) claims.push('<span class="badge badge-claim">📊 Grafana</span>');
+          if (s.claims.slack) claims.push('<span class="badge badge-claim">🔔 Slack Alerts</span>');
+          if (s.claims.domain) claims.push('<span class="badge badge-claim">🌐 Subdomain</span>');
+
+          if (claims.length === 0) claims.push('<span style="color:var(--text-dim); font-size:12px;">No Claims</span>');
+
+          return `
+            <tr>
+              <td><strong>${s.name}</strong><br/><span style="font-size:11px; color:var(--text-dim);">${s.path}</span></td>
+              <td><code>${s.owner}</code></td>
+              <td>shopscale-ecommerce</td>
+              <td><span class="badge badge-prod">${s.lifecycle}</span></td>
+              <td>${claims.join(' ')}</td>
+              <td><span style="color:var(--success); font-weight:600;">● ${s.status.argocd}</span></td>
+              <td>
+                <button class="btn btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="inspectEntity('${s.name}')">Single Pane View 🔍</button>
+              </td>
+            </tr>`;
+        }).join('');
+      } catch(e) {
+        console.error(e);
+      }
+    }
+
+    async function openInfraModal(type) {
+      currentInfraType = type;
+      document.getElementById('infra-form').classList.remove('hidden');
+      document.getElementById('infra-result').classList.add('hidden');
+      document.getElementById('infra-title').innerText = `Request ${type.toUpperCase()} Infrastructure Claim`;
+
+      const sel = document.getElementById('infra-target-project');
+      sel.innerHTML = '';
+
+      const res = await fetch('/api/catalog');
+      const services = await res.json();
+
+      if (!services || services.length === 0) {
+        sel.innerHTML = '<option value="">No services found</option>';
+      } else {
+        services.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.name;
+          opt.innerText = s.name;
+          sel.appendChild(opt);
+        });
+      }
+
+      document.getElementById('modal-infra').classList.add('active');
+    }
+
+    async function executeInfraClaim() {
+      const projectName = document.getElementById('infra-target-project').value;
+
+      document.getElementById('infra-form').classList.add('hidden');
+      const resDiv = document.getElementById('infra-result');
+      resDiv.classList.remove('hidden');
+      resDiv.innerHTML = '<div class="log-box" id="infra-log"></div>';
+
+      const logBox = document.getElementById('infra-log');
+      const steps = [
+        `⏳ Connecting to service repository: /home/amr/${projectName}/...`,
+        `⏳ Writing Crossplane spec: infra/${currentInfraType}-claim.yaml...`,
+        '⏳ Updating catalog-info.yaml dependsOn metadata...',
+        '⏳ Git commit: feat(infra): add claim via Backstage Self-Service...',
+        '⏳ Provisioning cloud infrastructure & updating Kubernetes connection secrets...'
+      ];
+
+      steps.forEach((st, i) => {
+        setTimeout(() => {
+          const div = document.createElement('div');
+          div.className = 'log-step';
+          div.innerText = st;
+          logBox.appendChild(div);
+          setTimeout(() => div.classList.add('visible'), 30);
+        }, i * 400);
+      });
+
+      const res = await fetch('/api/request-infra', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectName, claimType: currentInfraType })
+      });
+      const data = await res.json();
+
+      setTimeout(() => {
+        logBox.innerHTML = '';
+        data.steps.forEach(s => {
+          const div = document.createElement('div');
+          div.className = 'log-step success visible';
+          div.innerText = '✅ ' + s.name;
+          logBox.appendChild(div);
+        });
+
+        resDiv.innerHTML += `
+          <div class="result-box">
+            <h4 style="color:var(--success);">🎉 Crossplane Claim Added to ${projectName}!</h4>
+            <p style="font-size:12px; color:var(--text-muted); margin:6px 0;">YAML Spec generated in repository root:</p>
+            <code>📄 ${projectName}/${data.claimFile}</code>
+            <p style="font-size:12px; color:var(--text-muted); margin-top:10px;">
+              Connection secrets & configuration environment variables are now injected into the service!
+            </p>
+            <div style="margin-top:14px; display:flex; gap:10px;">
+              <a href="${data.appUrl}" target="_blank" class="btn">🌐 Inspect Service (port 4000)</a>
+              <button class="btn btn-secondary" onclick="closeModal('modal-infra'); showPage('catalog');">Done</button>
+            </div>
+          </div>`;
+      }, steps.length * 400 + 500);
+    }
+
+    async function inspectEntity(name) {
+      const res = await fetch('/api/catalog');
+      const services = await res.json();
+      currentComponentData = services.find(x => x.name === name);
+      if (!currentComponentData) return;
+
+      document.getElementById('entity-modal-name').innerText = `Single Pane View: ${currentComponentData.name}`;
+      switchInspectorTab('overview');
+      document.getElementById('modal-entity').classList.add('active');
+    }
+
+    function switchInspectorTab(tab, element) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      if (element) {
+        element.classList.add('active');
+      } else {
+        const firstTab = document.querySelector('.tab-btn');
+        if (firstTab) firstTab.classList.add('active');
+      }
+
+      const c = currentComponentData;
+      if (!c) return;
+      const content = document.getElementById('inspector-content');
+
+      if (tab === 'overview') {
+        content.innerHTML = `
+          <div style="background:var(--bg-root); padding:16px; border-radius:10px; border:1px solid var(--border-color); font-size:13px;">
+            <p style="margin-bottom:8px;"><strong>Kind:</strong> Component</p>
+            <p style="margin-bottom:8px;"><strong>Type:</strong> ${c.type}</p>
+            <p style="margin-bottom:8px;"><strong>Owner Team:</strong> <code>${c.owner}</code></p>
+            <p style="margin-bottom:8px;"><strong>System:</strong> shopscale-ecommerce</p>
+            <p style="margin-bottom:8px;"><strong>Repository Path:</strong> <code>${c.path}</code></p>
+            <p><strong>Backstage Spec:</strong> <code>${c.path}/catalog-info.yaml</code></p>
+          </div>`;
+      } else if (tab === 'cicd') {
+        content.innerHTML = `
+          <div style="background:var(--bg-root); padding:16px; border-radius:10px; border:1px solid var(--border-color); font-size:13px;">
+            <p style="color:var(--success); font-weight:600; margin-bottom:8px;">🛡️ Trivy Security Scanner: ${c.status.security}</p>
+            <p style="color:var(--success); font-weight:600; margin-bottom:8px;">📊 SonarQube Quality Gate: ${c.status.sonarqube}</p>
+            <hr style="border-color:var(--border-color); margin:12px 0;"/>
+            <p style="font-weight:600; margin-bottom:8px;">Recent GitHub Actions Pipeline Runs:</p>
+            <p style="color:var(--text-muted);">Run #142 • Main Branch • <span style="color:var(--success);">Success</span> (38s ago)</p>
+            <p style="color:var(--text-muted);">Run #141 • Main Branch • <span style="color:var(--success);">Success</span> (2h ago)</p>
+          </div>`;
+      } else if (tab === 'k8s') {
+        content.innerHTML = `
+          <div style="background:var(--bg-root); padding:16px; border-radius:10px; border:1px solid var(--border-color); font-size:13px;">
+            <p style="color:var(--success); font-weight:600; margin-bottom:8px;">● Pods Status: ${c.status.pods}</p>
+            <p style="color:var(--success); font-weight:600; margin-bottom:8px;">● ArgoCD GitOps: ${c.status.argocd}</p>
+            <hr style="border-color:var(--border-color); margin:12px 0;"/>
+            <p><strong>CPU Usage:</strong> 42m / 500m (8%)</p>
+            <p style="margin-top:6px;"><strong>Memory Usage:</strong> 112Mi / 512Mi (21%)</p>
+            <p style="margin-top:6px;"><strong>Restarts:</strong> 0 (Stable)</p>
+          </div>`;
+      } else if (tab === 'claims') {
+        const claimsList = [];
+        if (c.claims.postgres) claimsList.push('🗄️ PostgreSQL RDS Instance (infra/postgres-claim.yaml)');
+        if (c.claims.redis) claimsList.push('⚡ Redis ElastiCache Instance (infra/redis-claim.yaml)');
+        if (c.claims.s3) claimsList.push('📦 AWS S3 Bucket Storage (infra/s3-claim.yaml)');
+        if (c.claims.kafka) claimsList.push('📨 Kafka Event Topic (infra/kafka-topic-claim.yaml)');
+        if (c.claims.ssl) claimsList.push('🔒 TLS Certificate (infra/ssl-cert-claim.yaml)');
+        if (c.claims.oauth) claimsList.push('🔑 Payment OAuth Credentials (infra/payment-credentials-claim.yaml)');
+        if (c.claims.grafana) claimsList.push('📊 Grafana Dashboard (infra/grafana-dashboard-claim.yaml)');
+        if (c.claims.slack) claimsList.push('🔔 Slack Webhook Alerts (infra/slack-alerts-claim.yaml)');
+        if (c.claims.domain) claimsList.push('🌐 Custom Subdomain Ingress (infra/subdomain-ingress-claim.yaml)');
+
+        content.innerHTML = `
+          <div style="background:var(--bg-root); padding:16px; border-radius:10px; border:1px solid var(--border-color); font-size:13px;">
+            <p style="font-weight:600; margin-bottom:12px;">Active Crossplane / K8s Infrastructure Claims (${claimsList.length}):</p>
+            ${claimsList.length > 0 
+              ? claimsList.map(item => `<div style="background:var(--bg-card); padding:8px 12px; border-radius:6px; margin-bottom:6px; border:1px solid var(--border-color); color:var(--accent-blue);">${item}</div>`).join('')
+              : '<p style="color:var(--text-dim);">No Infrastructure Claims attached yet. Use the Self-Service portal to request resources!</p>'}
+          </div>`;
+      }
+    }
+
+    async function loadSinglePanePage() {
+      const res = await fetch('/api/catalog');
+      allServicesData = await res.json();
+      const sel = document.getElementById('singlepane-select-service');
+      sel.innerHTML = '';
+
+      if (!allServicesData || allServicesData.length === 0) {
+        sel.innerHTML = '<option value="">No components found</option>';
+        return;
+      }
+
+      allServicesData.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.name;
+        opt.innerText = s.name;
+        sel.appendChild(opt);
+      });
+
+      renderSinglePaneDashboard(allServicesData[0].name);
+    }
+
+    function renderSinglePaneDashboard(name) {
+      const c = allServicesData.find(x => x.name === name);
+      if (!c) return;
+
+      const claimsList = [];
+      if (c.claims.postgres) claimsList.push('🗄️ PostgreSQL RDS Instance');
+      if (c.claims.redis) claimsList.push('⚡ Redis ElastiCache Instance');
+      if (c.claims.s3) claimsList.push('📦 AWS S3 Bucket Storage');
+      if (c.claims.kafka) claimsList.push('📨 Kafka Event Topic');
+      if (c.claims.ssl) claimsList.push('🔒 TLS Certificate');
+      if (c.claims.oauth) claimsList.push('🔑 Payment OAuth Credentials');
+      if (c.claims.grafana) claimsList.push('📊 Grafana Dashboard');
+      if (c.claims.slack) claimsList.push('🔔 Slack Webhook Alerts');
+      if (c.claims.domain) claimsList.push('🌐 Custom Subdomain Ingress');
+
+      const grid = document.getElementById('singlepane-grid');
+      grid.innerHTML = `
+        <div class="card">
+          <h3>📁 Overview & Metadata</h3>
+          <p><strong>Kind/Type:</strong> Component / ${c.type}<br/>
+             <strong>Owner Team:</strong> ${c.owner}<br/>
+             <strong>System:</strong> shopscale-ecommerce<br/>
+             <strong>Path:</strong> <code>${c.path}</code></p>
+        </div>
+
+        <div class="card">
+          <h3>🛡️ Security & Quality Gate</h3>
+          <p><span style="color:var(--success); font-weight:600;">● Trivy Scan:</span> ${c.status.security}<br/>
+             <span style="color:var(--success); font-weight:600;">● SonarQube:</span> ${c.status.sonarqube}<br/>
+             <strong>Pipeline:</strong> GitHub Actions Run #142 Success</p>
+        </div>
+
+        <div class="card">
+          <h3>☸️ K8s & GitOps Status</h3>
+          <p><span style="color:var(--success); font-weight:600;">● Pods:</span> ${c.status.pods}<br/>
+             <span style="color:var(--success); font-weight:600;">● ArgoCD Sync:</span> ${c.status.argocd}<br/>
+             <strong>Metrics:</strong> CPU 8% | Memory 21%</p>
+        </div>
+
+        <div class="card">
+          <h3>🗄️ Active Claims (${claimsList.length})</h3>
+          <div style="font-size:12.5px; color:var(--accent-blue); line-height:1.6;">
+            ${claimsList.length > 0 ? claimsList.map(item => `<div>• ${item}</div>`).join('') : '<span style="color:var(--text-dim);">No Active Claims</span>'}
+          </div>
+        </div>
+      `;
+    }
+
+    refreshCatalog();
+  </script>
+</body>
+</html>
