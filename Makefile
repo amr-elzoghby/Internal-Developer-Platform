@@ -80,16 +80,31 @@ argocd-up:
 	kubectl apply -f platform/argocd/projects/
 	kubectl apply -f platform/argocd/applicationsets/
 
+# Configure Prometheus, Grafana, and Kubecost Monitoring & FinOps
+monitoring-up:
+	@echo "$(GREEN)Installing Prometheus, Grafana, and Kubecost...$(NC)"
+	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update || true
+	helm repo add kubecost https://kubecost.github.io/cost-analyzer/ --force-update || true
+	helm repo update
+	kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
+	helm upgrade --install prometheus prometheus-community/kube-prometheus-stack -n monitoring -f platform/monitoring/prometheus/values.yaml
+	helm upgrade --install kubecost kubecost/cost-analyzer -n monitoring -f platform/monitoring/kubecost/values.yaml
+
+# Launch Backstage Developer Portal
+portal-up:
+	@echo "$(GREEN)Launching Backstage Developer Portal on http://localhost:3000...$(NC)"
+	node platform/backstage-portal/server.js
+
 # Clean up namespaces and Helm releases from the cluster
 cluster-down:
 	@for team in team-alpha team-beta team-gamma; do \
 		helm uninstall $$team --namespace $$team || true; \
 	done
-	kubectl delete namespace team-alpha team-beta team-gamma argocd --ignore-not-found
+	kubectl delete namespace team-alpha team-beta team-gamma argocd monitoring --ignore-not-found
 	kubectl delete -f platform/karpenter/ --ignore-not-found
 
 # Full environment bootstrap
-up: infra-up cluster-up
+up: infra-up cluster-up monitoring-up
 
 # Full environment teardown
 down: cluster-down infra-down
@@ -104,3 +119,4 @@ status:
 validate:
 	cd $(TF_DIR)/network && terraform init -backend=false && terraform validate
 	cd $(TF_DIR)/eks && terraform init -backend=false && terraform validate
+
