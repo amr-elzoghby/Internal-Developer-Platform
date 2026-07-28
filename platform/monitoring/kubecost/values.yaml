@@ -1,0 +1,19 @@
+# Kubecost Cost Allocation & FinOps Configuration
+kubecostToken: "c2hvcHNjYWxlLWlkcC1maW5vcHMtdG9rZW4="
+
+global:
+  prometheus:
+    enabled: false
+    fqdn: http://prometheus-k8s.monitoring.svc.cluster.local:9090
+
+kubecostProductConfigs:
+  clusterName: shopscale-eks-production
+  currencyCode: USD
+  labelMappingConfigs:
+    namespaceExternalizer: "team"
+    clusterExternalizer: "cluster"
+
+costAnalyzer:
+  serviceAccount:
+    create: true
+    name: kubecost-cost-analyzer
