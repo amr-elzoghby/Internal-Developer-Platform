@@ -12,6 +12,8 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  up                  Deploy all AWS infra and K8s platform configs"
+	@echo "  portal-up           Launch Backstage Developer Portal on http://localhost:3000"
+	@echo "  monitoring-up       Deploy Prometheus, Grafana, and Kubecost FinOps stack"
 	@echo "  down                Destroy all AWS and K8s platform resources"
 	@echo "  status              Show cluster nodes and autoscaling status"
 	@echo "  validate            Validate Terraform configurations"
