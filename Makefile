@@ -1,4 +1,4 @@
-.PHONY: help infra-up infra-down kubeconfig cluster-up crossplane-config cluster-down up down status validate
+.PHONY: help infra-up infra-down kubeconfig cluster-up crossplane-config argocd-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m

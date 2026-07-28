@@ -219,6 +219,8 @@ The platform has **three layers**:
 │   └── images/
 ├── Makefile
 └── README.md
+```
+
 ---
 
 ## 🚀 Quick Start & Operational Commands
