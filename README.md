@@ -201,7 +201,10 @@ The platform has **three layers**:
 │       │   ├── slack.json              # Slack Alerts Claim Parameters (channel, webhookUrl, events)
 │       │   └── domain.json             # Custom Subdomain Claim Parameters (subdomainHost, pathPrefix)
 │       ├── public/                     # Enterprise Material 3 Backstage Portal UI
-│       ├── server.js                   # Enterprise Portal Server with dynamic claims loader & GitOps sync
+│       ├── services/
+│       │   ├── claimGenerator.js       # Manifest generator engine for 9 platform claims
+│       │   └── catalogService.js       # Catalog discovery and async GitOps automation
+│       ├── server.js                   # Enterprise Portal HTTP Router & Controller
 │       ├── templates/                  # Software templates (golden paths)
 │       └── Dockerfile
 ├── tenants/
