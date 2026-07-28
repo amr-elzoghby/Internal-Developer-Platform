@@ -219,7 +219,19 @@ The platform has **three layers**:
 │   └── images/
 ├── Makefile
 └── README.md
-```
+---
+
+## 🚀 Quick Start & Operational Commands
+
+Execute platform deployment, observability, and portal management via simple `make` recipes:
+
+| Command | Action |
+|:--|:--|
+| `make up` | Full environment bootstrap (AWS Infra + K8s Platform + Monitoring) |
+| `make portal-up` | Launch Backstage Developer Portal on `http://localhost:3000` |
+| `make monitoring-up` | Deploy Prometheus, Grafana, and Kubecost FinOps stack |
+| `make status` | View cluster status, EKS nodes, and Karpenter NodePools |
+| `make down` | Teardown Kubernetes cluster resources & AWS infrastructure |
 
 ---
 
