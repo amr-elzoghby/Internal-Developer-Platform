@@ -315,13 +315,13 @@ The platform has **three layers**:
 | <img src="docs/images/Screenshot%202026-07-27%20193755.png" width="100%"> | <img src="docs/images/Screenshot%202026-07-27%20193806.png" width="100%"> | <img src="docs/images/Screenshot%202026-07-27%20193850.png" width="100%"> |
 
 
-### Phase 7 — Monitoring, Cost & Documentation
+### Phase 7 — Monitoring, Cost & Documentation ✅
 > Observability, cost tracking, and project documentation.
 
-- [ ] Prometheus + Grafana dashboards
-- [ ] Kubecost for per-team cost visibility
-- [ ] Architecture diagram + onboarding docs
-- [ ] Full README with deploy instructions
+- [x] Prometheus + Grafana dashboards (`platform/monitoring/prometheus/values.yaml` & `platform-overview.json`)
+- [x] Kubecost for per-team cost visibility & FinOps (`platform/monitoring/kubecost/values.yaml`)
+- [x] Architecture diagram + onboarding docs
+- [x] Full README with deploy instructions & enterprise developer portal integration
 
 ---
 
