@@ -15,11 +15,26 @@ function serveFile(res, filePath, contentType) {
   });
 }
 
-function parseBody(req) {
-  return new Promise((resolve) => {
+function parseBody(req, maxSize = 1048576) {
+  return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', chunk => body += chunk);
-    req.on('end', () => resolve(JSON.parse(body || '{}')));
+    let size = 0;
+    req.on('data', chunk => {
+      size += chunk.length;
+      if (size > maxSize) {
+        req.destroy();
+        return reject(new Error('Request body too large'));
+      }
+      body += chunk;
+    });
+    req.on('end', () => {
+      try {
+        resolve(JSON.parse(body || '{}'));
+      } catch (e) {
+        reject(new Error('Invalid JSON in request body'));
+      }
+    });
+    req.on('error', (err) => reject(err));
   });
 }
 
@@ -73,7 +88,13 @@ const server = http.createServer(async (req, res) => {
 
   // ── API 3: Request Infrastructure Claim ────────────────────
   if (req.method === 'POST' && req.url === '/api/request-infra') {
-    const params = await parseBody(req);
+    let params;
+    try {
+      params = await parseBody(req);
+    } catch (parseErr) {
+      res.writeHead(400, Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' }));
+      return res.end(JSON.stringify({ error: parseErr.message }));
+    }
     const { projectName, claimType, customClaimName } = params;
 
     if (!projectName || !claimType) {
