@@ -17,11 +17,7 @@ resource "aws_iam_role" "github_actions" {
         Condition = {
           StringLike = {
             "token.actions.githubusercontent.com:sub" = [
-              "repo:amr-elzoghby/*:*",
-              "repo:Amr-Elzoghby/*:*",
-              "repo:amr-Elzoghby/*:*",
-              "repo:AMR-ELZOGHBY/*:*",
-              "repo:*:*"
+              "repo:amr-elzoghby/*:*"
             ]
           }
           StringEquals = {
