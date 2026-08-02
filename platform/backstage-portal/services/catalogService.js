@@ -1,15 +1,20 @@
 const fs = require('fs');
 const path = require('path');
-const { exec, spawn } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const { generateClaimYaml } = require('./claimGenerator');
 
 let runningAppProcess = null;
 
-function execPromise(command) {
+// Sanitize user input to prevent path traversal and injection
+function sanitizeInput(input) {
+  return input.replace(/[^a-zA-Z0-9_\-\.]/g, '-');
+}
+
+function execFilePromise(command, args, options = {}) {
   return new Promise((resolve) => {
-    exec(command, (error, stdout, stderr) => {
+    execFile(command, args, options, (error, stdout, stderr) => {
       if (error) {
-        console.warn(`[Git Warn] Command failed: ${command}`, stderr || error.message);
+        console.warn(`[Git Warn] Command failed: ${command} ${args.join(' ')}`, stderr || error.message);
         resolve({ success: false, error: stderr || error.message });
       } else {
         resolve({ success: true, stdout });
@@ -99,31 +104,36 @@ function listServices(projectsDir) {
 }
 
 async function applyClaimToCatalog(projectName, claimType, customClaimName, params, projectsDir) {
-  const projectDir = path.join(projectsDir, projectName);
+  const safeProjectName = sanitizeInput(projectName);
+  const safeClaimType = sanitizeInput(claimType);
+  const safeCustomClaimName = customClaimName ? sanitizeInput(customClaimName) : null;
+
+  const projectDir = path.join(projectsDir, safeProjectName);
   if (!fs.existsSync(projectDir)) {
-    throw new Error(`Service "${projectName}" not found`);
+    throw new Error(`Service "${safeProjectName}" not found`);
   }
 
   const infraDir = path.join(projectDir, 'infra');
   fs.mkdirSync(infraDir, { recursive: true });
 
-  const claimSpec = generateClaimYaml(projectName, claimType, params);
+  const claimSpec = generateClaimYaml(safeProjectName, safeClaimType, params);
   fs.writeFileSync(path.join(projectDir, claimSpec.file), claimSpec.content);
 
   // Update catalog-info.yaml metadata
   const catalogPath = path.join(projectDir, 'catalog-info.yaml');
   if (fs.existsSync(catalogPath)) {
     let catText = fs.readFileSync(catalogPath, 'utf8');
-    const claimIdName = customClaimName || claimType;
+    const claimIdName = safeCustomClaimName || safeClaimType;
     if (!catText.includes(claimIdName)) {
-      catText = catText.replace('dependsOn:', `dependsOn:\n    - resource:${projectName}-${claimIdName}-claim`);
+      catText = catText.replace('dependsOn:', `dependsOn:\n    - resource:${safeProjectName}-${claimIdName}-claim`);
       fs.writeFileSync(catalogPath, catText);
     }
   }
 
-  // Robust Git Commit in project repo using async Promise execution
-  const commitMsg = `feat(infra): add ${customClaimName || claimType} claim (${claimSpec.file}) via Backstage`;
-  await execPromise(`cd "${projectDir}" && git add . && git commit -m "${commitMsg}"`);
+  // Safe Git Commit using execFile (no shell interpolation)
+  const commitMsg = `feat(infra): add ${safeCustomClaimName || safeClaimType} claim (${claimSpec.file}) via Backstage`;
+  await execFilePromise('git', ['add', '.'], { cwd: projectDir });
+  await execFilePromise('git', ['commit', '-m', commitMsg], { cwd: projectDir });
 
   // Launch / Restart Service on port 4000
   if (projectName === 'Demo-login-app-IDB' || fs.existsSync(path.join(projectDir, 'server.js'))) {
@@ -155,5 +165,5 @@ module.exports = {
   loadClaimSpecs,
   listServices,
   applyClaimToCatalog,
-  execPromise
+  execFilePromise
 };
