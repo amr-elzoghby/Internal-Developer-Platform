@@ -25,11 +25,16 @@ function parseBody(req) {
 
 const server = http.createServer(async (req, res) => {
   // Enterprise Security & CORS Headers
+  const allowedOrigins = ['http://localhost:3000', 'http://localhost:4000'];
+  const requestOrigin = req.headers.origin;
+  const corsOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0];
   const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': corsOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'X-Content-Type-Options': 'nosniff'
+    'X-Content-Type-Options': 'nosniff',
+    'X-Frame-Options': 'DENY',
+    'X-XSS-Protection': '1; mode=block'
   };
 
   if (req.method === 'OPTIONS') {
