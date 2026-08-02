@@ -11,7 +11,7 @@ spec:
     - namespace: team-alpha-*
       server: https://kubernetes.default.svc
   sourceRepos:
-    - '*'
+    - 'https://github.com/amr-elzoghby/*'
   namespaceResourceWhitelist:
     - group: '*'
       kind: '*'
@@ -31,7 +31,7 @@ spec:
     - namespace: team-beta-*
       server: https://kubernetes.default.svc
   sourceRepos:
-    - '*'
+    - 'https://github.com/amr-elzoghby/*'
   namespaceResourceWhitelist:
     - group: '*'
       kind: '*'
@@ -51,7 +51,7 @@ spec:
     - namespace: team-gamma-*
       server: https://kubernetes.default.svc
   sourceRepos:
-    - '*'
+    - 'https://github.com/amr-elzoghby/*'
   namespaceResourceWhitelist:
     - group: '*'
       kind: '*'
@@ -73,7 +73,7 @@ spec:
     - namespace: '*'
       server: https://kubernetes.default.svc
   sourceRepos:
-    - '*'
+    - 'https://github.com/amr-elzoghby/*'
   namespaceResourceWhitelist:
     - group: '*'
       kind: '*'
