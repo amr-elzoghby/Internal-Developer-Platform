@@ -3,8 +3,6 @@ global:
     level: info
 
 server:
-  extraArgs:
-    - --insecure
   service:
     type: ClusterIP
   metrics:
@@ -13,12 +11,17 @@ server:
     enabled: true
     ingressClassName: nginx
     annotations:
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
+      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
       nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     hosts:
       - argocd.idp-prod.local
     paths:
       - /
+    tls:
+      - secretName: argocd-server-tls
+        hosts:
+          - argocd.idp-prod.local
 
 controller:
   resources:
@@ -53,5 +56,3 @@ configs:
     policy.default: role:readonly
     policy.csv: |
       g, platform-admin, role:admin
-  params:
-    server.insecure: "true"
