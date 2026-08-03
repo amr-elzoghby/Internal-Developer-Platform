@@ -57,6 +57,34 @@ const server = http.createServer(async (req, res) => {
     return res.end();
   }
 
+  // ── API: Team Authentication (server-side validation) ───────
+  if (req.method === 'POST' && req.url === '/api/auth/login') {
+    let params;
+    try {
+      params = await parseBody(req);
+    } catch (parseErr) {
+      res.writeHead(400, Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' }));
+      return res.end(JSON.stringify({ error: parseErr.message }));
+    }
+    const { team, passcode } = params;
+    const teamPasscodes = {
+      'team-alpha': 'alpha2026',
+      'team-beta': 'beta2026',
+      'team-gamma': 'gamma2026'
+    };
+    const teamProfiles = {
+      'team-alpha': { name: 'Amr Elzoghby', role: 'team-alpha • Owner', avatar: 'AE' },
+      'team-beta': { name: 'John Doe', role: 'team-beta • Platform Eng', avatar: 'JD' },
+      'team-gamma': { name: 'Sarah Smith', role: 'team-gamma • Developer', avatar: 'SS' }
+    };
+    if (!team || !passcode || teamPasscodes[team] !== passcode) {
+      res.writeHead(401, Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' }));
+      return res.end(JSON.stringify({ error: 'Invalid team or passcode.' }));
+    }
+    res.writeHead(200, Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' }));
+    return res.end(JSON.stringify({ success: true, team, ...teamProfiles[team] }));
+  }
+
   // ── API 0: Kubernetes Health Probes (Liveness & Readiness) ───
   if (req.method === 'GET' && (req.url === '/api/healthz' || req.url === '/api/readyz')) {
     res.writeHead(200, Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' }));

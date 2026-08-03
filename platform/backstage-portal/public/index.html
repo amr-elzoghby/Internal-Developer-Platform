@@ -359,7 +359,7 @@
 
       <div class="form-group">
         <label>Team Access Token / Passcode</label>
-        <input type="password" id="login-passcode" placeholder="Enter team passcode (e.g. alpha2026, beta2026, gamma2026)" />
+        <input type="password" id="login-passcode" placeholder="Enter team access passcode" />
       </div>
 
       <div class="error-banner" id="login-error-banner"></div>
@@ -419,18 +419,17 @@
     let currentInfraType = 'postgres';
     let currentComponentData = null;
     let allServicesData = [];
-    let activeUserSession = {
+    let activeUserSession = JSON.parse(localStorage.getItem('idp-session')) || {
       team: 'team-alpha',
       name: 'Amr Elzoghby',
       role: 'team-alpha • Owner',
       avatar: 'AE'
     };
 
-    const teamPasscodes = {
-      'team-alpha': 'alpha2026',
-      'team-beta': 'beta2026',
-      'team-gamma': 'gamma2026'
-    };
+    // Restore session on load
+    document.getElementById('user-avatar').innerText = activeUserSession.avatar;
+    document.getElementById('user-name').innerText = activeUserSession.name;
+    document.getElementById('user-role-badge').innerText = activeUserSession.role;
 
     const claimDefaultNames = {
       'postgres': 'users-db',
@@ -469,32 +468,39 @@
       document.getElementById('modal-login').classList.add('active');
     }
 
-    function executeTeamLogin() {
+    async function executeTeamLogin() {
       const team = document.getElementById('login-team-select').value;
       const passcode = document.getElementById('login-passcode').value.trim();
       const errorBanner = document.getElementById('login-error-banner');
 
-      if (passcode !== teamPasscodes[team]) {
-        errorBanner.innerText = `❌ Access Denied: Invalid passcode for ${team}! (Try ${teamPasscodes[team]})`;
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ team, passcode })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          errorBanner.innerText = `❌ Access Denied: ${data.error}`;
+          errorBanner.style.display = 'block';
+          return;
+        }
+
+        errorBanner.style.display = 'none';
+        activeUserSession = { team: data.team, name: data.name, role: data.role, avatar: data.avatar };
+        localStorage.setItem('idp-session', JSON.stringify(activeUserSession));
+
+        document.getElementById('user-avatar').innerText = activeUserSession.avatar;
+        document.getElementById('user-name').innerText = activeUserSession.name;
+        document.getElementById('user-role-badge').innerText = activeUserSession.role;
+
+        closeModal('modal-login');
+        refreshCatalog();
+      } catch (err) {
+        errorBanner.innerText = '❌ Connection error. Please try again.';
         errorBanner.style.display = 'block';
-        return;
       }
-
-      errorBanner.style.display = 'none';
-      if (team === 'team-alpha') {
-        activeUserSession = { team: 'team-alpha', name: 'Amr Elzoghby', role: 'team-alpha • Owner', avatar: 'AE' };
-      } else if (team === 'team-beta') {
-        activeUserSession = { team: 'team-beta', name: 'John Doe', role: 'team-beta • Platform Eng', avatar: 'JD' };
-      } else if (team === 'team-gamma') {
-        activeUserSession = { team: 'team-gamma', name: 'Sarah Smith', role: 'team-gamma • Developer', avatar: 'SS' };
-      }
-
-      document.getElementById('user-avatar').innerText = activeUserSession.avatar;
-      document.getElementById('user-name').innerText = activeUserSession.name;
-      document.getElementById('user-role-badge').innerText = activeUserSession.role;
-
-      closeModal('modal-login');
-      refreshCatalog();
     }
 
     async function refreshCatalog() {
