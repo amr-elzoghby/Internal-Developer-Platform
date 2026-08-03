@@ -1,0 +1,10 @@
+apiVersion: idp.io/v1alpha1
+kind: PostgresSQLInstance
+metadata:
+  name: ${{ values.resource_name }}
+  namespace: ${{ values.owner }}
+spec:
+  storageGB: 20
+  size: ${{ values.size }}
+  writeConnectionSecretToRef:
+    name: ${{ values.resource_name }}-conn
