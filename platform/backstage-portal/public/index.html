@@ -302,19 +302,14 @@
             <p>Docs-like-code specs automatically extracted from <code>catalog-info.yaml</code> in your repository.</p>
           </div>
 
-          <div class="card" style="max-width:900px;">
-            <h3>📚 Demo-login-app-IDB — Architecture & Runbook</h3>
-            <p style="color:var(--text-dim); margin-bottom:16px;">Source: <code>/home/amr/Demo-login-app-IDB/catalog-info.yaml</code></p>
-            <div style="background:var(--bg-root); padding:20px; border-radius:8px; border:1px solid var(--border-color); font-size:13.5px; line-height:1.7;">
-              <h4 style="color:var(--primary); margin-bottom:8px;">1. Service Overview</h4>
-              <p>The <strong>Demo-login-app-IDB</strong> microservice manages authentication, session handling, and credential verification for the ShopScale platform.</p>
-              
-              <h4 style="color:var(--primary); margin-top:16px; margin-bottom:8px;">2. Active Infrastructure & Environment Binding</h4>
-              <p>When Infrastructure Claims (PostgreSQL, Redis, S3) are requested via Backstage Self-Service, Crossplane generates Custom Resource YAMLs in <code>infra/</code> and injects connection secrets into process environment variables (<code>DB_HOST</code>, <code>REDIS_HOST</code>, <code>S3_BUCKET</code>).</p>
-              
-              <h4 style="color:var(--primary); margin-top:16px; margin-bottom:8px;">3. Operational Playbook</h4>
-              <p>• <strong>Health Check:</strong> <code>GET /healthz</code><br/>• <strong>ArgoCD GitOps Sync:</strong> Automatic upon <code>git push main</code><br/>• <strong>Emergency Rollback:</strong> <code>argocd app sync demo-login-app --revision HEAD~1</code></p>
-            </div>
+          <div style="margin-bottom:20px; display:flex; gap:12px; align-items:center;">
+            <label style="font-weight:600; font-size:13px;">Select Microservice Component:</label>
+            <select id="techdocs-select-service" style="background:var(--bg-card); color:#fff; border:1px solid var(--border-color); padding:8px 14px; border-radius:6px; font-size:13px;" onchange="renderTechDocs(this.value)">
+            </select>
+          </div>
+
+          <div class="card" style="max-width:900px;" id="techdocs-container">
+            <p style="color:var(--text-muted);">Loading documentation...</p>
           </div>
         </div>
 
@@ -478,6 +473,7 @@
 
       if (pageId === 'catalog') refreshCatalog();
       if (pageId === 'singlepane') loadSinglePanePage();
+      if (pageId === 'techdocs') loadTechDocsPage();
     }
 
     function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -751,6 +747,60 @@
         sel.innerHTML = '<option value="">⚠️ Failed to load services</option>';
         document.getElementById('singlepane-grid').innerHTML = '<div class="card"><h3>⚠️ Connection Error</h3><p>Could not connect to the API server.</p></div>';
       }
+    }
+
+    async function loadTechDocsPage() {
+      const sel = document.getElementById('techdocs-select-service');
+      sel.innerHTML = '';
+
+      try {
+        const res = await fetch('/api/catalog');
+        allServicesData = await res.json();
+
+        if (!allServicesData || allServicesData.length === 0) {
+          sel.innerHTML = '<option value="">No components found</option>';
+          return;
+        }
+
+        allServicesData.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.name;
+          opt.innerText = s.name;
+          sel.appendChild(opt);
+        });
+
+        renderTechDocs(allServicesData[0].name);
+      } catch (e) {
+        sel.innerHTML = '<option value="">⚠️ Failed to load services</option>';
+        document.getElementById('techdocs-container').innerHTML = '<h3>⚠️ Connection Error</h3><p>Could not connect to the API server.</p>';
+      }
+    }
+
+    function renderTechDocs(name) {
+      const c = allServicesData.find(x => x.name === name);
+      if (!c) return;
+
+      const claimsList = c.infraFiles || [];
+      const claimsText = claimsList.length > 0
+        ? claimsList.map(item => `<code>infra/${item}</code>`).join(', ')
+        : 'No active claims';
+
+      document.getElementById('techdocs-container').innerHTML = `
+        <h3>📚 ${c.name} — Architecture & Runbook</h3>
+        <p style="color:var(--text-dim); margin-bottom:16px;">Source: <code>${c.path}/catalog-info.yaml</code> (Owner: <code>${c.owner}</code>)</p>
+        <div style="background:var(--bg-root); padding:20px; border-radius:8px; border:1px solid var(--border-color); font-size:13.5px; line-height:1.7;">
+          <h4 style="color:var(--primary); margin-bottom:8px;">1. Service Overview</h4>
+          <p>The <strong>${c.name}</strong> component is a <code>${c.type}</code> microservice owned by <code>${c.owner}</code> running in <code>${c.lifecycle}</code> lifecycle.</p>
+          
+          <h4 style="color:var(--primary); margin-top:16px; margin-bottom:8px;">2. Active Infrastructure & Environment Binding</h4>
+          <p>Active Infrastructure Claims: ${claimsText}. When Claims are requested via Backstage Self-Service, Crossplane generates Custom Resources in <code>infra/</code> and injects connection secrets into K8s Pod environment variables.</p>
+          
+          <h4 style="color:var(--primary); margin-top:16px; margin-bottom:8px;">3. Operational Playbook</h4>
+          <p>• <strong>Health Check:</strong> <code>GET /healthz</code><br/>
+             • <strong>ArgoCD GitOps Sync:</strong> Automatic upon <code>git push main</code><br/>
+             • <strong>Emergency Rollback:</strong> <code>argocd app sync ${c.name.toLowerCase()} --revision HEAD~1</code></p>
+        </div>
+      `;
     }
 
     function renderSinglePaneDashboard(name) {
