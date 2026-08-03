@@ -66,7 +66,7 @@ spec:
                   "apiVersion": "ec2.aws.upbound.io/v1beta1",
                   "kind": "SecurityGroup",
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "deletionPolicy": "Delete",
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "EC2 Server Security Group",
@@ -80,7 +80,7 @@ spec:
                   "apiVersion": "ec2.aws.upbound.io/v1beta1",
                   "kind": "SecurityGroupRule",
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "deletionPolicy": "Delete",
                       "forProvider": {
                           "region": "us-east-1",
                           "securityGroupIdSelector": {
@@ -100,7 +100,7 @@ spec:
                   "apiVersion": "ec2.aws.upbound.io/v1beta1",
                   "kind": "Instance",
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "deletionPolicy": "Delete",
                       "forProvider": {
                           "region": "us-east-1",
                           "ami": ami,

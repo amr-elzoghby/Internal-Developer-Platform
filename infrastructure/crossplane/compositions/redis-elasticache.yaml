@@ -61,7 +61,7 @@ spec:
                   "apiVersion": "ec2.aws.upbound.io/v1beta1",
                   "kind": "SecurityGroup",
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "deletionPolicy": "Delete",
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "Redis Security Group",
@@ -75,7 +75,7 @@ spec:
                   "apiVersion": "ec2.aws.upbound.io/v1beta1",
                   "kind": "SecurityGroupRule",
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "deletionPolicy": "Delete",
                       "forProvider": {
                           "region": "us-east-1",
                           "securityGroupIdSelector": {
@@ -95,7 +95,7 @@ spec:
                   "apiVersion": "elasticache.aws.upbound.io/v1beta1",
                   "kind": "SubnetGroup",
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "deletionPolicy": "Delete",
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "Redis Subnet Group",
@@ -112,7 +112,7 @@ spec:
                   "apiVersion": "elasticache.aws.upbound.io/v1beta1",
                   "kind": "ReplicationGroup",
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "deletionPolicy": "Delete",
                       "forProvider": {
                           "region": "us-east-1",
                           "replicationGroupDescription": "ElastiCache Redis cluster",
