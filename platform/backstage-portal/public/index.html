@@ -563,6 +563,8 @@
         }).join('');
       } catch(e) {
         console.error(e);
+        const tbody = document.getElementById('catalog-table');
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:var(--danger);">⚠️ Failed to load services. Server may be offline.</td></tr>`;
       }
     }
 
@@ -576,18 +578,22 @@
       const sel = document.getElementById('infra-target-project');
       sel.innerHTML = '';
 
-      const res = await fetch('/api/catalog');
-      const services = await res.json();
+      try {
+        const res = await fetch('/api/catalog');
+        const services = await res.json();
 
-      if (!services || services.length === 0) {
-        sel.innerHTML = '<option value="">No services found</option>';
-      } else {
-        services.forEach(s => {
-          const opt = document.createElement('option');
-          opt.value = s.name;
-          opt.innerText = s.name;
-          sel.appendChild(opt);
-        });
+        if (!services || services.length === 0) {
+          sel.innerHTML = '<option value="">No services found</option>';
+        } else {
+          services.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = s.name;
+            opt.innerText = s.name;
+            sel.appendChild(opt);
+          });
+        }
+      } catch (e) {
+        sel.innerHTML = '<option value="">⚠️ Failed to load services</option>';
       }
 
       document.getElementById('modal-infra').classList.add('active');
@@ -721,24 +727,30 @@
     }
 
     async function loadSinglePanePage() {
-      const res = await fetch('/api/catalog');
-      allServicesData = await res.json();
       const sel = document.getElementById('singlepane-select-service');
       sel.innerHTML = '';
 
-      if (!allServicesData || allServicesData.length === 0) {
-        sel.innerHTML = '<option value="">No components found</option>';
-        return;
+      try {
+        const res = await fetch('/api/catalog');
+        allServicesData = await res.json();
+
+        if (!allServicesData || allServicesData.length === 0) {
+          sel.innerHTML = '<option value="">No components found</option>';
+          return;
+        }
+
+        allServicesData.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s.name;
+          opt.innerText = s.name;
+          sel.appendChild(opt);
+        });
+
+        renderSinglePaneDashboard(allServicesData[0].name);
+      } catch (e) {
+        sel.innerHTML = '<option value="">⚠️ Failed to load services</option>';
+        document.getElementById('singlepane-grid').innerHTML = '<div class="card"><h3>⚠️ Connection Error</h3><p>Could not connect to the API server.</p></div>';
       }
-
-      allServicesData.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.name;
-        opt.innerText = s.name;
-        sel.appendChild(opt);
-      });
-
-      renderSinglePaneDashboard(allServicesData[0].name);
     }
 
     function renderSinglePaneDashboard(name) {
