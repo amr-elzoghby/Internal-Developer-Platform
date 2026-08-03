@@ -159,7 +159,7 @@
     <header class="top-navbar">
       <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input type="text" class="search-input" placeholder="Search registered services or claims..." />
+        <input type="text" class="search-input" id="global-search" placeholder="Search registered services or claims..." oninput="handleSearch(this.value)" />
       </div>
 
       <!-- TEAM AUTHENTICATION CONTAINER -->
@@ -777,6 +777,22 @@
           </div>
         </div>
       `;
+    }
+
+    function handleSearch(query) {
+      const q = query.toLowerCase().trim();
+      const rows = document.querySelectorAll('#catalog-table tr');
+      rows.forEach(row => {
+        if (!q) { row.style.display = ''; return; }
+        const text = row.textContent.toLowerCase();
+        row.style.display = text.includes(q) ? '' : 'none';
+      });
+      const cards = document.querySelectorAll('#page-infra .card');
+      cards.forEach(card => {
+        if (!q) { card.style.display = ''; return; }
+        const text = card.textContent.toLowerCase();
+        card.style.display = text.includes(q) ? '' : 'none';
+      });
     }
 
     refreshCatalog();
