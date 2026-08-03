@@ -10,3 +10,4 @@ allowVolumeExpansion: true
 parameters:
   type: gp3
   encrypted: "true"
+  fsType: ext4
