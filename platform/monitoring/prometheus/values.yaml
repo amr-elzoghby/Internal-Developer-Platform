@@ -1,4 +1,3 @@
-# Prometheus Helm Configuration (kube-prometheus-stack)
 prometheus:
   prometheusSpec:
     retention: 15d
@@ -23,3 +22,60 @@ alertmanager:
           resources:
             requests:
               storage: 10Gi
+
+additionalPrometheusRulesMap:
+  platform-alerts:
+    groups:
+      - name: pod-health
+        rules:
+          - alert: PodCrashLoopBackOff
+            expr: rate(kube_pod_container_status_restarts_total[5m]) > 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
+
+          - alert: PodNotReady
+            expr: kube_pod_status_ready{condition="true"} == 0
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} not ready for 10m"
+
+      - name: node-health
+        rules:
+          - alert: NodeNotReady
+            expr: kube_node_status_condition{condition="Ready",status="true"} == 0
+            for: 5m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Node {{ $labels.node }} is NotReady"
+
+          - alert: NodeHighCPU
+            expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Node {{ $labels.instance }} CPU above 85% for 10m"
+
+          - alert: NodeHighMemory
+            expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 85
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Node {{ $labels.instance }} memory above 85% for 10m"
+
+      - name: deployment-health
+        rules:
+          - alert: DeploymentReplicasMismatch
+            expr: kube_deployment_spec_replicas != kube_deployment_status_ready_replicas
+            for: 10m
+            labels:
+              severity: warning
+            annotations:
+              summary: "Deployment {{ $labels.namespace }}/{{ $labels.deployment }} replicas mismatch"
