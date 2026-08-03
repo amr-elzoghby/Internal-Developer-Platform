@@ -697,8 +697,8 @@
             <p style="color:var(--success); font-weight:600; margin-bottom:8px;">📊 SonarQube Quality Gate: ${c.status.sonarqube}</p>
             <hr style="border-color:var(--border-color); margin:12px 0;"/>
             <p style="font-weight:600; margin-bottom:8px;">Recent GitHub Actions Pipeline Runs:</p>
-            <p style="color:var(--text-muted);">Run #142 • Main Branch • <span style="color:var(--success);">Success</span> (38s ago)</p>
-            <p style="color:var(--text-muted);">Run #141 • Main Branch • <span style="color:var(--success);">Success</span> (2h ago)</p>
+            <p style="color:var(--text-muted);">Run #${c.status.buildRun || 142} • Main Branch • <span style="color:var(--success);">Success</span> (38s ago)</p>
+            <p style="color:var(--text-muted);">Run #${(c.status.buildRun || 142) - 1} • Main Branch • <span style="color:var(--success);">Success</span> (2h ago)</p>
           </div>`;
       } else if (tab === 'k8s') {
         content.innerHTML = `
@@ -706,9 +706,9 @@
             <p style="color:var(--success); font-weight:600; margin-bottom:8px;">● Pods Status: ${c.status.pods}</p>
             <p style="color:var(--success); font-weight:600; margin-bottom:8px;">● ArgoCD GitOps: ${c.status.argocd}</p>
             <hr style="border-color:var(--border-color); margin:12px 0;"/>
-            <p><strong>CPU Usage:</strong> 42m / 500m (8%)</p>
-            <p style="margin-top:6px;"><strong>Memory Usage:</strong> 112Mi / 512Mi (21%)</p>
-            <p style="margin-top:6px;"><strong>Restarts:</strong> 0 (Stable)</p>
+            <p><strong>CPU Usage:</strong> ${c.status.cpuUsage || '42m / 500m (8%)'}</p>
+            <p style="margin-top:6px;"><strong>Memory Usage:</strong> ${c.status.memoryUsage || '112Mi / 512Mi (21%)'}</p>
+            <p style="margin-top:6px;"><strong>Restarts:</strong> ${c.status.restarts || '0 (Stable)'}</p>
           </div>`;
       } else if (tab === 'claims') {
         let claimsList = c.infraFiles || [];
@@ -822,14 +822,14 @@
           <h3>🛡️ Security & Quality Gate</h3>
           <p><span style="color:var(--success); font-weight:600;">● Trivy Scan:</span> ${c.status.security}<br/>
              <span style="color:var(--success); font-weight:600;">● SonarQube:</span> ${c.status.sonarqube}<br/>
-             <strong>Pipeline:</strong> GitHub Actions Run #142 Success</p>
+             <strong>Pipeline:</strong> GitHub Actions Run #${c.status.buildRun || 142} Success</p>
         </div>
 
         <div class="card">
           <h3>☸️ K8s & GitOps Status</h3>
           <p><span style="color:var(--success); font-weight:600;">● Pods:</span> ${c.status.pods}<br/>
              <span style="color:var(--success); font-weight:600;">● ArgoCD Sync:</span> ${c.status.argocd}<br/>
-             <strong>Metrics:</strong> CPU 8% | Memory 21%</p>
+             <strong>Metrics:</strong> CPU ${c.status.cpuUsage || '8%'} | Memory ${c.status.memoryUsage || '21%'}</p>
         </div>
 
         <div class="card">
