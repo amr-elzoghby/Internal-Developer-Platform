@@ -10,7 +10,7 @@ spec:
         karpenter.sh/discovery: idp-prod
   securityGroupSelectorTerms:
     - tags:
-        aws:eks:cluster-name: idp-prod
+        karpenter.sh/discovery: idp-prod
   amiSelectorTerms:
     - alias: al2@latest
   metadataOptions:
