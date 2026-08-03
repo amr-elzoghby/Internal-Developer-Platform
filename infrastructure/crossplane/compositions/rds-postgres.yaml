@@ -67,7 +67,7 @@ spec:
                   "apiVersion": "ec2.aws.upbound.io/v1beta1",
                   "kind": "SecurityGroup",
                   "spec": {
-                      "deletionPolicy": "Delete",
+                      "deletionPolicy": "Orphan",
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "RDS Instance Security Group",
@@ -81,7 +81,7 @@ spec:
                   "apiVersion": "ec2.aws.upbound.io/v1beta1",
                   "kind": "SecurityGroupRule",
                   "spec": {
-                      "deletionPolicy": "Delete",
+                      "deletionPolicy": "Orphan",
                       "forProvider": {
                           "region": "us-east-1",
                           "securityGroupIdSelector": {
@@ -101,7 +101,7 @@ spec:
                   "apiVersion": "rds.aws.upbound.io/v1beta1",
                   "kind": "SubnetGroup",
                   "spec": {
-                      "deletionPolicy": "Delete",
+                      "deletionPolicy": "Orphan",
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "DB Subnet Group for RDS",
@@ -118,7 +118,7 @@ spec:
                   "apiVersion": "rds.aws.upbound.io/v1beta1",
                   "kind": "Instance",
                   "spec": {
-                      "deletionPolicy": "Delete",
+                      "deletionPolicy": "Orphan",
                       "forProvider": {
                           "region": "us-east-1",
                           "allocatedStorage": storage,
