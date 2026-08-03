@@ -109,6 +109,26 @@
     .error-banner { background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--danger); padding: 10px; border-radius: 6px; font-size: 12.5px; margin-top: 10px; display: none; }
 
     .hidden { display: none !important; }
+
+    /* RESPONSIVE DESIGN */
+    @media (max-width: 768px) {
+      body { flex-direction: column; }
+      .sidebar { width: 100%; height: auto; flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--border-color); }
+      .brand-header { min-width: max-content; }
+      .nav-group { display: flex; padding: 8px; gap: 4px; }
+      .nav-label { display: none; }
+      .nav-item { white-space: nowrap; font-size: 12px; padding: 6px 10px; }
+      .nav-item.active { border-left: none; border-bottom: 2px solid var(--primary); }
+      .main-wrapper { height: calc(100vh - 60px); }
+      .top-navbar { padding: 0 12px; gap: 8px; }
+      .search-box { width: 140px; }
+      .content-scroll { padding: 16px; }
+      .grid { grid-template-columns: 1fr; }
+      .table-card { overflow-x: auto; }
+      table { min-width: 700px; }
+      .modal-box { max-width: 95vw; padding: 16px; }
+      .user-profile { display: none; }
+    }
   </style>
 </head>
 <body>
