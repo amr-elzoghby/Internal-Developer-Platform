@@ -155,9 +155,9 @@
             <p>Unified engineering telemetry eliminating the need to open 10 separate Chrome tabs.</p>
           </div>
 
-          <div style="margin-bottom:20px; display:flex; gap:12px; align-items:center;">
-            <label style="font-weight:600; font-size:13px;">Select Target Component:</label>
-            <select id="singlepane-select-service" style="background:var(--bg-card); color:#fff; border:1px solid var(--border-color); padding:8px 14px; border-radius:6px; font-size:13px;" onchange="renderSinglePaneDashboard(this.value)">
+          <div class="component-selector">
+            <label>Select Target Component:</label>
+            <select id="singlepane-select-service" onchange="renderSinglePaneDashboard(this.value)">
             </select>
           </div>
 
@@ -171,9 +171,9 @@
             <p>Docs-like-code specs automatically extracted from <code>catalog-info.yaml</code> in your repository.</p>
           </div>
 
-          <div style="margin-bottom:20px; display:flex; gap:12px; align-items:center;">
-            <label style="font-weight:600; font-size:13px;">Select Microservice Component:</label>
-            <select id="techdocs-select-service" style="background:var(--bg-card); color:#fff; border:1px solid var(--border-color); padding:8px 14px; border-radius:6px; font-size:13px;" onchange="renderTechDocs(this.value)">
+          <div class="component-selector">
+            <label>Select Microservice Component:</label>
+            <select id="techdocs-select-service" onchange="renderTechDocs(this.value)">
             </select>
           </div>
 
@@ -193,9 +193,9 @@
             <div class="card">
               <h3>🛡️ Trivy Container & FS Scanner</h3>
               <p>Scans project dependencies and Dockerfile layers for known CVEs.</p>
-              <div style="background:var(--bg-root); padding:12px; border-radius:8px; margin-top:10px; font-size:12.5px;">
-                <p style="color:var(--success); font-weight:600;">● Critical Vulnerabilities: 0</p>
-                <p style="color:var(--success); font-weight:600; margin-top:4px;">● High Vulnerabilities: 0</p>
+              <div class="metric-block">
+                <p class="metric-success">● Critical Vulnerabilities: 0</p>
+                <p class="metric-success">● High Vulnerabilities: 0</p>
                 <p style="color:var(--text-muted); margin-top:4px;">● Low Vulnerabilities: 2 (Non-blocking)</p>
               </div>
             </div>
@@ -203,18 +203,18 @@
             <div class="card">
               <h3>⚙️ Kyverno ClusterPolicy Governance</h3>
               <p>Enforces Kubernetes cluster security policies prior to deployment.</p>
-              <div style="background:var(--bg-root); padding:12px; border-radius:8px; margin-top:10px; font-size:12.5px;">
-                <p style="color:var(--success); font-weight:600;">● disallow-root-user: Pass</p>
-                <p style="color:var(--success); font-weight:600; margin-top:4px;">● require-ro-rootfs: Pass</p>
-                <p style="color:var(--success); font-weight:600; margin-top:4px;">● require-cpu-mem-limits: Pass</p>
+              <div class="metric-block">
+                <p class="metric-success">● disallow-root-user: Pass</p>
+                <p class="metric-success">● require-ro-rootfs: Pass</p>
+                <p class="metric-success">● require-cpu-mem-limits: Pass</p>
               </div>
             </div>
 
             <div class="card">
               <h3>📊 SonarQube Quality Gate</h3>
               <p>Code coverage, code smells, and maintainability rating.</p>
-              <div style="background:var(--bg-root); padding:12px; border-radius:8px; margin-top:10px; font-size:12.5px;">
-                <p style="color:var(--success); font-weight:600;">● Quality Gate: PASSED (Grade A)</p>
+              <div class="metric-block">
+                <p class="metric-success">● Quality Gate: PASSED (Grade A)</p>
                 <p style="color:var(--text-muted); margin-top:4px;">● Code Coverage: 88.4%</p>
                 <p style="color:var(--text-muted); margin-top:4px;">● Security Hotspots: 0</p>
               </div>
@@ -248,7 +248,7 @@
 
       <div class="error-banner" id="login-error-banner"></div>
 
-      <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+      <div class="modal-actions">
         <button class="btn btn-secondary" onclick="closeModal('modal-login')">Cancel</button>
         <button class="btn" onclick="executeTeamLogin()">Authenticate Session</button>
       </div>
@@ -271,7 +271,7 @@
           <div class="form-help">Defines <code>writeConnectionSecretToRef.name</code> (e.g. project-users-db-secret) and file name.</div>
         </div>
 
-        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:20px;">
+        <div class="modal-actions">
           <button class="btn btn-secondary" onclick="closeModal('modal-infra')">Cancel</button>
           <button class="btn" onclick="executeInfraClaim()">Submit Resource Claim</button>
         </div>
@@ -283,9 +283,9 @@
   <!-- SINGLE PANE OF GLASS INSPECTOR MODAL -->
   <div class="modal-overlay" id="modal-entity">
     <div class="modal-box">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div class="modal-header-row">
         <h2 id="entity-modal-name">Component Inspector (Single Pane of Glass)</h2>
-        <button class="btn btn-secondary" style="padding:4px 8px;" onclick="closeModal('modal-entity')">✕</button>
+        <button class="btn btn-secondary btn-inspect" onclick="closeModal('modal-entity')">✕</button>
       </div>
 
       <div class="tabs-header">

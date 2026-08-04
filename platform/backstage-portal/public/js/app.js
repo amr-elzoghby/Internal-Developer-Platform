@@ -136,18 +136,18 @@ async function refreshCatalog() {
       if (s.claims.slack) claims.push('<span class="badge badge-claim">🔔 Slack Alerts</span>');
       if (s.claims.domain) claims.push('<span class="badge badge-claim">🌐 Subdomain</span>');
 
-      if (claims.length === 0) claims.push('<span style="color:var(--text-dim); font-size:12px;">No Claims</span>');
+      if (claims.length === 0) claims.push('<span class="text-no-claims">No Claims</span>');
 
       return `
         <tr>
-          <td><strong>${esc(s.name)}</strong><br/><span style="font-size:11px; color:var(--text-dim);">${esc(s.path)}</span></td>
+          <td><strong>${esc(s.name)}</strong><br/><span class="text-dim-sm">${esc(s.path)}</span></td>
           <td><code>${esc(s.owner)}</code></td>
           <td>shopscale-ecommerce</td>
           <td><span class="badge badge-prod">${esc(s.lifecycle)}</span></td>
           <td>${claims.join(' ')}</td>
-          <td><span style="color:var(--success); font-weight:600;">● ${esc(s.status.argocd)}</span></td>
+          <td><span class="metric-success">● ${esc(s.status.argocd)}</span></td>
           <td>
-            <button class="btn btn-secondary" style="padding:4px 10px; font-size:12px;" onclick="inspectEntity('${esc(s.name)}')">Single Pane View 🔍</button>
+            <button class="btn btn-secondary btn-inspect" onclick="inspectEntity('${esc(s.name)}')">Single Pane View 🔍</button>
           </td>
         </tr>`;
     }).join('');
@@ -276,41 +276,41 @@ function switchInspectorTab(tab, element) {
 
   if (tab === 'overview') {
     content.innerHTML = `
-      <div style="background:var(--bg-root); padding:16px; border-radius:10px; border:1px solid var(--border-color); font-size:13px;">
-        <p style="margin-bottom:8px;"><strong>Kind:</strong> Component</p>
-        <p style="margin-bottom:8px;"><strong>Type:</strong> ${esc(c.type)}</p>
-        <p style="margin-bottom:8px;"><strong>Owner Team:</strong> <code>${esc(c.owner)}</code></p>
-        <p style="margin-bottom:8px;"><strong>System:</strong> shopscale-ecommerce</p>
-        <p style="margin-bottom:8px;"><strong>Repository Path:</strong> <code>${esc(c.path)}</code></p>
+      <div class="info-panel">
+        <p><strong>Kind:</strong> Component</p>
+        <p><strong>Type:</strong> ${esc(c.type)}</p>
+        <p><strong>Owner Team:</strong> <code>${esc(c.owner)}</code></p>
+        <p><strong>System:</strong> shopscale-ecommerce</p>
+        <p><strong>Repository Path:</strong> <code>${esc(c.path)}</code></p>
         <p><strong>Backstage Spec:</strong> <code>${esc(c.path)}/catalog-info.yaml</code></p>
       </div>`;
   } else if (tab === 'cicd') {
     content.innerHTML = `
-      <div style="background:var(--bg-root); padding:16px; border-radius:10px; border:1px solid var(--border-color); font-size:13px;">
-        <p style="color:var(--success); font-weight:600; margin-bottom:8px;">🛡️ Trivy Security Scanner: ${esc(c.status.security)}</p>
-        <p style="color:var(--success); font-weight:600; margin-bottom:8px;">📊 SonarQube Quality Gate: ${esc(c.status.sonarqube)}</p>
+      <div class="info-panel">
+        <p class="metric-success">🛡️ Trivy Security Scanner: ${esc(c.status.security)}</p>
+        <p class="metric-success">📊 SonarQube Quality Gate: ${esc(c.status.sonarqube)}</p>
         <hr style="border-color:var(--border-color); margin:12px 0;"/>
-        <p style="font-weight:600; margin-bottom:8px;">Recent GitHub Actions Pipeline Runs:</p>
-        <p style="color:var(--text-muted);">Run #${c.status.buildRun || 142} • Main Branch • <span style="color:var(--success);">Success</span> (38s ago)</p>
-        <p style="color:var(--text-muted);">Run #${(c.status.buildRun || 142) - 1} • Main Branch • <span style="color:var(--success);">Success</span> (2h ago)</p>
+        <p style="font-weight:600;">Recent GitHub Actions Pipeline Runs:</p>
+        <p style="color:var(--text-muted);">Run #${c.status.buildRun || 142} • Main Branch • <span class="metric-success">Success</span> (38s ago)</p>
+        <p style="color:var(--text-muted);">Run #${(c.status.buildRun || 142) - 1} • Main Branch • <span class="metric-success">Success</span> (2h ago)</p>
       </div>`;
   } else if (tab === 'k8s') {
     content.innerHTML = `
-      <div style="background:var(--bg-root); padding:16px; border-radius:10px; border:1px solid var(--border-color); font-size:13px;">
-        <p style="color:var(--success); font-weight:600; margin-bottom:8px;">● Pods Status: ${esc(c.status.pods)}</p>
-        <p style="color:var(--success); font-weight:600; margin-bottom:8px;">● ArgoCD GitOps: ${esc(c.status.argocd)}</p>
+      <div class="info-panel">
+        <p class="metric-success">● Pods Status: ${esc(c.status.pods)}</p>
+        <p class="metric-success">● ArgoCD GitOps: ${esc(c.status.argocd)}</p>
         <hr style="border-color:var(--border-color); margin:12px 0;"/>
         <p><strong>CPU Usage:</strong> ${esc(c.status.cpuUsage || '42m / 500m (8%)')}</p>
-        <p style="margin-top:6px;"><strong>Memory Usage:</strong> ${esc(c.status.memoryUsage || '112Mi / 512Mi (21%)')}</p>
-        <p style="margin-top:6px;"><strong>Restarts:</strong> ${esc(c.status.restarts || '0 (Stable)')}</p>
+        <p><strong>Memory Usage:</strong> ${esc(c.status.memoryUsage || '112Mi / 512Mi (21%)')}</p>
+        <p><strong>Restarts:</strong> ${esc(c.status.restarts || '0 (Stable)')}</p>
       </div>`;
   } else if (tab === 'claims') {
     let claimsList = c.infraFiles || [];
     content.innerHTML = `
-      <div style="background:var(--bg-root); padding:16px; border-radius:10px; border:1px solid var(--border-color); font-size:13px;">
+      <div class="info-panel">
         <p style="font-weight:600; margin-bottom:12px;">Active Crossplane / K8s Infrastructure Claims (${claimsList.length}):</p>
         ${claimsList.length > 0 
-          ? claimsList.map(item => `<div style="background:var(--bg-card); padding:8px 12px; border-radius:6px; margin-bottom:6px; border:1px solid var(--border-color); color:var(--accent-blue);">📄 infra/${esc(item)}</div>`).join('')
+          ? claimsList.map(item => `<div class="claim-file-item">📄 infra/${esc(item)}</div>`).join('')
           : '<p style="color:var(--text-dim);">No Infrastructure Claims attached yet. Use the Self-Service portal to request resources!</p>'}
       </div>`;
   }
@@ -381,15 +381,15 @@ function renderTechDocs(name) {
 
   document.getElementById('techdocs-container').innerHTML = `
     <h3>📚 ${esc(c.name)} — Architecture & Runbook</h3>
-    <p style="color:var(--text-dim); margin-bottom:16px;">Source: <code>${esc(c.path)}/catalog-info.yaml</code> (Owner: <code>${esc(c.owner)}</code>)</p>
-    <div style="background:var(--bg-root); padding:20px; border-radius:8px; border:1px solid var(--border-color); font-size:13.5px; line-height:1.7;">
-      <h4 style="color:var(--primary); margin-bottom:8px;">1. Service Overview</h4>
+    <p class="text-no-claims" style="margin-bottom:16px;">Source: <code>${esc(c.path)}/catalog-info.yaml</code> (Owner: <code>${esc(c.owner)}</code>)</p>
+    <div class="techdocs-body">
+      <h4>1. Service Overview</h4>
       <p>The <strong>${esc(c.name)}</strong> component is a <code>${esc(c.type)}</code> microservice owned by <code>${esc(c.owner)}</code> running in <code>${esc(c.lifecycle)}</code> lifecycle.</p>
       
-      <h4 style="color:var(--primary); margin-top:16px; margin-bottom:8px;">2. Active Infrastructure & Environment Binding</h4>
+      <h4>2. Active Infrastructure & Environment Binding</h4>
       <p>Active Infrastructure Claims: ${claimsText}. When Claims are requested via Backstage Self-Service, Crossplane generates Custom Resources in <code>infra/</code> and injects connection secrets into K8s Pod environment variables.</p>
       
-      <h4 style="color:var(--primary); margin-top:16px; margin-bottom:8px;">3. Operational Playbook</h4>
+      <h4>3. Operational Playbook</h4>
       <p>• <strong>Health Check:</strong> <code>GET /healthz</code><br/>
          • <strong>ArgoCD GitOps Sync:</strong> Automatic upon <code>git push main</code><br/>
          • <strong>Emergency Rollback:</strong> <code>argocd app sync ${esc(c.name).toLowerCase()} --revision HEAD~1</code></p>
@@ -414,22 +414,22 @@ function renderSinglePaneDashboard(name) {
 
     <div class="card">
       <h3>🛡️ Security & Quality Gate</h3>
-      <p><span style="color:var(--success); font-weight:600;">● Trivy Scan:</span> ${esc(c.status.security)}<br/>
-         <span style="color:var(--success); font-weight:600;">● SonarQube:</span> ${esc(c.status.sonarqube)}<br/>
+      <p><span class="metric-success">● Trivy Scan:</span> ${esc(c.status.security)}<br/>
+         <span class="metric-success">● SonarQube:</span> ${esc(c.status.sonarqube)}<br/>
          <strong>Pipeline:</strong> GitHub Actions Run #${c.status.buildRun || 142} Success</p>
     </div>
 
     <div class="card">
       <h3>☸️ K8s & GitOps Status</h3>
-      <p><span style="color:var(--success); font-weight:600;">● Pods:</span> ${esc(c.status.pods)}<br/>
-         <span style="color:var(--success); font-weight:600;">● ArgoCD Sync:</span> ${esc(c.status.argocd)}<br/>
+      <p><span class="metric-success">● Pods:</span> ${esc(c.status.pods)}<br/>
+         <span class="metric-success">● ArgoCD Sync:</span> ${esc(c.status.argocd)}<br/>
          <strong>Metrics:</strong> CPU ${esc(c.status.cpuUsage || '8%')} | Memory ${esc(c.status.memoryUsage || '21%')}</p>
     </div>
 
     <div class="card">
       <h3>🗄️ Active Claims (${claimsList.length})</h3>
-      <div style="font-size:12.5px; color:var(--accent-blue); line-height:1.6;">
-        ${claimsList.length > 0 ? claimsList.map(item => `<div>• 📄 infra/${esc(item)}</div>`).join('') : '<span style="color:var(--text-dim);">No Active Claims</span>'}
+      <div class="claims-list">
+        ${claimsList.length > 0 ? claimsList.map(item => `<div>• 📄 infra/${esc(item)}</div>`).join('') : '<span class="text-no-claims">No Active Claims</span>'}
       </div>
     </div>
   `;
