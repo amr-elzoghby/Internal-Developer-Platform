@@ -14,6 +14,22 @@ function esc(str) {
   return d.innerHTML;
 }
 
+let catalogCache = null;
+let catalogCacheTime = 0;
+const CACHE_TTL = 30000;
+
+async function fetchCatalog(forceRefresh) {
+  const now = Date.now();
+  if (!forceRefresh && catalogCache && (now - catalogCacheTime) < CACHE_TTL) {
+    return catalogCache;
+  }
+  const res = await fetch('/api/catalog');
+  catalogCache = await res.json();
+  catalogCacheTime = now;
+  allServicesData = catalogCache;
+  return catalogCache;
+}
+
 // Restore session on load
 document.addEventListener('DOMContentLoaded', () => {
   const avatarEl = document.getElementById('user-avatar');
@@ -100,8 +116,7 @@ async function executeTeamLogin() {
 
 async function refreshCatalog() {
   try {
-    const res = await fetch('/api/catalog');
-    allServicesData = await res.json();
+    allServicesData = await fetchCatalog(true);
     const tbody = document.getElementById('catalog-table');
 
     if (!allServicesData || allServicesData.length === 0) {
@@ -156,8 +171,7 @@ async function openInfraModal(type) {
   sel.innerHTML = '';
 
   try {
-    const res = await fetch('/api/catalog');
-    const services = await res.json();
+    const services = await fetchCatalog();
 
     if (!services || services.length === 0) {
       sel.innerHTML = '<option value="">No services found</option>';
@@ -238,8 +252,7 @@ async function executeInfraClaim() {
 }
 
 async function inspectEntity(name) {
-  const res = await fetch('/api/catalog');
-  const services = await res.json();
+  const services = await fetchCatalog();
   currentComponentData = services.find(x => x.name === name);
   if (!currentComponentData) return;
 
@@ -309,8 +322,7 @@ async function loadSinglePanePage() {
   sel.innerHTML = '';
 
   try {
-    const res = await fetch('/api/catalog');
-    allServicesData = await res.json();
+    allServicesData = await fetchCatalog();
 
     if (!allServicesData || allServicesData.length === 0) {
       sel.innerHTML = '<option value="">No components found</option>';
@@ -337,8 +349,7 @@ async function loadTechDocsPage() {
   sel.innerHTML = '';
 
   try {
-    const res = await fetch('/api/catalog');
-    allServicesData = await res.json();
+    allServicesData = await fetchCatalog();
 
     if (!allServicesData || allServicesData.length === 0) {
       sel.innerHTML = '<option value="">No components found</option>';
