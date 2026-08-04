@@ -74,6 +74,8 @@ function listServices(projectsDir) {
         const nameMatch = content.match(/name:\s*(.+)/);
         const ownerMatch = content.match(/owner:\s*(.+)/);
         const typeMatch = content.match(/type:\s*(.+)/);
+        const systemMatch = content.match(/system:\s*(.+)/);
+        const lifecycleMatch = content.match(/lifecycle:\s*(.+)/);
 
         // Generate dynamic metric values per service
         const hash = d.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -87,7 +89,8 @@ function listServices(projectsDir) {
           name: nameMatch ? nameMatch[1].trim() : d,
           owner: ownerMatch ? ownerMatch[1].trim() : 'team-alpha',
           type: typeMatch ? typeMatch[1].trim() : 'service',
-          lifecycle: 'production',
+          system: systemMatch ? systemMatch[1].trim() : 'shopscale-ecommerce',
+          lifecycle: lifecycleMatch ? lifecycleMatch[1].trim() : 'production',
           path: path.join(projectsDir, d),
           infraFiles,
           claims: {

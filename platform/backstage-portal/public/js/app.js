@@ -153,7 +153,7 @@ async function refreshCatalog() {
         <tr>
           <td><strong>${esc(s.name)}</strong><br/><span class="text-dim-sm">${esc(s.path)}</span></td>
           <td><code>${esc(s.owner)}</code></td>
-          <td>shopscale-ecommerce</td>
+          <td>${esc(s.system || 'shopscale-ecommerce')}</td>
           <td><span class="badge badge-prod">${esc(s.lifecycle)}</span></td>
           <td>${claims.join(' ')}</td>
           <td><span class="metric-success">● ${esc(s.status.argocd)}</span></td>
@@ -291,7 +291,7 @@ function switchInspectorTab(tab, element) {
         <p><strong>Kind:</strong> Component</p>
         <p><strong>Type:</strong> ${esc(c.type)}</p>
         <p><strong>Owner Team:</strong> <code>${esc(c.owner)}</code></p>
-        <p><strong>System:</strong> shopscale-ecommerce</p>
+        <p><strong>System:</strong> ${esc(c.system || 'shopscale-ecommerce')}</p>
         <p><strong>Repository Path:</strong> <code>${esc(c.path)}</code></p>
         <p><strong>Backstage Spec:</strong> <code>${esc(c.path)}/catalog-info.yaml</code></p>
       </div>`;
@@ -419,7 +419,7 @@ function renderSinglePaneDashboard(name) {
       <h3>📁 Overview & Metadata</h3>
       <p><strong>Kind/Type:</strong> Component / ${esc(c.type)}<br/>
          <strong>Owner Team:</strong> ${esc(c.owner)}<br/>
-         <strong>System:</strong> shopscale-ecommerce<br/>
+         <strong>System:</strong> ${esc(c.system || 'shopscale-ecommerce')}<br/>
          <strong>Path:</strong> <code>${esc(c.path)}</code></p>
     </div>
 
