@@ -3,9 +3,18 @@ const fs = require('fs');
 const path = require('path');
 const { loadClaimSpecs, listServices, applyClaimToCatalog } = require('./services/catalogService');
 
+const envPath = path.join(__dirname, '.env');
+if (fs.existsSync(envPath)) {
+  fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
+    const match = line.match(/^\s*([\w]+)\s*=\s*(.+)\s*$/);
+    if (match) process.env[match[1]] = match[2];
+  });
+}
+
 const PORT = 3000;
 const PROJECTS_DIR = '/home/amr';
 const CLAIMS_DIR = path.join(__dirname, 'claims');
+const REQUIRED_ENV_VARS = ['TEAM_ALPHA_PASSCODE', 'TEAM_BETA_PASSCODE', 'TEAM_GAMMA_PASSCODE'];
 
 function serveFile(res, filePath, contentType) {
   fs.readFile(filePath, (err, data) => {
@@ -68,9 +77,9 @@ const server = http.createServer(async (req, res) => {
     }
     const { team, passcode } = params;
     const teamPasscodes = {
-      'team-alpha': 'alpha2026',
-      'team-beta': 'beta2026',
-      'team-gamma': 'gamma2026'
+      'team-alpha': process.env.TEAM_ALPHA_PASSCODE,
+      'team-beta': process.env.TEAM_BETA_PASSCODE,
+      'team-gamma': process.env.TEAM_GAMMA_PASSCODE
     };
     const teamProfiles = {
       'team-alpha': { name: 'Amr Elzoghby', role: 'team-alpha • Owner', avatar: 'AE' },
@@ -151,6 +160,12 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
+  const missing = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
+  if (missing.length > 0) {
+    console.warn(`\n⚠️  WARNING: Missing environment variables: ${missing.join(', ')}`);
+    console.warn(`   Team login will fail until these are configured.`);
+    console.warn(`   Run: cp .env.example .env  then set your passcodes.\n`);
+  }
   console.log(`\n======================================================`);
   console.log(`🚀 Backstage Developer Portal LIVE at http://localhost:${PORT}`);
   console.log(`   Clean Architecture — Modular Enterprise MVC Engine`);
