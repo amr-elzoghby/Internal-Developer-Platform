@@ -20,15 +20,15 @@
 
     <div class="nav-group">
       <div class="nav-label">Developer Portal</div>
-      <a class="nav-item active" id="nav-catalog" onclick="showPage('catalog')">📊 Software Catalog</a>
-      <a class="nav-item" id="nav-infra" onclick="showPage('infra')">🗄️ Self-Service Infra (9 Claims)</a>
+      <a class="nav-item active" id="nav-catalog" role="button" tabindex="0" aria-label="Navigate to Software Catalog" onclick="showPage('catalog')">📊 Software Catalog</a>
+      <a class="nav-item" id="nav-infra" role="button" tabindex="0" aria-label="Navigate to Self-Service Infrastructure" onclick="showPage('infra')">🗄️ Self-Service Infra (9 Claims)</a>
     </div>
 
     <div class="nav-group">
       <div class="nav-label">Unified Observability</div>
-      <a class="nav-item" id="nav-singlepane" onclick="showPage('singlepane')">🖥️ Single Pane Dashboard</a>
-      <a class="nav-item" id="nav-techdocs" onclick="showPage('techdocs')">📚 TechDocs Viewer</a>
-      <a class="nav-item" id="nav-security" onclick="showPage('security')">🛡️ Security & Compliance</a>
+      <a class="nav-item" id="nav-singlepane" role="button" tabindex="0" aria-label="Navigate to Single Pane Dashboard" onclick="showPage('singlepane')">🖥️ Single Pane Dashboard</a>
+      <a class="nav-item" id="nav-techdocs" role="button" tabindex="0" aria-label="Navigate to TechDocs Viewer" onclick="showPage('techdocs')">📚 TechDocs Viewer</a>
+      <a class="nav-item" id="nav-security" role="button" tabindex="0" aria-label="Navigate to Security and Compliance" onclick="showPage('security')">🛡️ Security & Compliance</a>
     </div>
   </aside>
 
@@ -37,12 +37,12 @@
     <header class="top-navbar">
       <div class="search-box">
         <span class="search-icon">🔍</span>
-        <input type="text" class="search-input" id="global-search" placeholder="Search registered services or claims..." oninput="handleSearch(this.value)" />
+        <input type="text" class="search-input" id="global-search" aria-label="Search registered services or claims" placeholder="Search registered services or claims..." oninput="handleSearch(this.value)" />
       </div>
 
       <!-- TEAM AUTHENTICATION CONTAINER -->
       <div class="team-auth-container">
-        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" onclick="openLoginModal()">🔑 Switch Team / Login</button>
+        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" aria-label="Switch Team or Login" onclick="openLoginModal()">🔑 Switch Team / Login</button>
 
         <div class="user-profile">
           <div class="avatar" id="user-avatar">AE</div>
@@ -285,14 +285,14 @@
     <div class="modal-box">
       <div class="modal-header-row">
         <h2 id="entity-modal-name">Component Inspector (Single Pane of Glass)</h2>
-        <button class="btn btn-secondary btn-inspect" onclick="closeModal('modal-entity')">✕</button>
+        <button class="btn btn-secondary btn-inspect" aria-label="Close modal" onclick="closeModal('modal-entity')">✕</button>
       </div>
 
-      <div class="tabs-header">
-        <div class="tab-btn active" onclick="switchInspectorTab('overview', this)">Overview</div>
-        <div class="tab-btn" onclick="switchInspectorTab('cicd', this)">CI/CD & Security</div>
-        <div class="tab-btn" onclick="switchInspectorTab('k8s', this)">Kubernetes Health</div>
-        <div class="tab-btn" onclick="switchInspectorTab('claims', this)">Infrastructure Claims</div>
+      <div class="tabs-header" role="tablist">
+        <div class="tab-btn active" role="tab" tabindex="0" aria-label="Overview tab" onclick="switchInspectorTab('overview', this)">Overview</div>
+        <div class="tab-btn" role="tab" tabindex="0" aria-label="CI/CD and Security tab" onclick="switchInspectorTab('cicd', this)">CI/CD & Security</div>
+        <div class="tab-btn" role="tab" tabindex="0" aria-label="Kubernetes Health tab" onclick="switchInspectorTab('k8s', this)">Kubernetes Health</div>
+        <div class="tab-btn" role="tab" tabindex="0" aria-label="Infrastructure Claims tab" onclick="switchInspectorTab('claims', this)">Infrastructure Claims</div>
       </div>
 
       <div id="inspector-content"></div>

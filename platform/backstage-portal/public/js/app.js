@@ -115,6 +115,17 @@ async function executeTeamLogin() {
 }
 
 async function refreshCatalog() {
+  const tbody = document.getElementById('catalog-table');
+  if (tbody && (!allServicesData || allServicesData.length === 0)) {
+    tbody.innerHTML = [1, 2, 3].map(() => `
+      <tr>
+        <td colspan="7" style="padding: 16px;">
+          <div class="skeleton-row"></div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
   try {
     allServicesData = await fetchCatalog(true);
     const tbody = document.getElementById('catalog-table');
