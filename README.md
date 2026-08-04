@@ -205,6 +205,7 @@ The platform has **three layers**:
 │       │   ├── claimGenerator.js       # Manifest generator engine for 9 platform claims
 │       │   └── catalogService.js       # Catalog discovery and async GitOps automation
 │       ├── server.js                   # Enterprise Portal HTTP Router & Controller
+│       ├── .env.example                # Sample environment variables for team login passcodes
 │       ├── templates/                  # Software templates (golden paths)
 │       └── Dockerfile
 ├── tenants/
@@ -318,12 +319,15 @@ Execute platform deployment, observability, and portal management via simple `ma
 
 - [x] Backstage setup + production `app-config.yaml` & Dockerfile
 - [x] Scaffolder Golden Path Templates (`scaffolder.backstage.io/v1beta3`): Node.js, Python FastAPI
-- [x] 🔑 Passcode-Protected Team Login & RBAC Role Authentication Modal (`alpha2026`, `beta2026`, `gamma2026`)
+- [x] 🔐 Environment Variable Protected Team Login & RBAC Role Authentication Modal (via local `.env` credentials)
 - [x] 🗄️ Custom Resource Secret Identifier Input (`writeConnectionSecretToRef.name`) to prevent environment variable conflicts
 - [x] 🛠️ 9 Parametric Infrastructure Self-Service Claims (PostgreSQL RDS, Redis ElastiCache, AWS S3, Kafka Topics, SSL Certs, Payment OAuth Keys, Grafana Dashboards, Slack Webhooks, Custom Subdomains)
 - [x] System Catalog registration (`all-components.yaml` for teams, domains, systems)
 - [x] Kubernetes & ArgoCD plugin configuration for live pod health & deployment sync
 - [x] Single Pane of Glass multi-tab Component Inspector (Overview, CI/CD Security, K8s Pods, Infra Claims)
+- [x] ⚡ In-Memory API Caching (30s TTL) & Dynamic System Metadata Parsing from `catalog-info.yaml`
+- [x] 🎨 Material 3 Dark-Mode UI with CSS Utility Classes, Responsive Layouts, and Shimmer Skeleton Loading
+- [x] ♿ Built-in Accessibility (`ARIA` attributes, keyboard navigation) and Page Transition Micro-Animations
 
 #### 📸 Backstage Enterprise Developer Portal Showcase
 
