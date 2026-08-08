@@ -125,6 +125,14 @@ The platform has **three layers**:
 
 ```
 .
+├── .github/
+│   └── workflows/
+│       └── service-ci.yaml             # GitHub Actions CI/CD pipeline
+├── .gitignore
+├── apps/
+│   └── team-alpha/
+│       └── login-app/
+│           └── deployment.yaml
 ├── infrastructure/
 │   ├── terraform/
 │   │   ├── modules/
@@ -133,28 +141,41 @@ The platform has **three layers**:
 │   │   │   │   ├── security.tf         # Security Groups (EKS Nodes, VPC Endpoints)
 │   │   │   │   ├── endpoints.tf        # VPC Endpoints (S3, ECR, STS, EKS)
 │   │   │   │   ├── variables.tf
+│   │   │   │   ├── versions.tf
 │   │   │   │   └── outputs.tf
 │   │   │   └── eks/
 │   │   │       ├── cluster.tf          # EKS Cluster + KMS Encryption + Node Group
 │   │   │       ├── iam.tf              # IAM Roles + OIDC Provider (IRSA)
 │   │   │       ├── karpenter.tf        # Karpenter IRSA + Helm Release
 │   │   │       ├── addons.tf           # EBS CSI, CoreDNS, VPC CNI, Metrics Server
+│   │   │       ├── crossplane.tf
+│   │   │       ├── github-oidc.tf
 │   │   │       ├── variables.tf
+│   │   │       ├── versions.tf
+│   │   │       ├── templates/
+│   │   │       │   └── karpenter-values.yaml.tpl
 │   │   │       └── outputs.tf
 │   │   └── environments/
 │   │       └── prod/
 │   │           ├── network/            # Prod VPC config
-│   │           ├── eks/                # Prod EKS config
-│   │           └── storage/            # S3 (Terraform remote state)
+│   │           │   ├── main.tf
+│   │           │   ├── variables.tf
+│   │           │   └── backend.tf
+│   │           └── eks/                # Prod EKS config
+│   │               ├── main.tf
+│   │               ├── variables.tf
+│   │               └── backend.tf
 │   └── crossplane/
 │       ├── providers/
 │       │   ├── providers.yaml          # AWS Provider & Python function packages
-│       │   └── provider-config.yaml    # AWS ProviderConfig (IRSA credentials)
+│       │   ├── provider-config.yaml    # AWS ProviderConfig (IRSA credentials)
+│       │   └── deployment-runtime-config.yaml
 │       ├── compositions/
 │       │   ├── s3-bucket.yaml          # S3 Composition using Python function
 │       │   ├── rds-postgres.yaml       # RDS PostgreSQL Composition using Python function
 │       │   ├── redis-elasticache.yaml  # Redis ElastiCache Composition using Python function
 │       │   └── ec2-server.yaml         # EC2 Server & Security Group Composition
+│       ├── functions/
 │       └── claims/
 │           └── team-alpha/
 │               ├── claim-s3.yaml           # Example developer request for S3
@@ -162,8 +183,6 @@ The platform has **three layers**:
 │               ├── claim-redis.yaml        # Example developer request for Redis
 │               ├── claim-ec2.yaml          # Example developer request for EC2 Server
 │               └── db-password-secret.yaml # Database master password secret
-├── .github/
-│   └── workflows/                      # GitHub Actions CI/CD pipelines
 ├── platform/
 │   ├── vcluster/                       # Virtual cluster Helm values for teams
 │   │   ├── base/
@@ -174,53 +193,110 @@ The platform has **three layers**:
 │   │       └── team-gamma.yaml         # Team Gamma values
 │   ├── argocd/
 │   │   ├── install/                    # ArgoCD Helm values
-│   │   ├── applicationsets/            # Auto-generate apps per team:
+│   │   │   ├── install.sh
+│   │   │   └── values.yaml
+│   │   ├── applicationsets/            # Auto-generate apps per team
 │   │   │   ├── infra-claims-appset.yaml
 │   │   │   ├── team-alpha-apps.yaml
 │   │   │   ├── team-beta-apps.yaml
 │   │   │   └── team-gamma-apps.yaml
 │   │   └── projects/                   # ArgoCD project per team
+│   │       └── team-projects.yaml
 │   ├── monitoring/
 │   │   ├── prometheus/                 # Prometheus Helm values
+│   │   │   └── values.yaml
 │   │   ├── grafana/                    # Dashboards
+│   │   │   └── dashboards/
+│   │   │       └── platform-overview.json
 │   │   └── kubecost/                   # Cost tracking
+│   │       └── values.yaml
 │   ├── security/
-│   │   ├── kyverno/                    # Kyverno policies (pod security, Crossplane guardrails)
-│   │   └── cert-manager/               # TLS certificates
-│   └── backstage-portal/
-│       ├── app-config.yaml             # Backstage portal config
-│       ├── catalog/                    # Service catalog specs
-│       ├── claims/                     # Modular Infrastructure Claim Spec Definitions (9 Capabilities)
-│       │   ├── postgres.json           # PostgreSQL RDS Claim Parameters (storageGB, engineVersion)
-│       │   ├── redis.json              # Redis ElastiCache Claim Parameters (memoryMB, version)
-│       │   ├── s3.json                 # AWS S3 Storage Claim Parameters (acl, versioning)
-│       │   ├── kafka.json              # Kafka Topic Claim Parameters (partitions, replicationFactor)
-│       │   ├── ssl.json                # SSL Cert-Manager Claim Parameters (domainName, issuer)
-│       │   ├── oauth.json              # Payment OAuth Claim Parameters (provider, scopes)
-│       │   ├── grafana.json            # Grafana Dashboard Claim Parameters (folder, metrics)
-│       │   ├── slack.json              # Slack Alerts Claim Parameters (channel, webhookUrl, events)
-│       │   └── domain.json             # Custom Subdomain Claim Parameters (subdomainHost, pathPrefix)
-│       ├── public/                     # Enterprise Material 3 Backstage Portal UI
-│       ├── services/
-│       │   ├── claimGenerator.js       # Manifest generator engine for 9 platform claims
-│       │   └── catalogService.js       # Catalog discovery and async GitOps automation
-│       ├── server.js                   # Enterprise Portal HTTP Router & Controller
-│       ├── .env.example                # Sample environment variables for team login passcodes
-│       ├── templates/                  # Software templates (golden paths)
-│       └── Dockerfile
+│   │   └── kyverno/                    # Kyverno policies (pod security, Crossplane guardrails)
+│   │       ├── install/
+│   │       │   └── values.yaml
+│   │       └── policies/
+│   │           ├── kustomization.yaml
+│   │           ├── crossplane-guardrails/
+│   │           │   ├── enforce-s3-encryption.yaml
+│   │           │   ├── restrict-ec2-size.yaml
+│   │           │   └── restrict-rds-size.yaml
+│   │           └── pod-security/
+│   │               ├── disallow-latest-tag.yaml
+│   │               ├── disallow-privileged.yaml
+│   │               ├── enforce-resource-limits.yaml
+│   │               └── require-team-labels.yaml
+│   ├── backstage/                      # Backstage core app
+│   │   ├── Dockerfile
+│   │   ├── app-config.yaml
+│   │   └── catalog/
+│   │       └── all-components.yaml
+│   ├── backstage-portal/               # Backstage portal code
+│   │   ├── .env
+│   │   ├── .env.example                # Sample environment variables for team login passcodes
+│   │   ├── claims/                     # Modular Infrastructure Claim Spec Definitions (9 Capabilities)
+│   │   │   ├── domain.json             # Custom Subdomain Claim Parameters (subdomainHost, pathPrefix)
+│   │   │   ├── grafana.json            # Grafana Dashboard Claim Parameters (folder, metrics)
+│   │   │   ├── kafka.json              # Kafka Topic Claim Parameters (partitions, replicationFactor)
+│   │   │   ├── oauth.json              # Payment OAuth Claim Parameters (provider, scopes)
+│   │   │   ├── postgres.json           # PostgreSQL RDS Claim Parameters (storageGB, engineVersion)
+│   │   │   ├── redis.json              # Redis ElastiCache Claim Parameters (memoryMB, version)
+│   │   │   ├── s3.json                 # AWS S3 Storage Claim Parameters (acl, versioning)
+│   │   │   ├── slack.json              # Slack Alerts Claim Parameters (channel, webhookUrl, events)
+│   │   │   └── ssl.json                # SSL Cert-Manager Claim Parameters (domainName, issuer)
+│   │   ├── public/                     # Enterprise Material 3 Backstage Portal UI
+│   │   │   ├── index.html
+│   │   │   ├── css/
+│   │   │   │   └── style.css
+│   │   │   └── js/
+│   │   │       └── app.js
+│   │   ├── server.js                   # Enterprise Portal HTTP Router & Controller
+│   │   └── services/
+│   │       ├── catalogService.js       # Catalog discovery and async GitOps automation
+│   │       └── claimGenerator.js       # Manifest generator engine for 9 platform claims
+│   ├── karpenter/
+│   │   ├── node-class.yaml
+│   │   └── node-pool.yaml
+│   └── storageclass.yaml
 ├── tenants/
 │   └── base/                           # Namespace isolation policies
-│       ├── resource-quota.yaml         # CPU/Mem caps per team namespace
 │       ├── limit-range.yaml            # Default container sizes
-│       └── network-policy.yaml         # Blocks cross-team namespace traffic
+│       ├── network-policy.yaml         # Blocks cross-team namespace traffic
+│       └── resource-quota.yaml         # CPU/Mem caps per team namespace
 ├── golden-paths/
+│   ├── infra-database/
+│   │   ├── skeleton/
+│   │   │   ├── catalog-info.yaml
+│   │   │   └── claim.yaml
+│   │   └── template.yaml
 │   ├── nodejs-service/                 # Node.js template
 │   │   ├── skeleton/                   # App code + Dockerfile + K8s manifests
-│   │   └── template.yaml              # Backstage template definition
-│   ├── python-fastapi/                 # Python FastAPI template
-│   └── react-frontend/                # React template
+│   │   │   ├── Dockerfile
+│   │   │   ├── catalog-info.yaml
+│   │   │   ├── package.json
+│   │   │   ├── manifests/
+│   │   │   │   └── deployment.yaml
+│   │   │   └── src/
+│   │   │       └── server.js
+│   │   └── template.yaml               # Backstage template definition
+│   └── python-fastapi/                 # Python FastAPI template
+│       ├── skeleton/
+│       │   ├── Dockerfile
+│       │   ├── catalog-info.yaml
+│       │   ├── main.py
+│       │   └── requirements.txt
+│       └── template.yaml
 ├── docs/
 │   └── images/
+│       ├── architecture-diagram.png
+│       ├── demo-showcase.gif
+│       ├── Screenshot 2026-07-14 134211.png
+│       ├── Screenshot 2026-07-14 134350.png
+│       ├── Screenshot 2026-07-14 134411.png
+│       ├── Screenshot 2026-07-14 134444.png
+│       ├── Screenshot 2026-07-14 152451.png
+│       ├── Screenshot 2026-07-27 193755.png
+│       ├── Screenshot 2026-07-27 193806.png
+│       └── Screenshot 2026-07-27 193850.png
 ├── Makefile
 └── README.md
 ```
