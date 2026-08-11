@@ -1,4 +1,4 @@
-.PHONY: help infra-up infra-down kubeconfig cluster-up crossplane-config argocd-up monitoring-up portal-up cluster-down up down status validate
+.PHONY: help infra-up infra-down kubeconfig cluster-up eso-up crossplane-config argocd-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -32,9 +32,21 @@ infra-down:
 kubeconfig:
 	aws eks update-kubeconfig --name idp-prod --region us-east-1
 
+# Deploy External Secrets Operator (ESO)
+eso-up:
+	@echo "$(GREEN)Installing External Secrets Operator...$(NC)"
+	helm repo add external-secrets https://charts.external-secrets.io --force-update || true
+	helm repo update
+	kubectl create namespace external-secrets --dry-run=client -o yaml | kubectl apply -f -
+	helm upgrade --install external-secrets external-secrets/external-secrets -n external-secrets
+	@echo "$(GREEN)Waiting for External Secrets CRDs...$(NC)"
+	kubectl wait --for=condition=Established crd/secretstores.external-secrets.io --timeout=120s
+	kubectl wait --for=condition=Established crd/externalsecrets.external-secrets.io --timeout=120s
+
 # Deploy Kubernetes platform components
 cluster-up: kubeconfig
 	kubectl apply -f platform/karpenter/
+	$(MAKE) eso-up
 	helm repo add loft-sh https://charts.loft.sh --force-update || true
 	helm repo update
 	@for team in team-alpha team-beta team-gamma; do \
@@ -102,7 +114,7 @@ cluster-down:
 	@for team in team-alpha team-beta team-gamma; do \
 		helm uninstall $$team --namespace $$team || true; \
 	done
-	kubectl delete namespace team-alpha team-beta team-gamma argocd monitoring --ignore-not-found
+	kubectl delete namespace team-alpha team-beta team-gamma argocd monitoring external-secrets --ignore-not-found
 	kubectl delete -f platform/karpenter/ --ignore-not-found
 
 # Full environment bootstrap
