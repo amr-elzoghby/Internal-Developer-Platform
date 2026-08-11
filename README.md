@@ -111,6 +111,7 @@ The platform has **three layers**:
 | **Templates** | Backstage Software Templates | Golden path scaffolding |
 | **Multi-Tenancy** | Namespaces + RBAC + Quotas | Team isolation and resource control |
 | **Policy** | Kyverno | Kubernetes-native policy engine (the "K" in BACK) |
+| **Secrets Management** | External Secrets Operator (ESO) + AWS Secrets Manager | Centralized, dynamic secret synchronization & auto-generated random passwords |
 | **Secrets Encryption** | AWS KMS | K8s Secrets encrypted at rest |
 | **Pod Isolation** | VPC CNI + IRSA | Per-pod IAM roles + native NetworkPolicies |
 | **Node Access** | SSM (no SSH) | Secure node debugging without open ports |
@@ -163,6 +164,7 @@ The platform has **three layers**:
 │   │           │   └── backend.tf
 │   │           └── eks/                # Prod EKS config
 │   │               ├── main.tf
+│   │               ├── secrets.tf          # AWS Secrets Manager secret with random password
 │   │               ├── variables.tf
 │   │               └── backend.tf
 │   └── crossplane/
@@ -182,7 +184,8 @@ The platform has **three layers**:
 │               ├── claim-rds.yaml          # Example developer request for RDS
 │               ├── claim-redis.yaml        # Example developer request for Redis
 │               ├── claim-ec2.yaml          # Example developer request for EC2 Server
-│               └── db-password-secret.yaml # Database master password secret
+│               ├── secret-store.yaml       # External Secrets Operator AWS SecretStore
+│               └── external-secret.yaml    # ESO ExternalSecret mapping AWS Secrets Manager
 ├── platform/
 │   ├── vcluster/                       # Virtual cluster Helm values for teams
 │   │   ├── base/
@@ -351,6 +354,7 @@ Execute platform deployment, observability, and portal management via simple `ma
 - [x] S3 Bucket Composition
 - [x] Redis Composition (ElastiCache)
 - [x] EC2 Server Composition (Instance + SecurityGroup + SecurityGroupRule)
+- [x] External Secrets Operator (ESO) + AWS Secrets Manager integration for secure, dynamic RDS password generation
 - [x] Example Claims for developer self-service
 
 #### 📸 Database Provisioning Workflow Showcase
