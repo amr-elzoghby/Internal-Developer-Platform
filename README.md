@@ -216,6 +216,7 @@ The platform has **three layers**:
 │   ├── security/
 │   │   └── kyverno/                    # Kyverno policies (pod security, Crossplane guardrails)
 │   │       ├── install/
+│   │       │   ├── install.sh
 │   │       │   └── values.yaml
 │   │       └── policies/
 │   │           ├── kustomization.yaml
@@ -389,7 +390,7 @@ Execute platform deployment, observability, and portal management via simple `ma
 ### Phase 5 — Security & Policy Engine (The "K" in BACK) ✅
 > Kyverno as the Kubernetes-native policy controller — guardrails before self-service.
 
-- [x] Kyverno installation & Helm configuration (`values.yaml`)
+- [x] Kyverno installation script (`install.sh`) & Helm configuration (`values.yaml`) integrated into Makefile (`make kyverno-up`)
 - [x] Best-practice pod policies: require team labels, block privileged containers, enforce CPU/memory limits, block `:latest` tags
 - [x] Crossplane guardrails: restrict RDS and EC2 instance sizes (`small` / `medium`), enforce S3 region compliance
 - [x] Kustomize root manifest (`kustomization.yaml`) for clean GitOps policy deployment
