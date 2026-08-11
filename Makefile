@@ -1,4 +1,4 @@
-.PHONY: help infra-up infra-down kubeconfig cluster-up eso-up crossplane-config argocd-up monitoring-up portal-up cluster-down up down status validate
+.PHONY: help infra-up infra-down kubeconfig cluster-up eso-up crossplane-config argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -59,6 +59,7 @@ cluster-up: kubeconfig
 	done
 	$(MAKE) crossplane-config
 	$(MAKE) argocd-up
+	$(MAKE) kyverno-up
 
 # Configure Crossplane providers and custom Python compositions
 crossplane-config:
@@ -94,6 +95,11 @@ argocd-up:
 	kubectl apply -f platform/argocd/projects/
 	kubectl apply -f platform/argocd/applicationsets/
 
+# Configure Kyverno policy engine and security guardrails
+kyverno-up:
+	@echo "$(GREEN)Installing Kyverno Policy Engine...$(NC)"
+	./platform/security/kyverno/install/install.sh
+
 # Configure Prometheus, Grafana, and Kubecost Monitoring & FinOps
 monitoring-up:
 	@echo "$(GREEN)Installing Prometheus, Grafana, and Kubecost...$(NC)"
@@ -114,7 +120,7 @@ cluster-down:
 	@for team in team-alpha team-beta team-gamma; do \
 		helm uninstall $$team --namespace $$team || true; \
 	done
-	kubectl delete namespace team-alpha team-beta team-gamma argocd monitoring external-secrets --ignore-not-found
+	kubectl delete namespace team-alpha team-beta team-gamma argocd monitoring external-secrets kyverno --ignore-not-found
 	kubectl delete -f platform/karpenter/ --ignore-not-found
 
 # Full environment bootstrap
