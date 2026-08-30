@@ -39,6 +39,14 @@ module "eks" {
 
   karpenter_version = "1.14.1"
 
+  eks_addon_versions = {
+    vpc_cni            = "v1.22.4-eksbuild.3"
+    coredns            = "v1.14.3-eksbuild.14"
+    kube_proxy         = "v1.36.0-eksbuild.17"
+    ebs_csi_driver     = "v1.65.0-eksbuild.1"
+    pod_identity_agent = "v1.3.10-eksbuild.3"
+  }
+
   remote_state_bucket      = "amr-tf-state-2026-851236938302-us-east-1-an"
   network_remote_state_key = "prod/network/terraform.tfstate"
 }

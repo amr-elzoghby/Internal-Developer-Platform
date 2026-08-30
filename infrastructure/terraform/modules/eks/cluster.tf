@@ -16,9 +16,10 @@ locals {
 
 # ─── EKS Cluster ──────────────────────────────────────────────────────────────
 resource "aws_eks_cluster" "main" {
-  name     = var.cluster_name
-  version  = var.cluster_version
-  role_arn = aws_iam_role.eks_cluster.arn
+  name                          = var.cluster_name
+  version                       = var.cluster_version
+  role_arn                      = aws_iam_role.eks_cluster.arn
+  bootstrap_self_managed_addons = false
 
   enabled_cluster_log_types = var.cluster_log_types
 
@@ -120,5 +121,6 @@ resource "aws_eks_node_group" "stable" {
     aws_iam_role_policy_attachment.eks_worker_node_policy,
     aws_iam_role_policy_attachment.eks_cni_policy,
     aws_iam_role_policy_attachment.ecr_read_only,
+    aws_eks_addon.vpc_cni,
   ]
 }

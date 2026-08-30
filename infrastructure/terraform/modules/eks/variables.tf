@@ -43,6 +43,17 @@ variable "cluster_log_types" {
   default     = ["api", "audit", "authenticator", "controllerManager", "scheduler"]
 }
 
+variable "eks_addon_versions" {
+  description = "Pinned EKS managed add-on versions compatible with the cluster version"
+  type = object({
+    vpc_cni            = string
+    coredns            = string
+    kube_proxy         = string
+    ebs_csi_driver     = string
+    pod_identity_agent = string
+  })
+}
+
 variable "endpoint_private_access" {
   description = "Enable private API endpoint"
   type        = bool
