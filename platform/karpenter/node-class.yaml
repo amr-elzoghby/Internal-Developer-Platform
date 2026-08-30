@@ -3,18 +3,18 @@ kind: EC2NodeClass
 metadata:
   name: default
 spec:
-  amiFamily: AL2
-  role: idp-prod-eks-nodes-role
+  amiFamily: AL2023
+  role: idp-prod-karpenter-nodes-role
   subnetSelectorTerms:
     - tags:
         karpenter.sh/discovery: idp-prod
   securityGroupSelectorTerms:
     - tags:
-        karpenter.sh/discovery: idp-prod
+        "aws:eks:cluster-name": idp-prod
   amiSelectorTerms:
-    - alias: al2@latest
+    - alias: al2023@v20260827
   metadataOptions:
     httpEndpoint: enabled
     httpProtocolIPv6: disabled
-    httpPutResponseHopLimit: 2
+    httpPutResponseHopLimit: 1
     httpTokens: required

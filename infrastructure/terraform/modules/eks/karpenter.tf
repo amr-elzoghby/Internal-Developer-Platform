@@ -8,9 +8,12 @@ module "karpenter" {
   namespace       = "kube-system"
   service_account = "karpenter"
 
-  create_node_iam_role = false
-  node_iam_role_arn    = aws_iam_role.eks_nodes.arn
-  create_access_entry  = false
+  create_node_iam_role                   = true
+  node_iam_role_name                     = "${var.name_prefix}-karpenter-nodes-role"
+  node_iam_role_use_name_prefix          = false
+  node_iam_role_attach_cni_policy        = false
+  node_iam_role_source_account_condition = true
+  create_access_entry                    = true
 
   enable_spot_termination = true
 

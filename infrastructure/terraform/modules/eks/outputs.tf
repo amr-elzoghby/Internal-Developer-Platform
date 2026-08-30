@@ -23,9 +23,19 @@ output "node_role_arn" {
   value       = aws_iam_role.eks_nodes.arn
 }
 
-output "karpenter_irsa_role_arn" {
-  description = "IRSA role ARN for Karpenter controller"
+output "karpenter_controller_role_arn" {
+  description = "Pod Identity IAM role ARN for the Karpenter controller"
   value       = module.karpenter.iam_role_arn
+}
+
+output "karpenter_node_role_arn" {
+  description = "Dedicated IAM role ARN for Karpenter-provisioned nodes"
+  value       = module.karpenter.node_iam_role_arn
+}
+
+output "karpenter_node_role_name" {
+  description = "Dedicated IAM role name for Karpenter-provisioned nodes"
+  value       = module.karpenter.node_iam_role_name
 }
 
 output "karpenter_queue_name" {
