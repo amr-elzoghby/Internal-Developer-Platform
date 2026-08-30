@@ -48,9 +48,11 @@ output "kms_key_arn" {
   value       = aws_kms_key.eks.arn
 }
 
-output "crossplane_provider_role_arn" {
-  description = "IRSA role ARN for Crossplane AWS provider"
-  value       = aws_iam_role.crossplane_provider_aws.arn
+output "crossplane_provider_role_arns" {
+  description = "IRSA role ARNs keyed by Crossplane AWS provider name"
+  value = {
+    for provider, role in aws_iam_role.crossplane_provider : provider => role.arn
+  }
 }
 
 output "github_actions_role_arn" {
