@@ -30,7 +30,7 @@ module "eks" {
   aws_region  = var.aws_region
 
   cluster_name    = var.cluster_name
-  cluster_version = "1.30"
+  cluster_version = "1.36"
 
   node_instance_type = "t3.medium"
   node_desired_size  = 2
