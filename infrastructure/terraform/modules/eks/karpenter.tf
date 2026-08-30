@@ -1,13 +1,12 @@
-# ─── Karpenter IAM (IRSA + SQS for Spot interruptions) ──────────────────────
+# ─── Karpenter IAM (Pod Identity + SQS for Spot interruptions) ──────────────
 module "karpenter" {
   source  = "terraform-aws-modules/eks/aws//modules/karpenter"
-  version = "~> 20.0"
+  version = "21.24.2"
 
-  cluster_name = aws_eks_cluster.main.name
-
-  enable_irsa                     = true
-  irsa_oidc_provider_arn          = aws_iam_openid_connect_provider.eks.arn
-  irsa_namespace_service_accounts = ["kube-system:karpenter"]
+  cluster_name    = aws_eks_cluster.main.name
+  region          = var.aws_region
+  namespace       = "kube-system"
+  service_account = "karpenter"
 
   create_node_iam_role = false
   node_iam_role_arn    = aws_iam_role.eks_nodes.arn
@@ -20,6 +19,21 @@ module "karpenter" {
   }
 }
 
+# ─── Karpenter CRDs ─────────────────────────────────────────────────────────
+resource "helm_release" "karpenter_crd" {
+  name       = "karpenter-crd"
+  repository = "oci://public.ecr.aws/karpenter"
+  chart      = "karpenter-crd"
+  version    = var.karpenter_version
+  namespace  = "kube-system"
+
+  atomic          = true
+  cleanup_on_fail = true
+  wait            = true
+
+  depends_on = [aws_eks_node_group.stable]
+}
+
 # ─── Karpenter Helm Release ──────────────────────────────────────────────────
 resource "helm_release" "karpenter" {
   name       = "karpenter"
@@ -27,18 +41,24 @@ resource "helm_release" "karpenter" {
   chart      = "karpenter"
   version    = var.karpenter_version
   namespace  = "kube-system"
+  skip_crds  = true
+
+  atomic          = true
+  cleanup_on_fail = true
+  wait            = true
 
   values = [
     templatefile("${path.module}/templates/karpenter-values.yaml.tpl", {
       cluster_name     = aws_eks_cluster.main.name
       cluster_endpoint = aws_eks_cluster.main.endpoint
       queue_name       = module.karpenter.queue_name
-      role_arn         = module.karpenter.iam_role_arn
     })
   ]
 
   depends_on = [
+    aws_eks_addon.pod_identity_agent,
     aws_eks_node_group.stable,
+    helm_release.karpenter_crd,
     module.karpenter,
   ]
 }

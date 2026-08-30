@@ -1,8 +1,4 @@
 # ─── Karpenter Helm Values ────────────────────────────────────────────────────
-serviceAccount:
-  annotations:
-    eks.amazonaws.com/role-arn: "${role_arn}"
-
 settings:
   clusterName: "${cluster_name}"
   clusterEndpoint: "${cluster_endpoint}"

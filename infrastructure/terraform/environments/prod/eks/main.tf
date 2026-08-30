@@ -37,7 +37,7 @@ module "eks" {
   node_min_size      = 2
   node_max_size      = 4
 
-  karpenter_version = "1.1.1"
+  karpenter_version = "1.14.1"
 
   remote_state_bucket      = "amr-tf-state-2026-851236938302-us-east-1-an"
   network_remote_state_key = "prod/network/terraform.tfstate"

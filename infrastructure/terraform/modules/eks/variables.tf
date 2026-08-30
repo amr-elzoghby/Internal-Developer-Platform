@@ -104,7 +104,7 @@ variable "node_max_size" {
 variable "karpenter_version" {
   description = "Karpenter Helm chart version"
   type        = string
-  default     = "1.1.1"
+  default     = "1.14.1"
 }
 
 # ─── Network (from remote state) ─────────────────────────────────────────────
