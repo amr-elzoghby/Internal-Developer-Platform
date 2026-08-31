@@ -49,14 +49,24 @@ spec:
               composite = req.observed.composite.resource
               spec = composite["spec"] if "spec" in composite else {}
               region = spec["region"] if "region" in spec else "us-east-1"
+              bucket_name = f"idp-prod-crossplane-{composite['metadata']['uid']}"
               
               bucket = {
                   "apiVersion": "s3.aws.upbound.io/v1beta1",
                   "kind": "Bucket",
+                  "metadata": {
+                      "annotations": {
+                          "crossplane.io/external-name": bucket_name
+                      }
+                  },
                   "spec": {
                       "deletionPolicy": "Orphan",
                       "forProvider": {
-                          "region": region
+                          "region": region,
+                          "tags": {
+                              "ManagedBy": "Crossplane-IDP",
+                              "Environment": "prod"
+                          }
                       }
                   }
               }

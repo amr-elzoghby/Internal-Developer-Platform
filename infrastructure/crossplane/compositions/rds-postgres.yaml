@@ -71,7 +71,11 @@ spec:
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "RDS Instance Security Group",
-                          "vpcId": "${VPC_ID}"
+                          "vpcId": "${VPC_ID}",
+                          "tags": {
+                              "ManagedBy": "Crossplane-IDP",
+                              "Environment": "prod"
+                          }
                       }
                   }
               }
@@ -105,7 +109,11 @@ spec:
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "DB Subnet Group for RDS",
-                          "subnetIds": ["${PRIVATE_SUBNET_1}", "${PRIVATE_SUBNET_2}"]
+                          "subnetIds": ["${PRIVATE_SUBNET_1}", "${PRIVATE_SUBNET_2}"],
+                          "tags": {
+                              "ManagedBy": "Crossplane-IDP",
+                              "Environment": "prod"
+                          }
                       }
                   }
               }
@@ -138,6 +146,10 @@ spec:
                               "name": f"{db_name}-password",
                               "namespace": claim_ns,
                               "key": "password"
+                          },
+                          "tags": {
+                              "ManagedBy": "Crossplane-IDP",
+                              "Environment": "prod"
                           }
                       },
                       "writeConnectionSecretToRef": {

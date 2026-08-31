@@ -53,6 +53,15 @@ resource "aws_iam_role" "crossplane_provider" {
 
 data "aws_iam_policy_document" "crossplane_s3" {
   statement {
+    sid    = "DenyManagementOutsidePlatformBucketPrefix"
+    effect = "Deny"
+    actions = [
+      "s3:CreateBucket", "s3:DeleteBucket", "s3:PutBucketTagging"
+    ]
+    not_resources = ["arn:aws:s3:::idp-prod-crossplane-*"]
+  }
+
+  statement {
     sid = "ManageCrossplaneBuckets"
     actions = [
       "s3:CreateBucket", "s3:DeleteBucket", "s3:GetAccelerateConfiguration",
@@ -92,6 +101,35 @@ resource "aws_iam_policy" "crossplane_s3" {
 
 data "aws_iam_policy_document" "crossplane_rds" {
   statement {
+    sid       = "RequireOwnershipTagsOnCreate"
+    effect    = "Deny"
+    actions   = ["rds:CreateDBInstance", "rds:CreateDBSubnetGroup"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:RequestTag/ManagedBy"
+      values   = ["Crossplane-IDP"]
+    }
+  }
+
+  statement {
+    sid    = "DenyChangesToResourcesNotOwnedByCrossplane"
+    effect = "Deny"
+    actions = [
+      "rds:AddTagsToResource", "rds:DeleteDBInstance", "rds:DeleteDBSubnetGroup",
+      "rds:ModifyDBInstance", "rds:ModifyDBSubnetGroup", "rds:RemoveTagsFromResource"
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:ResourceTag/ManagedBy"
+      values   = ["Crossplane-IDP"]
+    }
+  }
+
+  statement {
     sid = "ManageRDSInstancesAndSubnetGroups"
     actions = [
       "rds:AddTagsToResource", "rds:CreateDBInstance", "rds:CreateDBSubnetGroup",
@@ -110,6 +148,36 @@ resource "aws_iam_policy" "crossplane_rds" {
 }
 
 data "aws_iam_policy_document" "crossplane_elasticache" {
+  statement {
+    sid       = "RequireOwnershipTagsOnCreate"
+    effect    = "Deny"
+    actions   = ["elasticache:CreateCacheSubnetGroup", "elasticache:CreateReplicationGroup"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:RequestTag/ManagedBy"
+      values   = ["Crossplane-IDP"]
+    }
+  }
+
+  statement {
+    sid    = "DenyChangesToResourcesNotOwnedByCrossplane"
+    effect = "Deny"
+    actions = [
+      "elasticache:AddTagsToResource", "elasticache:DeleteCacheSubnetGroup",
+      "elasticache:DeleteReplicationGroup", "elasticache:ModifyCacheSubnetGroup",
+      "elasticache:ModifyReplicationGroup", "elasticache:RemoveTagsFromResource"
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:ResourceTag/ManagedBy"
+      values   = ["Crossplane-IDP"]
+    }
+  }
+
   statement {
     sid = "ManageElastiCacheReplicationAndSubnetGroups"
     actions = [
@@ -131,6 +199,56 @@ resource "aws_iam_policy" "crossplane_elasticache" {
 }
 
 data "aws_iam_policy_document" "crossplane_ec2" {
+  statement {
+    sid       = "RequireOwnershipTagsOnCreate"
+    effect    = "Deny"
+    actions   = ["ec2:CreateSecurityGroup", "ec2:RunInstances"]
+    resources = ["*"]
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:RequestTag/ManagedBy"
+      values   = ["Crossplane-IDP"]
+    }
+  }
+
+  statement {
+    sid       = "DenyTaggingResourcesNotOwnedByCrossplane"
+    effect    = "Deny"
+    actions   = ["ec2:CreateTags"]
+    resources = ["*"]
+
+    condition {
+      test     = "Null"
+      variable = "ec2:CreateAction"
+      values   = ["true"]
+    }
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:ResourceTag/ManagedBy"
+      values   = ["Crossplane-IDP"]
+    }
+  }
+
+  statement {
+    sid    = "DenyChangesToResourcesNotOwnedByCrossplane"
+    effect = "Deny"
+    actions = [
+      "ec2:AuthorizeSecurityGroupEgress", "ec2:AuthorizeSecurityGroupIngress",
+      "ec2:DeleteSecurityGroup", "ec2:DeleteTags", "ec2:ModifyInstanceAttribute",
+      "ec2:RevokeSecurityGroupEgress", "ec2:RevokeSecurityGroupIngress",
+      "ec2:StartInstances", "ec2:StopInstances", "ec2:TerminateInstances"
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "StringNotEquals"
+      variable = "aws:ResourceTag/ManagedBy"
+      values   = ["Crossplane-IDP"]
+    }
+  }
+
   statement {
     sid = "ManageInstancesAndSecurityGroups"
     actions = [

@@ -70,7 +70,11 @@ spec:
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "EC2 Server Security Group",
-                          "vpcId": "${VPC_ID}"
+                          "vpcId": "${VPC_ID}",
+                          "tags": {
+                              "ManagedBy": "Crossplane-IDP",
+                              "Environment": "prod"
+                          }
                       }
                   }
               }
@@ -111,7 +115,8 @@ spec:
                           },
                           "tags": {
                               "Name": "idp-developer-server",
-                              "ManagedBy": "Crossplane-IDP"
+                              "ManagedBy": "Crossplane-IDP",
+                              "Environment": "prod"
                           }
                       }
                   }

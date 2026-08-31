@@ -65,7 +65,11 @@ spec:
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "Redis Security Group",
-                          "vpcId": "${VPC_ID}"
+                          "vpcId": "${VPC_ID}",
+                          "tags": {
+                              "ManagedBy": "Crossplane-IDP",
+                              "Environment": "prod"
+                          }
                       }
                   }
               }
@@ -99,7 +103,11 @@ spec:
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "Redis Subnet Group",
-                          "subnetIds": ["${PRIVATE_SUBNET_1}", "${PRIVATE_SUBNET_2}"]
+                          "subnetIds": ["${PRIVATE_SUBNET_1}", "${PRIVATE_SUBNET_2}"],
+                          "tags": {
+                              "ManagedBy": "Crossplane-IDP",
+                              "Environment": "prod"
+                          }
                       }
                   }
               }
@@ -125,6 +133,10 @@ spec:
                           },
                           "securityGroupIdSelector": {
                               "matchControllerRef": True
+                          },
+                          "tags": {
+                              "ManagedBy": "Crossplane-IDP",
+                              "Environment": "prod"
                           }
                       },
                       "writeConnectionSecretToRef": {
