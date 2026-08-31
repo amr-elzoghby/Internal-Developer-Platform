@@ -1,9 +1,46 @@
 apiVersion: pkg.crossplane.io/v1beta1
 kind: DeploymentRuntimeConfig
 metadata:
-  name: aws-provider-runtime
+  name: aws-provider-s3-runtime
 spec:
   serviceAccountTemplate:
     metadata:
+      name: provider-aws-s3
       annotations:
-        eks.amazonaws.com/role-arn: ${CROSSPLANE_ROLE_ARN}
+        eks.amazonaws.com/role-arn: ${CROSSPLANE_S3_ROLE_ARN}
+
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: aws-provider-rds-runtime
+spec:
+  serviceAccountTemplate:
+    metadata:
+      name: provider-aws-rds
+      annotations:
+        eks.amazonaws.com/role-arn: ${CROSSPLANE_RDS_ROLE_ARN}
+
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: aws-provider-elasticache-runtime
+spec:
+  serviceAccountTemplate:
+    metadata:
+      name: provider-aws-elasticache
+      annotations:
+        eks.amazonaws.com/role-arn: ${CROSSPLANE_ELASTICACHE_ROLE_ARN}
+
+---
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: aws-provider-ec2-runtime
+spec:
+  serviceAccountTemplate:
+    metadata:
+      name: provider-aws-ec2
+      annotations:
+        eks.amazonaws.com/role-arn: ${CROSSPLANE_EC2_ROLE_ARN}

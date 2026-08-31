@@ -63,9 +63,18 @@ cluster-up: kubeconfig
 
 # Configure Crossplane providers and custom Python compositions
 crossplane-config:
-	@echo "$(GREEN)Configuring Crossplane Runtime with IRSA Role...$(NC)"
-	$(eval CROSSPLANE_ROLE_ARN := $(shell cd $(TF_DIR)/eks && terraform output -raw crossplane_provider_role_arn))
-	@CROSSPLANE_ROLE_ARN=$(CROSSPLANE_ROLE_ARN) envsubst < infrastructure/crossplane/providers/deployment-runtime-config.yaml | kubectl apply -f -
+	@echo "$(GREEN)Configuring Crossplane Runtimes with dedicated IRSA roles...$(NC)"
+	$(eval CROSSPLANE_ROLE_ARNS := $(shell cd $(TF_DIR)/eks && terraform output -json crossplane_provider_role_arns))
+	$(eval CROSSPLANE_S3_ROLE_ARN := $(shell echo '$(CROSSPLANE_ROLE_ARNS)' | python3 -c "import sys, json; print(json.load(sys.stdin)['s3'])"))
+	$(eval CROSSPLANE_RDS_ROLE_ARN := $(shell echo '$(CROSSPLANE_ROLE_ARNS)' | python3 -c "import sys, json; print(json.load(sys.stdin)['rds'])"))
+	$(eval CROSSPLANE_ELASTICACHE_ROLE_ARN := $(shell echo '$(CROSSPLANE_ROLE_ARNS)' | python3 -c "import sys, json; print(json.load(sys.stdin)['elasticache'])"))
+	$(eval CROSSPLANE_EC2_ROLE_ARN := $(shell echo '$(CROSSPLANE_ROLE_ARNS)' | python3 -c "import sys, json; print(json.load(sys.stdin)['ec2'])"))
+	@CROSSPLANE_S3_ROLE_ARN=$(CROSSPLANE_S3_ROLE_ARN) \
+	CROSSPLANE_RDS_ROLE_ARN=$(CROSSPLANE_RDS_ROLE_ARN) \
+	CROSSPLANE_ELASTICACHE_ROLE_ARN=$(CROSSPLANE_ELASTICACHE_ROLE_ARN) \
+	CROSSPLANE_EC2_ROLE_ARN=$(CROSSPLANE_EC2_ROLE_ARN) \
+	envsubst '$$CROSSPLANE_S3_ROLE_ARN $$CROSSPLANE_RDS_ROLE_ARN $$CROSSPLANE_ELASTICACHE_ROLE_ARN $$CROSSPLANE_EC2_ROLE_ARN' \
+	< infrastructure/crossplane/providers/deployment-runtime-config.yaml | kubectl apply -f -
 	kubectl apply -f infrastructure/crossplane/providers/providers.yaml
 	sleep 30
 	kubectl wait --for=condition=Healthy provider.pkg.crossplane.io --all --timeout=300s
@@ -139,4 +148,3 @@ status:
 validate:
 	cd $(TF_DIR)/network && terraform init -backend=false && terraform validate
 	cd $(TF_DIR)/eks && terraform init -backend=false && terraform validate
-

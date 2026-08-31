@@ -13,7 +13,7 @@ metadata:
 spec:
   package: xpkg.upbound.io/upbound/provider-aws-s3:v1.16.0
   runtimeConfigRef:
-    name: aws-provider-runtime
+    name: aws-provider-s3-runtime
 
 ---
 apiVersion: pkg.crossplane.io/v1
@@ -23,7 +23,7 @@ metadata:
 spec:
   package: xpkg.upbound.io/upbound/provider-aws-rds:v1.16.0
   runtimeConfigRef:
-    name: aws-provider-runtime
+    name: aws-provider-rds-runtime
 
 ---
 apiVersion: pkg.crossplane.io/v1
@@ -33,7 +33,7 @@ metadata:
 spec:
   package: xpkg.upbound.io/upbound/provider-aws-elasticache:v1.16.0
   runtimeConfigRef:
-    name: aws-provider-runtime
+    name: aws-provider-elasticache-runtime
 
 ---
 apiVersion: pkg.crossplane.io/v1
@@ -43,4 +43,4 @@ metadata:
 spec:
   package: xpkg.upbound.io/upbound/provider-aws-ec2:v1.16.0
   runtimeConfigRef:
-    name: aws-provider-runtime
+    name: aws-provider-ec2-runtime
