@@ -5,26 +5,28 @@ metadata:
   namespace: argocd
 spec:
   generators:
-    - git:
-        repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
-        revision: HEAD
-        directories:
-          - path: infrastructure/crossplane/claims/*
+    - list:
+        elements:
+          - team: team-alpha
+            path: infrastructure/crossplane/claims/team-alpha
+  syncPolicy:
+    applicationsSync: create-update
+    preserveResourcesOnDeletion: true
   template:
     metadata:
-      name: '{{path.basename}}-infra-claims'
+      name: '{{team}}-infra-claims'
     spec:
       project: platform-infra
       source:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
-        targetRevision: HEAD
+        targetRevision: main
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: '{{path.basename}}'
+        namespace: '{{team}}'
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
         syncOptions:
-          - CreateNamespace=true
+          - FailOnSharedResource=true

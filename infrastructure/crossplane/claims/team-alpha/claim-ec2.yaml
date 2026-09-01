@@ -3,5 +3,7 @@ kind: ServerInstance
 metadata:
   name: team-alpha-web-server
   namespace: team-alpha
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   size: small

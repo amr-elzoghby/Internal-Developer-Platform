@@ -3,6 +3,8 @@ kind: PostgresSQLInstance
 metadata:
   name: team-alpha-db
   namespace: team-alpha
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   storageGB: 20
   size: small

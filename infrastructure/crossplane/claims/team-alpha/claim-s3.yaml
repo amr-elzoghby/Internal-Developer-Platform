@@ -3,5 +3,7 @@ kind: ObjectBucket
 metadata:
   name: team-alpha-s3-bucket
   namespace: team-alpha
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   region: us-east-1

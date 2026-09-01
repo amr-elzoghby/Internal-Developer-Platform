@@ -66,17 +66,27 @@ metadata:
 spec:
   description: "ArgoCD Project for Platform Infrastructure & Crossplane Claims"
   destinations:
-    - namespace: default
+    - namespace: team-alpha
       server: https://kubernetes.default.svc
-    - namespace: crossplane-system
+    - namespace: team-beta
       server: https://kubernetes.default.svc
-    - namespace: '*'
+    - namespace: team-gamma
       server: https://kubernetes.default.svc
   sourceRepos:
-    - 'https://github.com/amr-elzoghby/*'
+    - 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
   namespaceResourceWhitelist:
-    - group: '*'
-      kind: '*'
-  clusterResourceWhitelist:
-    - group: '*'
-      kind: '*'
+    - group: idp.io
+      kind: ObjectBucket
+    - group: idp.io
+      kind: PostgresSQLInstance
+    - group: idp.io
+      kind: RedisInstance
+    - group: idp.io
+      kind: ServerInstance
+    - group: external-secrets.io
+      kind: ExternalSecret
+    - group: external-secrets.io
+      kind: SecretStore
+  clusterResourceWhitelist: []
+  orphanedResources:
+    warn: true

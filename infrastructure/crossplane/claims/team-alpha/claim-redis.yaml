@@ -3,5 +3,7 @@ kind: RedisInstance
 metadata:
   name: team-alpha-cache
   namespace: team-alpha
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
   size: small
