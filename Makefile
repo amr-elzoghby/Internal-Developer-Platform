@@ -75,9 +75,11 @@ storage-up:
 
 # Create tenant boundaries directly on the host EKS cluster.
 tenant-up:
+	kubectl apply -f tenants/rbac/cluster-roles.yaml
 	@for team in $(TEAMS); do \
 		kubectl create namespace $$team --dry-run=client -o yaml | kubectl apply -f -; \
 		kubectl apply -f tenants/base/ -n $$team; \
+		kubectl apply -f tenants/rbac/bindings/$$team.yaml; \
 	done
 
 # Install a vCluster only when a team explicitly needs an isolated Kubernetes API.

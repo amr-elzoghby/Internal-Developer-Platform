@@ -1,0 +1,43 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tenant-viewers
+  namespace: team-gamma
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: idp:tenant:team-gamma:viewer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: idp-tenant-viewer
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tenant-operators-view
+  namespace: team-gamma
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: idp:tenant:team-gamma:operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: idp-tenant-viewer
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: tenant-operators-actions
+  namespace: team-gamma
+subjects:
+  - apiGroup: rbac.authorization.k8s.io
+    kind: Group
+    name: idp:tenant:team-gamma:operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: idp-tenant-operator-actions
