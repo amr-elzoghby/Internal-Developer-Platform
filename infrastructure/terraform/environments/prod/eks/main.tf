@@ -39,6 +39,8 @@ module "eks" {
 
   karpenter_version = "1.14.1"
 
+  metrics_server_chart_version = "3.13.1"
+
   eks_addon_versions = {
     vpc_cni            = "v1.22.4-eksbuild.3"
     coredns            = "v1.14.3-eksbuild.14"
