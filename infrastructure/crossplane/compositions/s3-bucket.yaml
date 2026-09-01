@@ -1,34 +1,4 @@
 apiVersion: apiextensions.crossplane.io/v1
-kind: CompositeResourceDefinition
-metadata:
-  name: xobjectbuckets.idp.io
-spec:
-  group: idp.io
-  names:
-    kind: XObjectBucket
-    plural: xobjectbuckets
-  claimNames:
-    kind: ObjectBucket
-    plural: objectbuckets
-  versions:
-    - name: v1alpha1
-      served: true
-      referenceable: true
-      schema:
-        openAPIV3Schema:
-          type: object
-          properties:
-            spec:
-              type: object
-              properties:
-                region:
-                  type: string
-                  default: us-east-1
-              required:
-                - region
-
----
-apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
   name: xobjectbuckets.idp.io

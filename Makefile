@@ -1,4 +1,4 @@
-.PHONY: help confirm-destroy infra-up infra-down kubeconfig cluster-up storage-up tenant-up vcluster-up vcluster-down eso-up crossplane-config argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
+.PHONY: help confirm-destroy infra-up infra-down kubeconfig cluster-up storage-up tenant-up vcluster-up vcluster-down eso-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -19,6 +19,7 @@ help:
 	@echo "  monitoring-up       Deploy Prometheus, Grafana, and Kubecost FinOps stack"
 	@echo "  storage-up          Apply the encrypted gp3 StorageClass"
 	@echo "  tenant-up           Create and configure host-cluster tenant namespaces"
+	@echo "  crossplane-config   Install providers, XRDs, then Compositions in order"
 	@echo "  vcluster-up          Install an optional vCluster (requires TEAM=<approved-team>)"
 	@echo "  vcluster-down        Uninstall one vCluster safely (requires TEAM=<approved-team>)"
 	@echo "  down                Destroy the environment (requires CONFIRM_DESTROY=$(CLUSTER_NAME))"
@@ -131,38 +132,100 @@ vcluster-down:
 	helm status "$(TEAM)" --namespace "$(TEAM)" >/dev/null
 	helm uninstall "$(TEAM)" --namespace "$(TEAM)" --keep-history
 
-# Configure Crossplane providers and custom Python compositions
+# Configure Crossplane in dependency order. Sub-makes keep the phases sequential
+# even when the top-level make command is invoked with parallel execution.
 crossplane-config:
+	$(MAKE) crossplane-packages
+	$(MAKE) crossplane-definitions
+	$(MAKE) crossplane-compositions
+
+# Install the provider/function packages only after Crossplane's package CRDs
+# are established, then wait for the AWS ProviderConfig API before using it.
+crossplane-packages:
 	@echo "$(GREEN)Configuring Crossplane Runtimes with dedicated IRSA roles...$(NC)"
-	$(eval CROSSPLANE_ROLE_ARNS := $(shell cd $(TF_DIR)/eks && terraform output -json crossplane_provider_role_arns))
-	$(eval CROSSPLANE_S3_ROLE_ARN := $(shell echo '$(CROSSPLANE_ROLE_ARNS)' | python3 -c "import sys, json; print(json.load(sys.stdin)['s3'])"))
-	$(eval CROSSPLANE_RDS_ROLE_ARN := $(shell echo '$(CROSSPLANE_ROLE_ARNS)' | python3 -c "import sys, json; print(json.load(sys.stdin)['rds'])"))
-	$(eval CROSSPLANE_ELASTICACHE_ROLE_ARN := $(shell echo '$(CROSSPLANE_ROLE_ARNS)' | python3 -c "import sys, json; print(json.load(sys.stdin)['elasticache'])"))
-	$(eval CROSSPLANE_EC2_ROLE_ARN := $(shell echo '$(CROSSPLANE_ROLE_ARNS)' | python3 -c "import sys, json; print(json.load(sys.stdin)['ec2'])"))
-	@CROSSPLANE_S3_ROLE_ARN=$(CROSSPLANE_S3_ROLE_ARN) \
-	CROSSPLANE_RDS_ROLE_ARN=$(CROSSPLANE_RDS_ROLE_ARN) \
-	CROSSPLANE_ELASTICACHE_ROLE_ARN=$(CROSSPLANE_ELASTICACHE_ROLE_ARN) \
-	CROSSPLANE_EC2_ROLE_ARN=$(CROSSPLANE_EC2_ROLE_ARN) \
-	envsubst '$$CROSSPLANE_S3_ROLE_ARN $$CROSSPLANE_RDS_ROLE_ARN $$CROSSPLANE_ELASTICACHE_ROLE_ARN $$CROSSPLANE_EC2_ROLE_ARN' \
-	< infrastructure/crossplane/providers/deployment-runtime-config.yaml | kubectl apply -f -
-	kubectl apply -f infrastructure/crossplane/providers/providers.yaml
-	sleep 30
-	kubectl wait --for=condition=Healthy provider.pkg.crossplane.io --all --timeout=300s
-	kubectl wait --for=condition=Healthy function.pkg.crossplane.io --all --timeout=300s
-	kubectl apply -f infrastructure/crossplane/providers/provider-config.yaml
-	@echo "$(GREEN)Fetching VPC/Subnet IDs from Terraform...$(NC)"
-	$(eval VPC_ID := $(shell cd $(TF_DIR)/network && terraform output -raw vpc_id))
-	$(eval PRIVATE_SUBNETS := $(shell cd $(TF_DIR)/network && terraform output -json private_subnet_ids))
-	$(eval PRIVATE_SUBNET_1 := $(shell echo '$(PRIVATE_SUBNETS)' | python3 -c "import sys, json; print(json.load(sys.stdin)[0])"))
-	$(eval PRIVATE_SUBNET_2 := $(shell echo '$(PRIVATE_SUBNETS)' | python3 -c "import sys, json; print(json.load(sys.stdin)[1])"))
-	@echo "$(GREEN)VPC: $(VPC_ID) | Subnets: $(PRIVATE_SUBNET_1), $(PRIVATE_SUBNET_2)$(NC)"
-	@mkdir -p /tmp/crossplane-rendered
-	@for f in infrastructure/crossplane/compositions/*.yaml; do \
-		VPC_ID=$(VPC_ID) PRIVATE_SUBNET_1=$(PRIVATE_SUBNET_1) PRIVATE_SUBNET_2=$(PRIVATE_SUBNET_2) \
-		envsubst '$$VPC_ID $$PRIVATE_SUBNET_1 $$PRIVATE_SUBNET_2' < $$f > /tmp/crossplane-rendered/$$(basename $$f); \
+	@set -eu; \
+	for crd in \
+		deploymentruntimeconfigs.pkg.crossplane.io \
+		providers.pkg.crossplane.io \
+		functions.pkg.crossplane.io \
+		compositeresourcedefinitions.apiextensions.crossplane.io \
+		compositions.apiextensions.crossplane.io \
+		compositionrevisions.apiextensions.crossplane.io; do \
+		kubectl wait --for=condition=Established "crd/$$crd" --timeout=180s; \
 	done
-	kubectl apply -f /tmp/crossplane-rendered/
-	@rm -rf /tmp/crossplane-rendered
+	@set -eu; \
+	role_arns="$$(cd $(TF_DIR)/eks && terraform output -json crossplane_provider_role_arns)"; \
+	s3_role_arn="$$(printf '%s' "$$role_arns" | python3 -c 'import json, sys; print(json.load(sys.stdin)["s3"])')"; \
+	rds_role_arn="$$(printf '%s' "$$role_arns" | python3 -c 'import json, sys; print(json.load(sys.stdin)["rds"])')"; \
+	elasticache_role_arn="$$(printf '%s' "$$role_arns" | python3 -c 'import json, sys; print(json.load(sys.stdin)["elasticache"])')"; \
+	ec2_role_arn="$$(printf '%s' "$$role_arns" | python3 -c 'import json, sys; print(json.load(sys.stdin)["ec2"])')"; \
+	CROSSPLANE_S3_ROLE_ARN="$$s3_role_arn" \
+	CROSSPLANE_RDS_ROLE_ARN="$$rds_role_arn" \
+	CROSSPLANE_ELASTICACHE_ROLE_ARN="$$elasticache_role_arn" \
+	CROSSPLANE_EC2_ROLE_ARN="$$ec2_role_arn" \
+	envsubst '$$CROSSPLANE_S3_ROLE_ARN $$CROSSPLANE_RDS_ROLE_ARN $$CROSSPLANE_ELASTICACHE_ROLE_ARN $$CROSSPLANE_EC2_ROLE_ARN' \
+		< infrastructure/crossplane/providers/deployment-runtime-config.yaml | kubectl apply -f -
+	kubectl apply -f infrastructure/crossplane/providers/providers.yaml
+	@set -eu; \
+	for provider in provider-aws-s3 provider-aws-rds provider-aws-elasticache provider-aws-ec2; do \
+		kubectl wait --for=condition=Installed "provider.pkg.crossplane.io/$$provider" --timeout=600s; \
+		kubectl wait --for=condition=Healthy "provider.pkg.crossplane.io/$$provider" --timeout=600s; \
+	done
+	kubectl wait --for=condition=Installed function.pkg.crossplane.io/function-python --timeout=600s
+	kubectl wait --for=condition=Healthy function.pkg.crossplane.io/function-python --timeout=600s
+	kubectl wait --for=condition=Established crd/providerconfigs.aws.upbound.io --timeout=300s
+	kubectl apply -f infrastructure/crossplane/providers/provider-config.yaml
+
+# Install the public APIs before their Compositions. These legacy XRDs still
+# offer claims; the namespaced v2 API migration is intentionally a later step.
+crossplane-definitions:
+	kubectl apply -f infrastructure/crossplane/definitions/
+	@set -eu; \
+	for xrd in \
+		xobjectbuckets.idp.io \
+		xserverinstances.idp.io \
+		xpostgressqlinstances.idp.io \
+		xredisinstances.idp.io; do \
+		kubectl wait --for=condition=Established "xrd/$$xrd" --timeout=180s; \
+		kubectl wait --for=condition=Offered "xrd/$$xrd" --timeout=180s; \
+	done
+	@set -eu; \
+	for crd in \
+		xobjectbuckets.idp.io objectbuckets.idp.io \
+		xserverinstances.idp.io serverinstances.idp.io \
+		xpostgressqlinstances.idp.io postgressqlinstances.idp.io \
+		xredisinstances.idp.io redisinstances.idp.io; do \
+		kubectl wait --for=condition=Established "crd/$$crd" --timeout=180s; \
+	done
+
+# Render environment-specific values only after the XRD APIs exist, apply the
+# Compositions, and verify the newest generated revisions have valid pipelines.
+crossplane-compositions:
+	@echo "$(GREEN)Fetching VPC/Subnet IDs from Terraform...$(NC)"
+	@set -eu; \
+	vpc_id="$$(cd $(TF_DIR)/network && terraform output -raw vpc_id)"; \
+	private_subnets="$$(cd $(TF_DIR)/network && terraform output -json private_subnet_ids)"; \
+	private_subnet_1="$$(printf '%s' "$$private_subnets" | python3 -c 'import json, sys; subnets = json.load(sys.stdin); assert len(subnets) >= 2, "at least two private subnets are required"; print(subnets[0])')"; \
+	private_subnet_2="$$(printf '%s' "$$private_subnets" | python3 -c 'import json, sys; subnets = json.load(sys.stdin); assert len(subnets) >= 2, "at least two private subnets are required"; print(subnets[1])')"; \
+	echo "$(GREEN)VPC: $$vpc_id | Subnets: $$private_subnet_1, $$private_subnet_2$(NC)"; \
+	render_dir="$$(mktemp -d /tmp/idp-crossplane.XXXXXX)"; \
+	trap 'rm -rf "$$render_dir"' EXIT HUP INT TERM; \
+	for file in infrastructure/crossplane/compositions/*.yaml; do \
+		VPC_ID="$$vpc_id" PRIVATE_SUBNET_1="$$private_subnet_1" PRIVATE_SUBNET_2="$$private_subnet_2" \
+			envsubst '$$VPC_ID $$PRIVATE_SUBNET_1 $$PRIVATE_SUBNET_2' < "$$file" > "$$render_dir/$$(basename "$$file")"; \
+	done; \
+	kubectl apply -f "$$render_dir/"
+	@set -eu; \
+	for composition in \
+		xobjectbuckets.idp.io \
+		xserverinstances.idp.io \
+		xpostgressqlinstances.idp.io \
+		xredisinstances.idp.io; do \
+		revision="$$(python3 infrastructure/crossplane/scripts/find-matching-composition-revision.py \
+			"$$composition" --timeout 120)"; \
+		kubectl wait --for=condition=ValidPipeline \
+			"compositionrevision.apiextensions.crossplane.io/$$revision" --timeout=180s; \
+	done
 
 # Configure ArgoCD and multi-tenant GitOps
 argocd-up:

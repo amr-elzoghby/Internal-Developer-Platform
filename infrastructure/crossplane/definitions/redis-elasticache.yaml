@@ -1,0 +1,28 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xredisinstances.idp.io
+spec:
+  group: idp.io
+  names:
+    kind: XRedisInstance
+    plural: xredisinstances
+  claimNames:
+    kind: RedisInstance
+    plural: redisinstances
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                size:
+                  type: string
+                  default: small
+              required:
+                - size

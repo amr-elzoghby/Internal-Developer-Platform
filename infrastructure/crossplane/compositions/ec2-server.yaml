@@ -1,37 +1,4 @@
 apiVersion: apiextensions.crossplane.io/v1
-kind: CompositeResourceDefinition
-metadata:
-  name: xserverinstances.idp.io
-spec:
-  group: idp.io
-  names:
-    kind: XServerInstance
-    plural: xserverinstances
-  claimNames:
-    kind: ServerInstance
-    plural: serverinstances
-  versions:
-    - name: v1alpha1
-      served: true
-      referenceable: true
-      schema:
-        openAPIV3Schema:
-          type: object
-          properties:
-            spec:
-              type: object
-              properties:
-                size:
-                  type: string
-                  default: small
-                ami:
-                  type: string
-                  default: ami-0c7217cdde317cfec # Standard Amazon Linux 2 / Ubuntu 22.04 in us-east-1
-              required:
-                - size
-
----
-apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
   name: xserverinstances.idp.io
