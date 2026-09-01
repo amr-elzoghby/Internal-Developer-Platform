@@ -6,6 +6,11 @@ resource "helm_release" "crossplane" {
   namespace  = "crossplane-system"
 
   create_namespace = true
+  atomic           = true
+  cleanup_on_fail  = true
+  wait             = true
+  wait_for_jobs    = true
+  timeout          = 600
   depends_on       = [aws_eks_node_group.stable]
 }
 

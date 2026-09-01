@@ -43,6 +43,8 @@ module "eks" {
 
   karpenter_version = "1.14.1"
 
+  crossplane_version = "2.4.0"
+
   metrics_server_chart_version = "3.13.1"
 
   platform_access_entries = var.platform_access_entries

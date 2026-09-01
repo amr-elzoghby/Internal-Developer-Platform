@@ -299,5 +299,10 @@ variable "network_remote_state_key" {
 variable "crossplane_version" {
   description = "Crossplane Helm chart version"
   type        = string
-  default     = "1.18.0"
+  default     = "2.4.0"
+
+  validation {
+    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.crossplane_version))
+    error_message = "Crossplane Helm chart version must use semantic version format, for example 2.4.0."
+  }
 }
