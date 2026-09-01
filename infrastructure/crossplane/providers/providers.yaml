@@ -11,7 +11,7 @@ kind: Provider
 metadata:
   name: provider-aws-s3
 spec:
-  package: xpkg.upbound.io/upbound/provider-aws-s3:v2.7.0
+  package: xpkg.upbound.io/upbound/provider-aws-s3:v2.7.1
   runtimeConfigRef:
     name: aws-provider-s3-runtime
 
@@ -21,7 +21,7 @@ kind: Provider
 metadata:
   name: provider-aws-rds
 spec:
-  package: xpkg.upbound.io/upbound/provider-aws-rds:v2.7.0
+  package: xpkg.upbound.io/upbound/provider-aws-rds:v2.7.1
   runtimeConfigRef:
     name: aws-provider-rds-runtime
 
@@ -31,7 +31,7 @@ kind: Provider
 metadata:
   name: provider-aws-elasticache
 spec:
-  package: xpkg.upbound.io/upbound/provider-aws-elasticache:v2.7.0
+  package: xpkg.upbound.io/upbound/provider-aws-elasticache:v2.7.1
   runtimeConfigRef:
     name: aws-provider-elasticache-runtime
 
@@ -41,6 +41,6 @@ kind: Provider
 metadata:
   name: provider-aws-ec2
 spec:
-  package: xpkg.upbound.io/upbound/provider-aws-ec2:v2.7.0
+  package: xpkg.upbound.io/upbound/provider-aws-ec2:v2.7.1
   runtimeConfigRef:
     name: aws-provider-ec2-runtime
