@@ -7,7 +7,7 @@ spec:
   generators:
     - git:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
-        revision: HEAD
+        revision: main
         directories:
           - path: apps/team-alpha/*
   template:
@@ -17,7 +17,7 @@ spec:
       project: team-alpha
       source:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
-        targetRevision: HEAD
+        targetRevision: main
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
@@ -27,4 +27,4 @@ spec:
           prune: true
           selfHeal: true
         syncOptions:
-          - CreateNamespace=true
+          - FailOnSharedResource=true
