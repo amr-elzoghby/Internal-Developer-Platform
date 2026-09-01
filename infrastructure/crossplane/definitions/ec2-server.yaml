@@ -1,13 +1,11 @@
-apiVersion: apiextensions.crossplane.io/v1
+apiVersion: apiextensions.crossplane.io/v2
 kind: CompositeResourceDefinition
 metadata:
-  name: xserverinstances.idp.io
+  name: serverinstances.idp.io
 spec:
+  scope: Namespaced
   group: idp.io
   names:
-    kind: XServerInstance
-    plural: xserverinstances
-  claimNames:
     kind: ServerInstance
     plural: serverinstances
   versions:
@@ -24,8 +22,13 @@ spec:
                 size:
                   type: string
                   default: small
+                  enum:
+                    - small
+                    - medium
                 ami:
                   type: string
-                  default: ami-0c7217cdde317cfec # Existing us-east-1 default; AMI lifecycle is reviewed separately.
+                  description: AMI ID that exists in the target AWS region.
+                  pattern: '^ami-([0-9a-f]{8}|[0-9a-f]{17})$'
               required:
                 - size
+                - ami
