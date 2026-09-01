@@ -52,7 +52,11 @@ applicationSet:
       memory: 256Mi
 
 configs:
+  cm:
+    users.anonymous.enabled: "false"
   rbac:
-    policy.default: role:readonly
+    # Authenticated users receive no permissions unless an explicit group mapping grants them.
+    policy.default: role:authenticated
+    scopes: '[groups, email]'
     policy.csv: |
       g, platform-admin, role:admin
