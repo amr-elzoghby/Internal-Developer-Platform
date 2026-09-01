@@ -1,4 +1,4 @@
-.PHONY: help infra-up infra-down kubeconfig cluster-up storage-up tenant-up vcluster-up vcluster-down eso-up crossplane-config argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
+.PHONY: help confirm-destroy infra-up infra-down kubeconfig cluster-up storage-up tenant-up vcluster-up vcluster-down eso-up crossplane-config argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -21,7 +21,7 @@ help:
 	@echo "  tenant-up           Create and configure host-cluster tenant namespaces"
 	@echo "  vcluster-up          Install an optional vCluster (requires TEAM=<approved-team>)"
 	@echo "  vcluster-down        Uninstall one vCluster safely (requires TEAM=<approved-team>)"
-	@echo "  down                Destroy all AWS and K8s platform resources"
+	@echo "  down                Destroy the environment (requires CONFIRM_DESTROY=$(CLUSTER_NAME))"
 	@echo "  status              Show cluster nodes and autoscaling status"
 	@echo "  validate            Validate Terraform configurations"
 
@@ -30,8 +30,16 @@ infra-up:
 	cd $(TF_DIR)/network && terraform init && terraform apply -auto-approve
 	cd $(TF_DIR)/eks && terraform init && terraform apply -auto-approve
 
+# Require the exact cluster name before any destructive platform teardown.
+confirm-destroy:
+	@if [ "$(CONFIRM_DESTROY)" != "$(CLUSTER_NAME)" ]; then \
+		echo "$(RED)Destructive operation blocked.$(NC)"; \
+		echo "Run again with CONFIRM_DESTROY=$(CLUSTER_NAME) after checking the active environment."; \
+		exit 1; \
+	fi
+
 # Tear down EKS and network infrastructure
-infra-down:
+infra-down: confirm-destroy
 	cd $(TF_DIR)/eks && terraform destroy -auto-approve
 	cd $(TF_DIR)/network && terraform destroy -auto-approve
 
@@ -180,15 +188,17 @@ portal-up:
 	node platform/backstage-portal/server.js
 
 # Clean up shared platform components. Tenant namespaces and optional vClusters are preserved.
-cluster-down:
+cluster-down: confirm-destroy
 	kubectl delete namespace argocd monitoring external-secrets kyverno --ignore-not-found
 	kubectl delete -f platform/karpenter/ --ignore-not-found
 
 # Full environment bootstrap
 up: infra-up cluster-up monitoring-up
 
-# Full environment teardown
-down: cluster-down infra-down
+# Full environment teardown. Sub-makes keep the order deterministic even with make -j.
+down: confirm-destroy
+	$(MAKE) cluster-down
+	$(MAKE) infra-down
 
 # View status of EKS nodes and Karpenter NodePools
 status:
