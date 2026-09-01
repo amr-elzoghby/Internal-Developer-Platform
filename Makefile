@@ -129,7 +129,7 @@ cluster-down:
 	@for team in team-alpha team-beta team-gamma; do \
 		helm uninstall $$team --namespace $$team || true; \
 	done
-	kubectl delete namespace team-alpha team-beta team-gamma argocd monitoring external-secrets kyverno --ignore-not-found
+	kubectl delete namespace argocd monitoring external-secrets kyverno --ignore-not-found
 	kubectl delete -f platform/karpenter/ --ignore-not-found
 
 # Full environment bootstrap
