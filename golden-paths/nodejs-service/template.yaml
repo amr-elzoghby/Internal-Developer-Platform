@@ -18,11 +18,16 @@ spec:
       required:
         - component_id
         - owner
+        - namespace
+        - image_repository
+        - image_tag
       properties:
         component_id:
           title: Component Name
           type: string
           description: Unique name for your microservice (e.g., payment-service)
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          maxLength: 63
           ui:autofocus: true
         description:
           title: Description
@@ -32,11 +37,33 @@ spec:
         owner:
           title: Owner Team
           type: string
-          description: Select the team that owns this microservice
+          description: Select the Backstage group that owns this microservice
           ui:field: OwnerPicker
           ui:options:
             catalogFilter:
               kind: Group
+        namespace:
+          title: Deployment Namespace
+          type: string
+          description: Select the platform-managed Kubernetes tenant namespace
+          enum:
+            - team-alpha
+            - team-beta
+            - team-gamma
+          enumNames:
+            - Team Alpha
+            - Team Beta
+            - Team Gamma
+        image_repository:
+          title: Container Image Repository
+          type: string
+          description: Full registry/repository path without a tag
+          pattern: '^[^@\s]+$'
+        image_tag:
+          title: Immutable Image Tag
+          type: string
+          description: Full 40-character Git commit SHA used by CI; latest is not accepted
+          pattern: '^[0-9a-f]{40}$'
 
     - title: Infrastructure Options
       properties:
@@ -73,6 +100,9 @@ spec:
           component_id: ${{ parameters.component_id }}
           description: ${{ parameters.description }}
           owner: ${{ parameters.owner }}
+          namespace: ${{ parameters.namespace }}
+          image_repository: ${{ parameters.image_repository }}
+          image_tag: ${{ parameters.image_tag }}
           include_db: ${{ parameters.include_db }}
           include_s3: ${{ parameters.include_s3 }}
 

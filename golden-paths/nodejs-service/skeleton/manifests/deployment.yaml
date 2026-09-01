@@ -1,21 +1,14 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: ${{ values.component_id }}
-  namespace: ${{ values.owner }}
-automountServiceAccountToken: false
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ${{ values.component_id }}
-  namespace: ${{ values.owner }}
+  namespace: ${{ values.namespace }}
   labels:
     app: ${{ values.component_id }}
-    team: ${{ values.owner }}
+    team: ${{ values.namespace }}
 spec:
   replicas: 2
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: ${{ values.component_id }}
@@ -23,15 +16,32 @@ spec:
     metadata:
       labels:
         app: ${{ values.component_id }}
-        team: ${{ values.owner }}
+        team: ${{ values.namespace }}
     spec:
-      serviceAccountName: ${{ values.component_id }}
+      serviceAccountName: tenant-workload
       automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: app
-          image: ${{ values.component_id }}:latest
+          image: ${{ values.image_repository }}:${{ values.image_tag }}
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "3000"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
           resources:
             requests:
               cpu: 100m
@@ -39,12 +49,35 @@ spec:
             limits:
               cpu: 250m
               memory: 256Mi
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: ${{ values.component_id }}
-  namespace: ${{ values.owner }}
+  namespace: ${{ values.namespace }}
+  labels:
+    app: ${{ values.component_id }}
+    team: ${{ values.namespace }}
 spec:
   type: ClusterIP
   ports:

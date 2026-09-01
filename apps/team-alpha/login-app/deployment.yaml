@@ -1,18 +1,14 @@
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: login-app
-  namespace: team-alpha
-automountServiceAccountToken: false
-
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: login-app
   namespace: team-alpha
+  labels:
+    app: login-app
+    team: team-alpha
 spec:
   replicas: 1
+  revisionHistoryLimit: 3
   selector:
     matchLabels:
       app: login-app
@@ -20,14 +16,50 @@ spec:
     metadata:
       labels:
         app: login-app
+        team: team-alpha
     spec:
-      serviceAccountName: login-app
+      serviceAccountName: tenant-workload
       automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: login-app
           image: 851236938302.dkr.ecr.us-east-1.amazonaws.com/idp-team-alpha-login-app:246b429077dd2bc39e9a8e05c635f05e62b10902
+          imagePullPolicy: IfNotPresent
           ports:
-            - containerPort: 3000
+            - name: http
+              containerPort: 3000
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
           env:
             - name: PORT
               value: "3000"
@@ -59,6 +91,9 @@ kind: Service
 metadata:
   name: login-app
   namespace: team-alpha
+  labels:
+    app: login-app
+    team: team-alpha
 spec:
   type: ClusterIP
   ports:
@@ -72,6 +107,9 @@ kind: Ingress
 metadata:
   name: login-app-ingress
   namespace: team-alpha
+  labels:
+    app: login-app
+    team: team-alpha
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
