@@ -140,6 +140,10 @@ jobs:
             echo "Service path must have the form apps/<team>/<app>: $SERVICE_PATH" >&2
             exit 1
           fi
+          if [[ -L "$SERVICE_PATH" || ! -f "$SERVICE_PATH/Dockerfile" ]]; then
+            echo "Service path must be a real directory containing a Dockerfile: $SERVICE_PATH" >&2
+            exit 1
+          fi
 
           printf 'service_path=%s\n' "$SERVICE_PATH" >> "$GITHUB_OUTPUT"
           printf 'team=%s\n' "$team" >> "$GITHUB_OUTPUT"
@@ -162,13 +166,32 @@ jobs:
         run: |
           set -euo pipefail
 
-          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1 || \
+          set +e
+          repository_result="$(aws ecr describe-repositories \
+            --repository-names "$ECR_REPOSITORY" \
+            --query 'repositories[0].imageTagMutability' \
+            --output text 2>&1)"
+          describe_status=$?
+          set -e
+
+          if [[ "$describe_status" -eq 0 ]]; then
+            if [[ "$repository_result" != "IMMUTABLE" ]]; then
+              echo "ECR repository $ECR_REPOSITORY is mutable; migrate it to IMMUTABLE before publishing." >&2
+              exit 1
+            fi
+          elif [[ "$repository_result" == *"RepositoryNotFoundException"* ]]; then
             aws ecr create-repository \
               --repository-name "$ECR_REPOSITORY" \
+              --image-tag-mutability IMMUTABLE \
               --image-scanning-configuration scanOnPush=true \
               --encryption-configuration encryptionType=AES256
+          else
+            echo "$repository_result" >&2
+            exit "$describe_status"
+          fi
 
-      - name: Build Docker image
+      - name: Prepare container image
+        id: prepare-image
         env:
           ECR_REPOSITORY: ${{ steps.info.outputs.ecr_repository }}
           IMAGE_TAG: ${{ steps.info.outputs.image_tag }}
@@ -176,7 +199,27 @@ jobs:
         run: |
           set -euo pipefail
           image_ref="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-          docker build --tag "$image_ref" "$SERVICE_PATH"
+
+          set +e
+          image_result="$(aws ecr describe-images \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$IMAGE_TAG" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text 2>&1)"
+          describe_status=$?
+          set -e
+
+          if [[ "$describe_status" -eq 0 ]]; then
+            echo "Reusing immutable image: $image_result"
+            docker pull "$image_ref"
+            echo 'exists=true' >> "$GITHUB_OUTPUT"
+          elif [[ "$image_result" == *"ImageNotFoundException"* ]]; then
+            docker build --tag "$image_ref" "$SERVICE_PATH"
+            echo 'exists=false' >> "$GITHUB_OUTPUT"
+          else
+            echo "$image_result" >&2
+            exit "$describe_status"
+          fi
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@v0.36.0
@@ -189,6 +232,7 @@ jobs:
           severity: 'CRITICAL'
 
       - name: Push image to ECR
+        if: steps.prepare-image.outputs.exists != 'true'
         env:
           ECR_REPOSITORY: ${{ steps.info.outputs.ecr_repository }}
           IMAGE_TAG: ${{ steps.info.outputs.image_tag }}
@@ -273,8 +317,16 @@ jobs:
           git add -- "$manifest_file"
           git commit -m "$commit_message"
 
-          if git ls-remote --exit-code --heads origin "refs/heads/$branch_name" >/dev/null 2>&1; then
-            echo "Remote branch already exists; reusing it: $branch_name"
+          remote_commit="$(git ls-remote --heads origin "refs/heads/$branch_name" | cut -f1)"
+          if [[ -n "$remote_commit" ]]; then
+            git fetch --no-tags --depth=1 origin "refs/heads/$branch_name"
+            local_tree="$(git rev-parse 'HEAD^{tree}')"
+            remote_tree="$(git rev-parse 'FETCH_HEAD^{tree}')"
+            if [[ "$local_tree" != "$remote_tree" ]]; then
+              echo "Remote automation branch has unexpected content; refusing to overwrite it." >&2
+              exit 1
+            fi
+            echo "Remote branch already contains the expected update: $branch_name"
           else
             git push --set-upstream origin "HEAD:refs/heads/$branch_name"
           fi
