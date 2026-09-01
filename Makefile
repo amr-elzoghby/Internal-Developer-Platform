@@ -1,4 +1,4 @@
-.PHONY: help infra-up infra-down kubeconfig cluster-up eso-up crossplane-config argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
+.PHONY: help infra-up infra-down kubeconfig cluster-up tenant-up vcluster-up vcluster-down eso-up crossplane-config argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -6,6 +6,8 @@ RED    := \033[0;31m
 NC     := \033[0m
 
 TF_DIR := infrastructure/terraform/environments/prod
+TEAMS := team-alpha team-beta team-gamma
+CLUSTER_NAME ?= idp-prod
 
 help:
 	@echo "Usage: make [target]"
@@ -14,6 +16,9 @@ help:
 	@echo "  up                  Deploy all AWS infra and K8s platform configs"
 	@echo "  portal-up           Launch Backstage Developer Portal on http://localhost:3000"
 	@echo "  monitoring-up       Deploy Prometheus, Grafana, and Kubecost FinOps stack"
+	@echo "  tenant-up           Create and configure host-cluster tenant namespaces"
+	@echo "  vcluster-up          Install an optional vCluster (requires TEAM=<approved-team>)"
+	@echo "  vcluster-down        Uninstall one vCluster safely (requires TEAM=<approved-team>)"
 	@echo "  down                Destroy all AWS and K8s platform resources"
 	@echo "  status              Show cluster nodes and autoscaling status"
 	@echo "  validate            Validate Terraform configurations"
@@ -47,19 +52,60 @@ eso-up:
 cluster-up: kubeconfig
 	kubectl apply -f platform/karpenter/
 	$(MAKE) eso-up
-	helm repo add loft-sh https://charts.loft.sh --force-update || true
-	helm repo update
-	@for team in team-alpha team-beta team-gamma; do \
-		kubectl create namespace $$team --dry-run=client -o yaml | kubectl apply -f -; \
-		kubectl apply -f tenants/base/ -n $$team; \
-		helm upgrade --install $$team loft-sh/vcluster \
-			--namespace $$team \
-			-f platform/vcluster/base/values.yaml \
-			-f platform/vcluster/teams/$$team.yaml; \
-	done
+	$(MAKE) tenant-up
 	$(MAKE) crossplane-config
 	$(MAKE) argocd-up
 	$(MAKE) kyverno-up
+
+# Create tenant boundaries directly on the host EKS cluster.
+tenant-up:
+	@for team in $(TEAMS); do \
+		kubectl create namespace $$team --dry-run=client -o yaml | kubectl apply -f -; \
+		kubectl apply -f tenants/base/ -n $$team; \
+	done
+
+# Install a vCluster only when a team explicitly needs an isolated Kubernetes API.
+vcluster-up:
+	@if [ -z "$(TEAM)" ]; then \
+		echo "$(RED)TEAM is required. Example: make vcluster-up TEAM=team-alpha$(NC)"; \
+		exit 1; \
+	fi
+	@case " $(TEAMS) " in *" $(TEAM) "*) ;; *) \
+		echo "$(RED)Unknown TEAM '$(TEAM)'. Allowed values: $(TEAMS)$(NC)"; \
+		exit 1; \
+	esac
+	@cluster="$$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}')"; \
+	case "$$cluster" in *"$(CLUSTER_NAME)"*) ;; *) \
+		echo "$(RED)Refusing to install against context '$$cluster'; expected cluster $(CLUSTER_NAME).$(NC)"; \
+		exit 1; \
+	esac
+	@kubectl get namespace "$(TEAM)" >/dev/null
+	@kubectl get storageclass gp3 >/dev/null
+	helm repo add loft-sh https://charts.loft.sh --force-update
+	helm repo update loft-sh
+	helm upgrade --install "$(TEAM)" loft-sh/vcluster \
+		--namespace "$(TEAM)" \
+		--wait --atomic \
+		-f platform/vcluster/base/values.yaml \
+		-f "platform/vcluster/teams/$(TEAM).yaml"
+
+# Remove one optional vCluster without deleting its host namespace or PVCs.
+vcluster-down:
+	@if [ -z "$(TEAM)" ]; then \
+		echo "$(RED)TEAM is required. Example: make vcluster-down TEAM=team-alpha$(NC)"; \
+		exit 1; \
+	fi
+	@case " $(TEAMS) " in *" $(TEAM) "*) ;; *) \
+		echo "$(RED)Unknown TEAM '$(TEAM)'. Allowed values: $(TEAMS)$(NC)"; \
+		exit 1; \
+	esac
+	@cluster="$$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}')"; \
+	case "$$cluster" in *"$(CLUSTER_NAME)"*) ;; *) \
+		echo "$(RED)Refusing to uninstall against context '$$cluster'; expected cluster $(CLUSTER_NAME).$(NC)"; \
+		exit 1; \
+	esac
+	helm status "$(TEAM)" --namespace "$(TEAM)" >/dev/null
+	helm uninstall "$(TEAM)" --namespace "$(TEAM)" --keep-history
 
 # Configure Crossplane providers and custom Python compositions
 crossplane-config:
@@ -124,11 +170,8 @@ portal-up:
 	@echo "$(GREEN)Launching Backstage Developer Portal on http://localhost:3000...$(NC)"
 	node platform/backstage-portal/server.js
 
-# Clean up namespaces and Helm releases from the cluster
+# Clean up shared platform components. Tenant namespaces and optional vClusters are preserved.
 cluster-down:
-	@for team in team-alpha team-beta team-gamma; do \
-		helm uninstall $$team --namespace $$team || true; \
-	done
 	kubectl delete namespace argocd monitoring external-secrets kyverno --ignore-not-found
 	kubectl delete -f platform/karpenter/ --ignore-not-found
 
