@@ -8,7 +8,7 @@ NC     := \033[0m
 TF_DIR := infrastructure/terraform/environments/prod
 TEAMS := team-alpha team-beta team-gamma
 CLUSTER_NAME ?= idp-prod
-VCLUSTER_CHART_VERSION ?= 0.35.2
+VCLUSTER_CHART_VERSION := 0.36.1
 
 help:
 	@echo "Usage: make [target]"
