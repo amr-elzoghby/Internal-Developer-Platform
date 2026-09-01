@@ -1,11 +1,11 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: xobjectbuckets.idp.io
+  name: objectbuckets.idp.io
 spec:
   compositeTypeRef:
     apiVersion: idp.io/v1alpha1
-    kind: XObjectBucket
+    kind: ObjectBucket
   mode: Pipeline
   pipeline:
     - step: python-script
@@ -15,22 +15,34 @@ spec:
         apiVersion: python.fn.crossplane.io/v1beta1
         kind: Script
         script: |
+          from crossplane.function.proto.v1 import run_function_pb2 as fnv1
+
           def compose(req, rsp):
               composite = req.observed.composite.resource
               spec = composite["spec"] if "spec" in composite else {}
               region = spec["region"] if "region" in spec else "us-east-1"
               bucket_name = f"idp-prod-crossplane-{composite['metadata']['uid']}"
-              
+
               bucket = {
-                  "apiVersion": "s3.aws.upbound.io/v1beta1",
+                  "apiVersion": "s3.aws.m.upbound.io/v1beta1",
                   "kind": "Bucket",
                   "metadata": {
+                      "namespace": composite["metadata"]["namespace"],
                       "annotations": {
                           "crossplane.io/external-name": bucket_name
                       }
                   },
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "managementPolicies": [
+                          "Create",
+                          "Observe",
+                          "Update",
+                          "LateInitialize"
+                      ],
+                      "providerConfigRef": {
+                          "kind": "ClusterProviderConfig",
+                          "name": "default"
+                      },
                       "forProvider": {
                           "region": region,
                           "tags": {
@@ -40,5 +52,23 @@ spec:
                       }
                   }
               }
-              
+
+              def is_ready(name):
+                  if name in req.observed.resources:
+                      observed = req.observed.resources[name].resource
+                      status = observed["status"] if "status" in observed else {}
+                      conditions = status["conditions"] if "conditions" in status else []
+                      for condition in conditions:
+                          if (
+                              "type" in condition
+                              and condition["type"] == "Ready"
+                              and "status" in condition
+                              and condition["status"] == "True"
+                          ):
+                              return True
+                  return False
+
               rsp.desired.resources["bucket"].resource.update(bucket)
+              rsp.desired.resources["bucket"].ready = (
+                  fnv1.READY_TRUE if is_ready("bucket") else fnv1.READY_FALSE
+              )

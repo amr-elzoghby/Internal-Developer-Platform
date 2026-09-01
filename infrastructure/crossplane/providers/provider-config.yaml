@@ -1,3 +1,15 @@
+# Modern cluster-scoped configuration for namespaced v2 managed resources.
+apiVersion: aws.m.upbound.io/v1beta1
+kind: ClusterProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: IRSA
+
+---
+# Transitional compatibility for EC2, RDS, and Redis legacy compositions.
+# Remove this object after the final legacy composition migrates to ClusterProviderConfig.
 apiVersion: aws.upbound.io/v1beta1
 kind: ProviderConfig
 metadata:

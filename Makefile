@@ -140,7 +140,7 @@ crossplane-config:
 	$(MAKE) crossplane-compositions
 
 # Install the provider/function packages only after Crossplane's package CRDs
-# are established, then wait for the AWS ProviderConfig API before using it.
+# are established, then wait for the AWS ProviderConfig APIs before using them.
 crossplane-packages:
 	@echo "$(GREEN)Configuring Crossplane Runtimes with dedicated IRSA roles...$(NC)"
 	@set -eu; \
@@ -173,16 +173,22 @@ crossplane-packages:
 	done
 	kubectl wait --for=condition=Installed function.pkg.crossplane.io/function-python --timeout=600s
 	kubectl wait --for=condition=Healthy function.pkg.crossplane.io/function-python --timeout=600s
+	kubectl wait --for=condition=Established crd/clusterproviderconfigs.aws.m.upbound.io --timeout=300s
+	# Keep the legacy API available until EC2, RDS, and Redis complete their v2 migration.
 	kubectl wait --for=condition=Established crd/providerconfigs.aws.upbound.io --timeout=300s
 	kubectl apply -f infrastructure/crossplane/providers/provider-config.yaml
 
-# Install the public APIs before their Compositions. These legacy XRDs still
-# offer claims; the namespaced v2 API migration is intentionally a later step.
+# Install the public APIs before their Compositions. S3 uses a direct namespaced
+# v2 XR; the remaining legacy XRDs continue to offer claims during migration.
 crossplane-definitions:
+	@if kubectl get xrd/xobjectbuckets.idp.io >/dev/null 2>&1; then \
+		echo "$(RED)Legacy S3 XRD detected; this canary requires a fresh install or a planned live migration.$(NC)"; \
+		exit 1; \
+	fi
 	kubectl apply -f infrastructure/crossplane/definitions/
+	kubectl wait --for=condition=Established xrd/objectbuckets.idp.io --timeout=180s
 	@set -eu; \
 	for xrd in \
-		xobjectbuckets.idp.io \
 		xserverinstances.idp.io \
 		xpostgressqlinstances.idp.io \
 		xredisinstances.idp.io; do \
@@ -191,7 +197,7 @@ crossplane-definitions:
 	done
 	@set -eu; \
 	for crd in \
-		xobjectbuckets.idp.io objectbuckets.idp.io \
+		objectbuckets.idp.io \
 		xserverinstances.idp.io serverinstances.idp.io \
 		xpostgressqlinstances.idp.io postgressqlinstances.idp.io \
 		xredisinstances.idp.io redisinstances.idp.io; do \
@@ -217,7 +223,7 @@ crossplane-compositions:
 	kubectl apply -f "$$render_dir/"
 	@set -eu; \
 	for composition in \
-		xobjectbuckets.idp.io \
+		objectbuckets.idp.io \
 		xserverinstances.idp.io \
 		xpostgressqlinstances.idp.io \
 		xredisinstances.idp.io; do \
