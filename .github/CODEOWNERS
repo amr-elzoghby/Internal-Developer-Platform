@@ -1,0 +1,12 @@
+# Repository automation and ownership policy
+/.github/ @amr-elzoghby
+/Makefile @amr-elzoghby
+
+# Cloud infrastructure, control-plane configuration, and tenant boundaries
+/infrastructure/ @amr-elzoghby
+/platform/ @amr-elzoghby
+/tenants/ @amr-elzoghby
+/golden-paths/ @amr-elzoghby
+
+# Workload manifests changed by the image automation
+/apps/**/deployment.yaml @amr-elzoghby

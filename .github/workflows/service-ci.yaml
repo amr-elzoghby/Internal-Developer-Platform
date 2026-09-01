@@ -11,9 +11,12 @@ on:
         description: 'Service path (e.g. apps/team-alpha/login-app)'
         required: false
 
-permissions:
-  id-token: write
-  contents: write
+# Every job declares only the permissions it needs.
+permissions: {}
+
+concurrency:
+  group: service-ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   AWS_REGION: us-east-1
@@ -21,53 +24,128 @@ env:
   ECR_REGISTRY: 851236938302.dkr.ecr.us-east-1.amazonaws.com
 
 jobs:
-  detect-changes:
+  detect_changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       services: ${{ steps.detect.outputs.services }}
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Detect Changed Services
+      - name: Detect changed services
         id: detect
+        env:
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+          REQUESTED_SERVICE_PATH: ${{ inputs.service_path }}
         run: |
-          if [ -n "${{ github.event.inputs.service_path }}" ]; then
-            SERVICES='["${{ github.event.inputs.service_path }}"]'
+          set -euo pipefail
+
+          declare -A services=()
+
+          add_service() {
+            local service_path="$1"
+
+            if [[ ! "$service_path" =~ ^apps/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+              echo "Invalid service path: $service_path" >&2
+              exit 1
+            fi
+
+            if [[ -L "$service_path" || ! -f "$service_path/Dockerfile" ]]; then
+              echo "Service path must be a real directory containing a Dockerfile: $service_path" >&2
+              exit 1
+            fi
+
+            services["$service_path"]=1
+          }
+
+          if [[ -n "${REQUESTED_SERVICE_PATH:-}" ]]; then
+            add_service "$REQUESTED_SERVICE_PATH"
+          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            while IFS= read -r -d '' dockerfile; do
+              add_service "${dockerfile%/Dockerfile}"
+            done < <(git ls-files -z 'apps/*/*/Dockerfile')
           else
-            # Find all unique service directories that changed under apps/
-            SERVICES=$(git diff --name-only HEAD~1 HEAD -- 'apps/' \
-              | cut -d'/' -f1-3 \
-              | sort -u \
-              | jq -R -s 'split("\n") | map(select(length > 0))' )
+            if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
+              changed_files=(git diff --name-only -z "$BASE_SHA" "$HEAD_SHA" -- apps/)
+            else
+              changed_files=(git ls-tree -r --name-only -z "$HEAD_SHA" -- apps/)
+            fi
+
+            while IFS= read -r -d '' changed_file; do
+              # A manifest-only image bump must not start another image build.
+              if [[ "$changed_file" =~ ^apps/[^/]+/[^/]+/deployment\.yaml$ ]]; then
+                continue
+              fi
+
+              IFS='/' read -r root team app remainder <<< "$changed_file"
+              if [[ "$root" != "apps" || -z "$team" || -z "$app" ]]; then
+                continue
+              fi
+
+              service_path="apps/$team/$app"
+              if [[ -d "$service_path" && -f "$service_path/Dockerfile" ]]; then
+                add_service "$service_path"
+              fi
+            done < <("${changed_files[@]}")
           fi
-          echo "services=$SERVICES" >> $GITHUB_OUTPUT
-          echo "Detected services: $SERVICES"
 
-  build-and-deploy:
-    needs: detect-changes
-    if: needs.detect-changes.outputs.services != '[]' && needs.detect-changes.outputs.services != ''
+          services_json='['
+          separator=''
+          while IFS= read -r -d '' service_path; do
+            services_json+="${separator}\"${service_path}\""
+            separator=','
+          done < <({ printf '%s\0' "${!services[@]}" || true; } | sort -z)
+          services_json+=']'
+
+          printf 'services=%s\n' "$services_json" >> "$GITHUB_OUTPUT"
+          printf 'Detected services: %s\n' "$services_json"
+
+  build_images:
+    needs: detect_changes
+    if: needs.detect_changes.outputs.services != '[]' && needs.detect_changes.outputs.services != ''
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     strategy:
+      fail-fast: false
       matrix:
-        service_path: ${{ fromJson(needs.detect-changes.outputs.services) }}
+        service_path: ${{ fromJson(needs.detect_changes.outputs.services) }}
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
-      - name: Extract Service Info
+      - name: Extract service information
         id: info
+        env:
+          SERVICE_PATH: ${{ matrix.service_path }}
         run: |
-          SERVICE_PATH="${{ matrix.service_path }}"
-          TEAM=$(echo "$SERVICE_PATH" | cut -d'/' -f2)
-          APP=$(echo "$SERVICE_PATH" | cut -d'/' -f3)
-          echo "service_path=$SERVICE_PATH" >> $GITHUB_OUTPUT
-          echo "team=$TEAM" >> $GITHUB_OUTPUT
-          echo "app=$APP" >> $GITHUB_OUTPUT
-          echo "ecr_repository=idp-$TEAM-$APP" >> $GITHUB_OUTPUT
-          echo "image_tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+
+          if [[ ! "$SERVICE_PATH" =~ ^apps/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+            echo "Invalid service path: $SERVICE_PATH" >&2
+            exit 1
+          fi
+
+          IFS='/' read -r root team app remainder <<< "$SERVICE_PATH"
+          if [[ "$root" != "apps" || -z "$team" || -z "$app" || -n "${remainder:-}" ]]; then
+            echo "Service path must have the form apps/<team>/<app>: $SERVICE_PATH" >&2
+            exit 1
+          fi
+
+          printf 'service_path=%s\n' "$SERVICE_PATH" >> "$GITHUB_OUTPUT"
+          printf 'team=%s\n' "$team" >> "$GITHUB_OUTPUT"
+          printf 'app=%s\n' "$app" >> "$GITHUB_OUTPUT"
+          printf 'ecr_repository=idp-%s-%s\n' "$team" "$app" >> "$GITHUB_OUTPUT"
+          printf 'image_tag=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -76,21 +154,31 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Ensure ECR Repository Exists
+      - name: Ensure ECR repository exists
+        env:
+          ECR_REPOSITORY: ${{ steps.info.outputs.ecr_repository }}
         run: |
-          aws ecr describe-repositories --repository-names ${{ steps.info.outputs.ecr_repository }} || \
-          aws ecr create-repository --repository-name ${{ steps.info.outputs.ecr_repository }} \
-            --image-scanning-configuration scanOnPush=true \
-            --encryption-configuration encryptionType=AES256
+          set -euo pipefail
 
-      - name: Build Docker Image
+          aws ecr describe-repositories --repository-names "$ECR_REPOSITORY" >/dev/null 2>&1 || \
+            aws ecr create-repository \
+              --repository-name "$ECR_REPOSITORY" \
+              --image-scanning-configuration scanOnPush=true \
+              --encryption-configuration encryptionType=AES256
+
+      - name: Build Docker image
+        env:
+          ECR_REPOSITORY: ${{ steps.info.outputs.ecr_repository }}
+          IMAGE_TAG: ${{ steps.info.outputs.image_tag }}
+          SERVICE_PATH: ${{ steps.info.outputs.service_path }}
         run: |
-          docker build -t ${{ env.ECR_REGISTRY }}/${{ steps.info.outputs.ecr_repository }}:${{ steps.info.outputs.image_tag }} ./${{ steps.info.outputs.service_path }}
+          set -euo pipefail
+          image_ref="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          docker build --tag "$image_ref" "$SERVICE_PATH"
 
-      - name: Run Trivy Vulnerability Scanner
+      - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: ${{ env.ECR_REGISTRY }}/${{ steps.info.outputs.ecr_repository }}:${{ steps.info.outputs.image_tag }}
@@ -100,18 +188,112 @@ jobs:
           vuln-type: 'os,library'
           severity: 'CRITICAL'
 
-      - name: Push Image to ECR
+      - name: Push image to ECR
+        env:
+          ECR_REPOSITORY: ${{ steps.info.outputs.ecr_repository }}
+          IMAGE_TAG: ${{ steps.info.outputs.image_tag }}
         run: |
-          docker push ${{ env.ECR_REGISTRY }}/${{ steps.info.outputs.ecr_repository }}:${{ steps.info.outputs.image_tag }}
+          set -euo pipefail
+          image_ref="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+          docker push "$image_ref"
 
-      - name: Update GitOps Manifest Tag
+  update_manifests:
+    needs: [detect_changes, build_images]
+    if: needs.detect_changes.outputs.services != '[]' && needs.detect_changes.outputs.services != ''
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        service_path: ${{ fromJson(needs.detect_changes.outputs.services) }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Update manifest on a dedicated branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SERVICE_PATH: ${{ matrix.service_path }}
         run: |
-          MANIFEST_FILE="./${{ steps.info.outputs.service_path }}/deployment.yaml"
-          if [ -f "$MANIFEST_FILE" ]; then
-            sed -i "s|image: .*|image: ${{ env.ECR_REGISTRY }}/${{ steps.info.outputs.ecr_repository }}:${{ steps.info.outputs.image_tag }}|g" "$MANIFEST_FILE"
-            git config --global user.name "github-actions[bot]"
-            git config --global user.email "github-actions[bot]@users.noreply.github.com"
-            git add "$MANIFEST_FILE"
-            git commit -m "image: update ${{ steps.info.outputs.app }} tag to ${{ steps.info.outputs.image_tag }} [skip ci]"
-            git push
+          set -euo pipefail
+
+          if [[ ! "$SERVICE_PATH" =~ ^apps/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
+            echo "Invalid service path: $SERVICE_PATH" >&2
+            exit 1
           fi
+
+          IFS='/' read -r root team app remainder <<< "$SERVICE_PATH"
+          if [[ "$root" != "apps" || -z "$team" || -z "$app" || -n "${remainder:-}" ]]; then
+            echo "Service path must have the form apps/<team>/<app>: $SERVICE_PATH" >&2
+            exit 1
+          fi
+
+          manifest_file="$SERVICE_PATH/deployment.yaml"
+          if [[ ! -f "$manifest_file" ]]; then
+            echo "No deployment manifest found for $SERVICE_PATH; no GitOps update is required."
+            exit 0
+          fi
+          if [[ -L "$manifest_file" ]]; then
+            echo "Refusing to update a symbolic-link manifest: $manifest_file" >&2
+            exit 1
+          fi
+
+          ecr_repository="idp-${team}-${app}"
+          image_tag="$GITHUB_SHA"
+          image_ref="${ECR_REGISTRY}/${ecr_repository}:${image_tag}"
+          image_lines="$(grep -Ec '^[[:space:]]+image:[[:space:]]+' "$manifest_file" || true)"
+
+          if [[ "$image_lines" -ne 1 ]]; then
+            echo "Expected exactly one container image in $manifest_file; found $image_lines." >&2
+            exit 1
+          fi
+
+          sed -i -E \
+            "0,/^[[:space:]]*image:[[:space:]]/{s|^([[:space:]]*)image:[[:space:]].*|\\1image: ${image_ref}|}" \
+            "$manifest_file"
+
+          if ! grep -Fq "image: $image_ref" "$manifest_file"; then
+            echo "The image reference was not updated as expected." >&2
+            exit 1
+          fi
+
+          if git diff --quiet -- "$manifest_file"; then
+            echo "Manifest already references $image_ref; no pull request is required."
+            exit 0
+          fi
+
+          branch_name="automation/image-${team}-${app}-${image_tag}"
+          commit_message="ci(images): update ${app} to ${image_tag} [skip ci]"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --create "$branch_name"
+          git add -- "$manifest_file"
+          git commit -m "$commit_message"
+
+          if git ls-remote --exit-code --heads origin "refs/heads/$branch_name" >/dev/null 2>&1; then
+            echo "Remote branch already exists; reusing it: $branch_name"
+          else
+            git push --set-upstream origin "HEAD:refs/heads/$branch_name"
+          fi
+
+          existing_pr="$(gh pr list \
+            --repo "$GITHUB_REPOSITORY" \
+            --head "$branch_name" \
+            --state all \
+            --json url \
+            --jq '.[0].url // empty')"
+
+          if [[ -n "$existing_pr" ]]; then
+            echo "Pull request already exists: $existing_pr"
+            exit 0
+          fi
+
+          gh pr create \
+            --repo "$GITHUB_REPOSITORY" \
+            --base main \
+            --head "$branch_name" \
+            --title "$commit_message" \
+            --body "Automated SHA-tagged image update for \`$SERVICE_PATH\`. The image passed the build and CRITICAL-severity Trivy gate before this pull request was opened."
