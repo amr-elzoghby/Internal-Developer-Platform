@@ -8,6 +8,7 @@ NC     := \033[0m
 TF_DIR := infrastructure/terraform/environments/prod
 TEAMS := team-alpha team-beta team-gamma
 CLUSTER_NAME ?= idp-prod
+VCLUSTER_CHART_VERSION ?= 0.35.2
 
 help:
 	@echo "Usage: make [target]"
@@ -91,6 +92,7 @@ vcluster-up:
 	helm repo add loft-sh https://charts.loft.sh --force-update
 	helm repo update loft-sh
 	helm upgrade --install "$(TEAM)" loft-sh/vcluster \
+		--version "$(VCLUSTER_CHART_VERSION)" \
 		--namespace "$(TEAM)" \
 		--wait --atomic \
 		-f platform/vcluster/base/values.yaml \
