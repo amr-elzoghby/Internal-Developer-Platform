@@ -66,6 +66,106 @@ variable "endpoint_public_access" {
   default     = true
 }
 
+variable "platform_access_entries" {
+  description = "Explicit EKS access entries for platform operators and emergency access"
+  type = map(object({
+    principal_arn     = string
+    kubernetes_groups = optional(set(string), [])
+    access_policies = optional(map(object({
+      policy_arn = string
+      scope_type = optional(string, "cluster")
+      namespaces = optional(set(string), [])
+    })), {})
+  }))
+
+  validation {
+    condition = alltrue([
+      for entry_name in keys(var.platform_access_entries) :
+      can(regex("^[a-z0-9][a-z0-9-]{0,62}$", entry_name))
+    ])
+    error_message = "Platform access entry names must be lowercase slugs containing only letters, digits, and hyphens."
+  }
+
+  validation {
+    condition = alltrue([
+      for entry in values(var.platform_access_entries) :
+      can(regex("^arn:aws:iam::[0-9]{12}:role/.+", entry.principal_arn))
+    ])
+    error_message = "Every platform principal must be an IAM role ARN, not an STS session ARN or IAM user."
+  }
+
+  validation {
+    condition = alltrue([
+      for entry in values(var.platform_access_entries) :
+      (length(entry.access_policies) > 0) != (length(entry.kubernetes_groups) > 0)
+    ])
+    error_message = "Each platform entry must use exactly one authorization path: EKS access policies or Kubernetes groups."
+  }
+
+  validation {
+    condition = length(distinct([
+      for entry in values(var.platform_access_entries) : entry.principal_arn
+    ])) == length(var.platform_access_entries)
+    error_message = "Each platform access entry must use a unique principal ARN."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for entry in values(var.platform_access_entries) : [
+        for policy_name in keys(entry.access_policies) :
+        can(regex("^[a-z0-9][a-z0-9-]{0,62}$", policy_name))
+      ]
+    ]))
+    error_message = "Access policy names must be lowercase slugs containing only letters, digits, and hyphens."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for entry in values(var.platform_access_entries) : [
+        for policy in values(entry.access_policies) : contains([
+          "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy",
+          "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy",
+          "arn:aws:eks::aws:cluster-access-policy/AmazonEKSEditPolicy",
+          "arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy",
+        ], policy.policy_arn)
+      ]
+    ]))
+    error_message = "Only the approved AWS-managed EKS access policies may be associated with platform identities."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for entry in values(var.platform_access_entries) : [
+        for group in entry.kubernetes_groups : !startswith(group, "system:")
+      ]
+    ]))
+    error_message = "Custom Kubernetes groups must not use the reserved system: prefix."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for entry in values(var.platform_access_entries) : [
+        for policy in values(entry.access_policies) :
+        contains(["cluster", "namespace"], policy.scope_type) &&
+        (policy.scope_type == "namespace" ? length(policy.namespaces) > 0 : length(policy.namespaces) == 0)
+      ]
+    ]))
+    error_message = "Access policy scope must be cluster with no namespaces, or namespace with at least one namespace."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for entry in values(var.platform_access_entries) : [
+        for policy in values(entry.access_policies) : alltrue([
+          for namespace in policy.namespaces :
+          length(namespace) <= 63 && can(regex("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", namespace))
+        ])
+      ]
+    ]))
+    error_message = "Namespace-scoped access policies must list explicit DNS-label namespace names; wildcards are not allowed."
+  }
+}
+
 # ─── Stable Node Group (On-Demand) ───────────────────────────────────────────
 variable "node_instance_type" {
   description = "EC2 instance type for stable worker nodes"

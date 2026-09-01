@@ -41,6 +41,8 @@ module "eks" {
 
   metrics_server_chart_version = "3.13.1"
 
+  platform_access_entries = var.platform_access_entries
+
   eks_addon_versions = {
     vpc_cni            = "v1.22.4-eksbuild.3"
     coredns            = "v1.14.3-eksbuild.14"

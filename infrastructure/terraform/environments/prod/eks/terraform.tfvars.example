@@ -1,0 +1,19 @@
+platform_access_entries = {
+  platform-admin = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/us-east-1/AWSReservedSSO_PlatformAdministrator_REPLACE_ME"
+    access_policies = {
+      cluster-admin = {
+        policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+      }
+    }
+  }
+
+  break-glass = {
+    principal_arn = "arn:aws:iam::851236938302:role/idp-prod-break-glass"
+    access_policies = {
+      cluster-admin = {
+        policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+      }
+    }
+  }
+}
