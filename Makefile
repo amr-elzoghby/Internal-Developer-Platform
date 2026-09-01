@@ -76,9 +76,14 @@ storage-up:
 # Create tenant boundaries directly on the host EKS cluster.
 tenant-up:
 	kubectl apply -f tenants/rbac/cluster-roles.yaml
-	@for team in $(TEAMS); do \
+	@set -eu; \
+	roles="$$(cd $(TF_DIR)/eks && terraform output -json tenant_external_secrets_role_arns)"; \
+	for team in $(TEAMS); do \
 		kubectl create namespace $$team --dry-run=client -o yaml | kubectl apply -f -; \
 		kubectl apply -f tenants/base/ -n $$team; \
+		role_arn="$$(echo "$$roles" | python3 -c 'import json, sys; print(json.load(sys.stdin)[sys.argv[1]])' "$$team")"; \
+		EXTERNAL_SECRETS_ROLE_ARN="$$role_arn" envsubst '$$EXTERNAL_SECRETS_ROLE_ARN' \
+			< tenants/templates/external-secrets-service-account.yaml.tpl | kubectl apply -n $$team -f -; \
 		kubectl apply -f tenants/rbac/bindings/$$team.yaml; \
 	done
 

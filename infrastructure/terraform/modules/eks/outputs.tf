@@ -59,3 +59,10 @@ output "github_actions_role_arn" {
   description = "ARN of the IAM role for GitHub Actions OIDC integration"
   value       = aws_iam_role.github_actions.arn
 }
+
+output "tenant_external_secrets_role_arns" {
+  description = "IRSA role ARNs used by each tenant SecretStore"
+  value = {
+    for tenant, role in aws_iam_role.tenant_external_secrets : tenant => role.arn
+  }
+}

@@ -81,3 +81,7 @@ output "crossplane_provider_role_arns" {
 output "github_actions_role_arn" {
   value = module.eks.github_actions_role_arn
 }
+
+output "tenant_external_secrets_role_arns" {
+  value = module.eks.tenant_external_secrets_role_arns
+}
