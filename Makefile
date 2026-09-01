@@ -1,4 +1,4 @@
-.PHONY: help infra-up infra-down kubeconfig cluster-up tenant-up vcluster-up vcluster-down eso-up crossplane-config argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
+.PHONY: help infra-up infra-down kubeconfig cluster-up storage-up tenant-up vcluster-up vcluster-down eso-up crossplane-config argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -16,6 +16,7 @@ help:
 	@echo "  up                  Deploy all AWS infra and K8s platform configs"
 	@echo "  portal-up           Launch Backstage Developer Portal on http://localhost:3000"
 	@echo "  monitoring-up       Deploy Prometheus, Grafana, and Kubecost FinOps stack"
+	@echo "  storage-up          Apply the encrypted gp3 StorageClass"
 	@echo "  tenant-up           Create and configure host-cluster tenant namespaces"
 	@echo "  vcluster-up          Install an optional vCluster (requires TEAM=<approved-team>)"
 	@echo "  vcluster-down        Uninstall one vCluster safely (requires TEAM=<approved-team>)"
@@ -51,11 +52,17 @@ eso-up:
 # Deploy Kubernetes platform components
 cluster-up: kubeconfig
 	kubectl apply -f platform/karpenter/
+	$(MAKE) storage-up
 	$(MAKE) eso-up
 	$(MAKE) tenant-up
 	$(MAKE) crossplane-config
 	$(MAKE) argocd-up
 	$(MAKE) kyverno-up
+
+# Configure encrypted gp3 volumes before any optional stateful tenant services.
+storage-up:
+	kubectl apply -f platform/storageclass.yaml
+	kubectl get storageclass gp3
 
 # Create tenant boundaries directly on the host EKS cluster.
 tenant-up:
