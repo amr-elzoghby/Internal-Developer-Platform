@@ -1,3 +1,11 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${{ values.component_id }}
+  namespace: ${{ values.owner }}
+automountServiceAccountToken: false
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,6 +25,8 @@ spec:
         app: ${{ values.component_id }}
         team: ${{ values.owner }}
     spec:
+      serviceAccountName: ${{ values.component_id }}
+      automountServiceAccountToken: false
       containers:
         - name: app
           image: ${{ values.component_id }}:latest

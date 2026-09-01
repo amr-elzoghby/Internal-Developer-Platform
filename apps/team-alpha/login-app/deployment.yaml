@@ -1,3 +1,11 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: login-app
+  namespace: team-alpha
+automountServiceAccountToken: false
+
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -13,6 +21,8 @@ spec:
       labels:
         app: login-app
     spec:
+      serviceAccountName: login-app
+      automountServiceAccountToken: false
       containers:
         - name: login-app
           image: 851236938302.dkr.ecr.us-east-1.amazonaws.com/idp-team-alpha-login-app:246b429077dd2bc39e9a8e05c635f05e62b10902
