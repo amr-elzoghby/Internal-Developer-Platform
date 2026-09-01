@@ -89,9 +89,10 @@ variable "platform_access_entries" {
   validation {
     condition = alltrue([
       for entry in values(var.platform_access_entries) :
-      can(regex("^arn:aws:iam::[0-9]{12}:role/.+", entry.principal_arn))
+      can(regex("^arn:aws:iam::[0-9]{12}:role/.+", entry.principal_arn)) &&
+      !strcontains(entry.principal_arn, "REPLACE_ME")
     ])
-    error_message = "Every platform principal must be an IAM role ARN, not an STS session ARN or IAM user."
+    error_message = "Every platform principal must be a real IAM role ARN, not a placeholder, STS session ARN, or IAM user."
   }
 
   validation {
@@ -163,6 +164,60 @@ variable "platform_access_entries" {
       ]
     ]))
     error_message = "Namespace-scoped access policies must list explicit DNS-label namespace names; wildcards are not allowed."
+  }
+}
+
+variable "tenant_namespaces" {
+  description = "Approved host-cluster namespaces that form tenant boundaries"
+  type        = set(string)
+
+  validation {
+    condition = length(var.tenant_namespaces) > 0 && alltrue([
+      for namespace in var.tenant_namespaces :
+      length(namespace) <= 63 && can(regex("^[a-z0-9]([-a-z0-9]*[a-z0-9])?$", namespace))
+    ])
+    error_message = "Tenant namespaces must be non-empty Kubernetes DNS labels."
+  }
+}
+
+variable "tenant_access_entries" {
+  description = "EKS access entries that map tenant IAM roles to namespace-scoped Kubernetes RBAC groups"
+  type = map(object({
+    principal_arn = string
+    tenant        = string
+    access_level  = string
+  }))
+
+  validation {
+    condition = alltrue([
+      for entry_name in keys(var.tenant_access_entries) :
+      can(regex("^[a-z0-9][a-z0-9-]{0,62}$", entry_name))
+    ])
+    error_message = "Tenant access entry names must be lowercase slugs containing only letters, digits, and hyphens."
+  }
+
+  validation {
+    condition = alltrue([
+      for entry in values(var.tenant_access_entries) :
+      can(regex("^arn:aws:iam::[0-9]{12}:role/.+", entry.principal_arn)) &&
+      !strcontains(entry.principal_arn, "REPLACE_ME")
+    ])
+    error_message = "Every tenant principal must be a real IAM role ARN, not a placeholder, STS session ARN, or IAM user."
+  }
+
+  validation {
+    condition = length(distinct([
+      for entry in values(var.tenant_access_entries) : entry.principal_arn
+    ])) == length(var.tenant_access_entries)
+    error_message = "Each tenant access entry must use a unique principal ARN."
+  }
+
+  validation {
+    condition = alltrue([
+      for entry in values(var.tenant_access_entries) :
+      contains(["viewer", "operator"], entry.access_level)
+    ])
+    error_message = "Tenant access_level must be either viewer or operator."
   }
 }
 

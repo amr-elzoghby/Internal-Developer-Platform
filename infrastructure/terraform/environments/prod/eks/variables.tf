@@ -51,3 +51,31 @@ variable "platform_access_entries" {
     error_message = "Only platform-admin and break-glass may receive AmazonEKSClusterAdminPolicy."
   }
 }
+
+variable "tenant_access_entries" {
+  description = "Production tenant IAM roles mapped to host-cluster Kubernetes groups"
+  type = map(object({
+    principal_arn = string
+    tenant        = string
+    access_level  = string
+  }))
+
+  validation {
+    condition = alltrue([
+      for entry in values(var.tenant_access_entries) :
+      contains(["team-alpha", "team-beta", "team-gamma"], entry.tenant)
+    ])
+    error_message = "Every tenant access entry must target an approved production tenant."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for tenant in ["team-alpha", "team-beta", "team-gamma"] : [
+        for access_level in ["viewer", "operator"] : contains([
+          for entry in values(var.tenant_access_entries) : "${entry.tenant}/${entry.access_level}"
+        ], "${tenant}/${access_level}")
+      ]
+    ]))
+    error_message = "Production requires both a viewer and an operator access entry for every tenant."
+  }
+}

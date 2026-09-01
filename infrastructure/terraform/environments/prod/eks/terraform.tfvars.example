@@ -1,6 +1,6 @@
 platform_access_entries = {
   platform-admin = {
-    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/us-east-1/AWSReservedSSO_PlatformAdministrator_REPLACE_ME"
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_PlatformAdministrator_REPLACE_ME"
     access_policies = {
       cluster-admin = {
         policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
@@ -15,5 +15,38 @@ platform_access_entries = {
         policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
       }
     }
+  }
+}
+
+tenant_access_entries = {
+  team-alpha-viewer = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamAlphaViewer_REPLACE_ME"
+    tenant        = "team-alpha"
+    access_level  = "viewer"
+  }
+  team-alpha-operator = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamAlphaOperator_REPLACE_ME"
+    tenant        = "team-alpha"
+    access_level  = "operator"
+  }
+  team-beta-viewer = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamBetaViewer_REPLACE_ME"
+    tenant        = "team-beta"
+    access_level  = "viewer"
+  }
+  team-beta-operator = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamBetaOperator_REPLACE_ME"
+    tenant        = "team-beta"
+    access_level  = "operator"
+  }
+  team-gamma-viewer = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamGammaViewer_REPLACE_ME"
+    tenant        = "team-gamma"
+    access_level  = "viewer"
+  }
+  team-gamma-operator = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamGammaOperator_REPLACE_ME"
+    tenant        = "team-gamma"
+    access_level  = "operator"
   }
 }

@@ -48,3 +48,42 @@ resource "aws_eks_access_policy_association" "platform" {
     namespaces = each.value.scope_type == "namespace" ? each.value.namespaces : null
   }
 }
+
+# Tenant principals deliberately receive Kubernetes groups only. Namespace
+# permissions are granted later by RoleBindings, not by cluster-wide EKS
+# access policies.
+resource "aws_eks_access_entry" "tenant" {
+  for_each = var.tenant_access_entries
+
+  cluster_name      = aws_eks_cluster.main.name
+  principal_arn     = each.value.principal_arn
+  kubernetes_groups = ["idp:tenant:${each.value.tenant}:${each.value.access_level}"]
+  type              = "STANDARD"
+
+  tags = {
+    Name        = "${var.name_prefix}-${each.key}-access"
+    Tenant      = each.value.tenant
+    AccessLevel = each.value.access_level
+  }
+
+  lifecycle {
+    create_before_destroy = true
+
+    precondition {
+      condition     = contains(var.tenant_namespaces, each.value.tenant)
+      error_message = "Tenant access entry '${each.key}' references an unknown tenant namespace."
+    }
+
+    precondition {
+      condition     = split(":", each.value.principal_arn)[4] == data.aws_caller_identity.current.account_id
+      error_message = "Tenant access principals must belong to the AWS account that owns this EKS cluster."
+    }
+
+    precondition {
+      condition = !contains([
+        for entry in values(var.platform_access_entries) : entry.principal_arn
+      ], each.value.principal_arn)
+      error_message = "A principal cannot be both a platform identity and a tenant identity."
+    }
+  }
+}
