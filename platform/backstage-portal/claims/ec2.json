@@ -1,0 +1,19 @@
+{
+  "claimType": "ec2",
+  "displayName": "EC2 Server Instance",
+  "defaultSecretIdentifier": "web-server",
+  "parameters": [
+    {
+      "name": "size",
+      "label": "Approved Size Tier",
+      "type": "select",
+      "options": ["small", "medium"],
+      "default": "small"
+    },
+    {
+      "name": "ami",
+      "label": "Platform-reviewed AMI",
+      "type": "platform-controlled"
+    }
+  ]
+}

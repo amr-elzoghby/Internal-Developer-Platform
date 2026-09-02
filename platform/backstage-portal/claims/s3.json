@@ -4,18 +4,11 @@
   "defaultSecretIdentifier": "user-uploads",
   "parameters": [
     {
-      "name": "bucketAcl",
-      "label": "Bucket ACL Access Control",
+      "name": "region",
+      "label": "Approved AWS Region",
       "type": "select",
-      "options": ["private", "public-read"],
-      "default": "private"
-    },
-    {
-      "name": "versioning",
-      "label": "Object Versioning",
-      "type": "select",
-      "options": ["true", "false"],
-      "default": "true"
+      "options": ["us-east-1"],
+      "default": "us-east-1"
     }
   ]
 }

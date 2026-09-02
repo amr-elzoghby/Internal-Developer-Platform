@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Backstage IDP — Enterprise Developer Portal (2026 Edition)</title>
+  <title>IDP Local Catalog — Read-only</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -15,13 +15,13 @@
   <aside class="sidebar">
     <div class="brand-header">
       <div class="brand-logo">B</div>
-      <span class="brand-title">Backstage IDP</span>
+      <span class="brand-title">IDP Local Catalog</span>
     </div>
 
     <div class="nav-group">
       <div class="nav-label">Developer Portal</div>
       <a class="nav-item active" id="nav-catalog" role="button" tabindex="0" aria-label="Navigate to Software Catalog" onclick="showPage('catalog')">📊 Software Catalog</a>
-      <a class="nav-item" id="nav-infra" role="button" tabindex="0" aria-label="Navigate to Self-Service Infrastructure" onclick="showPage('infra')">🗄️ Self-Service Infra (9 Claims)</a>
+      <a class="nav-item" id="nav-infra" role="button" tabindex="0" aria-label="Navigate to Infrastructure API Catalog" onclick="showPage('infra')">🗄️ Infrastructure APIs (4)</a>
     </div>
 
     <div class="nav-group">
@@ -87,63 +87,33 @@
         <!-- PAGE 2: INFRASTRUCTURE CLAIMS -->
         <div id="page-infra" class="hidden">
           <div class="page-header">
-            <h1>Self-Service Platform Infrastructure Claims</h1>
-            <p>Request cloud databases, caches, messaging topics, security credentials, or observability for your existing service.</p>
+            <h1>Platform Infrastructure API Catalog</h1>
+            <p>This local view is read-only. Approved Backstage Golden Paths create pull requests; infrastructure is never provisioned directly from this page.</p>
           </div>
 
           <div class="grid">
             <div class="card">
               <h3>🗄️ PostgreSQL RDS Database</h3>
-              <p>Injects <code>infra/users-db-claim.yaml</code> into your service repository. Crossplane provisions AWS RDS PostgreSQL & binds Secret identifier.</p>
-              <button class="btn" onclick="openInfraModal('postgres')">Request PostgreSQL Claim</button>
+              <p>The namespaced API is implemented and an approved Backstage Golden Path opens a reviewed pull request.</p>
+              <button class="btn" onclick="openInfraModal('postgres')">View PostgreSQL Workflow</button>
             </div>
 
             <div class="card">
               <h3>⚡ Redis ElastiCache Instance</h3>
-              <p>Injects <code>infra/session-redis-claim.yaml</code> into your repository for Redis in-memory caching.</p>
-              <button class="btn" onclick="openInfraModal('redis')">Request Redis Claim</button>
+              <p>The namespaced API is implemented. A reviewed Golden Path still needs to be added before self-service use.</p>
+              <button class="btn btn-secondary" onclick="openInfraModal('redis')">View Redis Contract</button>
             </div>
 
             <div class="card">
               <h3>📦 AWS S3 Cloud Storage Bucket</h3>
-              <p>Injects <code>infra/user-uploads-claim.yaml</code> into your service for cloud file storage and object uploads.</p>
-              <button class="btn" onclick="openInfraModal('s3')">Request S3 Bucket Claim</button>
+              <p>The namespaced API is implemented. A reviewed Golden Path still needs to be added before self-service use.</p>
+              <button class="btn btn-secondary" onclick="openInfraModal('s3')">View S3 Contract</button>
             </div>
 
             <div class="card">
-              <h3>📨 Kafka Event Stream Topic</h3>
-              <p>Injects <code>infra/order-events-topic-claim.yaml</code> for asynchronous event streaming & pub/sub messaging.</p>
-              <button class="btn" onclick="openInfraModal('kafka')">Request Kafka Topic Claim</button>
-            </div>
-
-            <div class="card">
-              <h3>🔒 SSL/TLS Certificate (Cert-Manager)</h3>
-              <p>Injects <code>infra/api-tls-cert-claim.yaml</code> to auto-provision Let's Encrypt SSL/TLS certs for your service endpoint.</p>
-              <button class="btn" onclick="openInfraModal('ssl')">Request SSL Certificate</button>
-            </div>
-
-            <div class="card">
-              <h3>🔑 Payment OAuth & API Keys</h3>
-              <p>Injects <code>infra/stripe-payment-credentials-claim.yaml</code> to request Stripe/Payment gateway OAuth client secrets.</p>
-              <button class="btn" onclick="openInfraModal('oauth')">Request Payment API Credentials</button>
-            </div>
-
-            <div class="card">
-              <h3>📊 Grafana Observability Dashboard</h3>
-              <p>Injects <code>infra/metrics-dashboard-claim.yaml</code> to auto-generate CPU, Memory & Latency Grafana monitoring dashboards.</p>
-              <button class="btn btn-secondary" onclick="openInfraModal('grafana')">Request Grafana Dashboard</button>
-            </div>
-
-            <div class="card">
-              <h3>🔔 Slack Incident Webhook Alerting</h3>
-              <p>Injects <code>infra/prod-slack-alerts-claim.yaml</code> to route service crash or outage alerts to your team's Slack channel.</p>
-              <button class="btn btn-secondary" onclick="openInfraModal('slack')">Request Slack Webhook Alerts</button>
-            </div>
-
-            <div class="card">
-              <h3>🌐 Custom Subdomain Ingress</h3>
-              <p>Injects <code>infra/api-ingress-claim.yaml</code> to route custom domain to your service.</p>
-              <button class="btn btn-secondary" onclick="openInfraModal('domain')">Request Subdomain Ingress</button>
+              <h3>🖥️ AWS EC2 Server</h3>
+              <p>The namespaced API is implemented. A reviewed Golden Path must supply a platform-approved AMI.</p>
+              <button class="btn btn-secondary" onclick="openInfraModal('ec2')">View EC2 Contract</button>
             </div>
           </div>
         </div>
@@ -185,38 +155,33 @@
         <!-- PAGE 5: SECURITY & COMPLIANCE -->
         <div id="page-security" class="hidden">
           <div class="page-header">
-            <h1>Security & Compliance Governance (Soundcheck)</h1>
-            <p>Automated security vulnerability scanning, Kyverno ClusterPolicy enforcement, and SonarQube metrics.</p>
+            <h1>Security Integration Status</h1>
+            <p>This page reports configured integrations only. It does not invent live scan, policy, or quality-gate results.</p>
           </div>
 
           <div class="grid">
             <div class="card">
               <h3>🛡️ Trivy Container & FS Scanner</h3>
-              <p>Scans project dependencies and Dockerfile layers for known CVEs.</p>
+              <p>The CI workflow contains a Trivy scan. Live results are not connected to this local catalog.</p>
               <div class="metric-block">
-                <p class="metric-success">● Critical Vulnerabilities: 0</p>
-                <p class="metric-success">● High Vulnerabilities: 0</p>
-                <p style="color:var(--text-muted); margin-top:4px;">● Low Vulnerabilities: 2 (Non-blocking)</p>
+                <p style="color:var(--text-muted);">● Status: Not connected</p>
               </div>
             </div>
 
             <div class="card">
-              <h3>⚙️ Kyverno ClusterPolicy Governance</h3>
-              <p>Enforces Kubernetes cluster security policies prior to deployment.</p>
+              <h3>⚙️ Kubernetes Native Admission</h3>
+              <p>Repository-managed Pod Security Admission and ValidatingAdmissionPolicy definitions replace unsupported Kyverno enforcement on Kubernetes 1.36.</p>
               <div class="metric-block">
-                <p class="metric-success">● disallow-root-user: Pass</p>
-                <p class="metric-success">● require-ro-rootfs: Pass</p>
-                <p class="metric-success">● require-cpu-mem-limits: Pass</p>
+                <p style="color:var(--text-muted);">● Repository configuration: Present</p>
+                <p style="color:var(--text-muted);">● Live cluster result: Not connected</p>
               </div>
             </div>
 
             <div class="card">
               <h3>📊 SonarQube Quality Gate</h3>
-              <p>Code coverage, code smells, and maintainability rating.</p>
+              <p>No live SonarQube integration is connected to this local catalog.</p>
               <div class="metric-block">
-                <p class="metric-success">● Quality Gate: PASSED (Grade A)</p>
-                <p style="color:var(--text-muted); margin-top:4px;">● Code Coverage: 88.4%</p>
-                <p style="color:var(--text-muted); margin-top:4px;">● Security Hotspots: 0</p>
+                <p style="color:var(--text-muted);">● Status: Not connected</p>
               </div>
             </div>
           </div>
@@ -230,7 +195,7 @@
   <div class="modal-overlay" id="modal-login">
     <div class="modal-box">
       <h2 style="margin-bottom:6px;">🔑 Developer Identity & Team Login</h2>
-      <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Enter your company team credentials to authenticate your RBAC permissions.</p>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Unlock a local, read-only team view. This does not grant Kubernetes or Git repository permissions.</p>
 
       <div class="form-group">
         <label>Select Team</label>
@@ -255,28 +220,22 @@
     </div>
   </div>
 
-  <!-- INFRA CLAIM MODAL -->
+  <!-- READ-ONLY INFRASTRUCTURE CONTRACT MODAL -->
   <div class="modal-overlay" id="modal-infra">
     <div class="modal-box">
-      <h2 style="margin-bottom:12px;" id="infra-title">Request Infrastructure Claim</h2>
+      <h2 style="margin-bottom:12px;" id="infra-title">Infrastructure API Contract</h2>
       <div id="infra-form">
-        <div class="form-group">
-          <label>Select Target Microservice Component</label>
-          <select id="infra-target-project"></select>
-        </div>
-
-        <div class="form-group">
-          <label>Resource Secret Identifier / Claim Name (Customize for your code binding)</label>
-          <input type="text" id="infra-custom-name" placeholder="e.g. users-db, orders-db, session-redis, user-uploads, stripe-payment" />
-          <div class="form-help">Defines <code>writeConnectionSecretToRef.name</code> (e.g. project-users-db-secret) and file name.</div>
-        </div>
+        <p style="color:var(--text-muted); margin-bottom:16px;">
+          This page does not write files, run services, commit code, or contact the cluster.
+          Infrastructure requests must be generated by an approved Backstage template and merged through review.
+        </p>
+        <div class="info-panel" id="infra-contract-details">Loading API contract...</div>
 
         <div class="modal-actions">
-          <button class="btn btn-secondary" onclick="closeModal('modal-infra')">Cancel</button>
-          <button class="btn" onclick="executeInfraClaim()">Submit Resource Claim</button>
+          <button class="btn btn-secondary" onclick="closeModal('modal-infra')">Close</button>
+          <a class="btn" id="infra-approved-link" href="#" target="_blank" rel="noopener noreferrer">Open Approved Source</a>
         </div>
       </div>
-      <div id="infra-result" class="hidden"></div>
     </div>
   </div>
 

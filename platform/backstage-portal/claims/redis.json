@@ -4,17 +4,11 @@
   "defaultSecretIdentifier": "session-redis",
   "parameters": [
     {
-      "name": "memoryMB",
-      "label": "Allocated Memory (MB)",
-      "type": "number",
-      "default": 512
-    },
-    {
-      "name": "redisVersion",
-      "label": "Redis Version",
+      "name": "size",
+      "label": "Approved Size Tier",
       "type": "select",
-      "options": ["7.0", "6.2"],
-      "default": "7.0"
+      "options": ["small", "medium"],
+      "default": "small"
     }
   ]
 }

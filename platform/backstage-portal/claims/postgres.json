@@ -7,14 +7,16 @@
       "name": "storageGB",
       "label": "Storage Size (GB)",
       "type": "number",
-      "default": 20
+      "default": 20,
+      "minimum": 20,
+      "maximum": 1000
     },
     {
-      "name": "engineVersion",
-      "label": "Engine Version",
+      "name": "size",
+      "label": "Approved Size Tier",
       "type": "select",
-      "options": ["15", "16"],
-      "default": "15"
+      "options": ["small", "medium"],
+      "default": "small"
     }
   ]
 }

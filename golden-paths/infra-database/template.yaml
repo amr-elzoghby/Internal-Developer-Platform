@@ -1,16 +1,13 @@
 apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
-  name: request-cloud-infrastructure
-  title: Request AWS Cloud Infrastructure (Crossplane Self-Service)
-  description: Self-service portal template for developers to request AWS RDS Postgres, S3 Bucket, ElastiCache Redis, or EC2 Instances via Crossplane CRDs.
+  name: request-postgresql-database
+  title: Request an AWS PostgreSQL Database
+  description: Self-service template for a namespaced Crossplane PostgreSQL request.
   tags:
     - aws
     - crossplane
     - rds
-    - s3
-    - ec2
-    - redis
 spec:
   owner: team-alpha
   type: resource
@@ -19,23 +16,24 @@ spec:
     - title: Resource Configuration
       required:
         - resource_name
-        - resource_type
+        - storage_gb
+        - size
         - owner
+        - password_secret_name
       properties:
         resource_name:
           title: Resource Name
           type: string
-          description: Name of the AWS resource (e.g. app-db, user-uploads)
+          description: DNS-safe name for the database request (for example, app-db).
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          maxLength: 40
           ui:autofocus: true
-        resource_type:
-          title: Infrastructure Type
-          type: string
-          enum:
-            - RDS PostgreSQL Database
-            - S3 Object Bucket
-            - ElastiCache Redis Cluster
-            - EC2 Server Instance
-          default: RDS PostgreSQL Database
+        storage_gb:
+          title: Storage (GiB)
+          type: integer
+          minimum: 20
+          maximum: 1000
+          default: 20
         size:
           title: Tier Size
           type: string
@@ -43,45 +41,43 @@ spec:
             - small
             - medium
           default: small
-          description: Approved instance tier size (small or medium - large is blocked by Kyverno policy)
+          description: Approved platform tier enforced by the Crossplane API schema.
         owner:
           title: Requesting Team
           type: string
-          ui:field: OwnerPicker
-          ui:options:
-            catalogFilter:
-              kind: Group
-
-    - title: Platform GitOps Repository Destination
-      required:
-        - repoUrl
-      properties:
-        repoUrl:
-          title: Platform Repository
+          enum:
+            - team-alpha
+            - team-beta
+            - team-gamma
+        password_secret_name:
+          title: Password secret name
           type: string
-          default: github.com?repo=Internal-Developer-Platform&owner=amr-elzoghby
-          ui:field: RepoUrlPicker
+          description: Name of an existing secret below the requesting team's idp/<team>/ path in AWS Secrets Manager.
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          maxLength: 40
 
   steps:
     - id: fetch-claim-template
-      name: Generate Crossplane Infrastructure Claim
+      name: Generate Namespaced PostgreSQL Request
       action: fetch:template
       input:
         url: ./skeleton
+        targetPath: infrastructure/crossplane/claims/${{ parameters.owner }}/${{ parameters.resource_name }}
         values:
           resource_name: ${{ parameters.resource_name }}
-          resource_type: ${{ parameters.resource_type }}
+          storage_gb: ${{ parameters.storage_gb }}
           size: ${{ parameters.size }}
           owner: ${{ parameters.owner }}
+          password_secret_name: ${{ parameters.password_secret_name }}
 
     - id: publish-pr
       name: Create Pull Request to Infrastructure Repository
       action: publish:github:pull-request
       input:
-        repoUrl: ${{ parameters.repoUrl }}
-        branchName: infra-claim-${{ parameters.resource_name }}
-        title: "feat(crossplane): add ${{ parameters.resource_type }} claim for ${{ parameters.owner }}"
-        description: Automated Crossplane cloud infrastructure request submitted via Backstage Developer Portal.
+        repoUrl: github.com?repo=Internal-Developer-Platform&owner=amr-elzoghby
+        branchName: infra-claim-${{ parameters.owner }}-${{ parameters.resource_name }}
+        title: "feat(crossplane): add PostgreSQL request for ${{ parameters.owner }}"
+        description: Namespaced PostgreSQL request submitted through the platform Golden Path.
 
   output:
     links:

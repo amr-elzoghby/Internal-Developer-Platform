@@ -4,7 +4,5 @@ metadata:
   name: ${{ values.resource_name }}
   namespace: ${{ values.owner }}
 spec:
-  storageGB: 20
+  storageGB: ${{ values.storage_gb }}
   size: ${{ values.size }}
-  writeConnectionSecretToRef:
-    name: ${{ values.resource_name }}-conn
