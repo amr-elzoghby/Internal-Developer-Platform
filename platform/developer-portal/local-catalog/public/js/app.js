@@ -62,19 +62,19 @@ const infrastructureSources = {
   redis: {
     title: 'Redis ElastiCache',
     linkText: 'Open API Definition',
-    url: 'https://github.com/amr-elzoghby/Internal-Developer-Platform/blob/main/infrastructure/crossplane/definitions/redis-elasticache.yaml',
+    url: 'https://github.com/amr-elzoghby/Internal-Developer-Platform/blob/main/infrastructure/crossplane/apis/definitions/redis-elasticache.yaml',
     availability: 'The API exists, but its reviewed Backstage Golden Path is not implemented yet.'
   },
   s3: {
     title: 'S3 Object Bucket',
     linkText: 'Open API Definition',
-    url: 'https://github.com/amr-elzoghby/Internal-Developer-Platform/blob/main/infrastructure/crossplane/definitions/s3-bucket.yaml',
+    url: 'https://github.com/amr-elzoghby/Internal-Developer-Platform/blob/main/infrastructure/crossplane/apis/definitions/s3-bucket.yaml',
     availability: 'The API exists, but its reviewed Backstage Golden Path is not implemented yet.'
   },
   ec2: {
     title: 'EC2 Server',
     linkText: 'Open API Definition',
-    url: 'https://github.com/amr-elzoghby/Internal-Developer-Platform/blob/main/infrastructure/crossplane/definitions/ec2-server.yaml',
+    url: 'https://github.com/amr-elzoghby/Internal-Developer-Platform/blob/main/infrastructure/crossplane/apis/definitions/ec2-server.yaml',
     availability: 'The API exists, but its reviewed Backstage Golden Path is not implemented yet.'
   }
 };

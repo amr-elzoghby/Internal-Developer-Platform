@@ -297,9 +297,9 @@ External Secrets, Prometheus, and Kubecost chart versions are not pinned in the 
 │   │   ├── environments/prod/{network,eks}/
 │   │   └── modules/{network,eks}/
 │   └── crossplane/
-│       ├── providers/
-│       ├── definitions/
-│       ├── compositions/
+│       ├── packages/
+│       ├── provider-configs/
+│       ├── apis/{definitions,compositions}/
 │       ├── claims/identity-platform/
 │       └── scripts/
 ├── platform/

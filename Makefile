@@ -169,9 +169,9 @@ crossplane-packages:
 	CROSSPLANE_ELASTICACHE_ROLE_ARN="$$elasticache_role_arn" \
 	CROSSPLANE_EC2_ROLE_ARN="$$ec2_role_arn" \
 	envsubst '$$CROSSPLANE_S3_ROLE_ARN $$CROSSPLANE_RDS_ROLE_ARN $$CROSSPLANE_ELASTICACHE_ROLE_ARN $$CROSSPLANE_EC2_ROLE_ARN' \
-		< infrastructure/crossplane/providers/deployment-runtime-config.yaml | kubectl apply -f -
-	kubectl apply -f infrastructure/crossplane/providers/managed-resource-activation-policy.yaml
-	kubectl apply -f infrastructure/crossplane/providers/providers.yaml
+		< infrastructure/crossplane/packages/deployment-runtime-config.yaml | kubectl apply -f -
+	kubectl apply -f infrastructure/crossplane/packages/managed-resource-activation-policy.yaml
+	kubectl apply -f infrastructure/crossplane/packages/providers.yaml
 	@set -eu; \
 	for provider in provider-aws-s3 provider-aws-rds provider-aws-elasticache provider-aws-ec2; do \
 		kubectl wait --for=condition=Installed "provider.pkg.crossplane.io/$$provider" --timeout=600s; \
@@ -193,7 +193,7 @@ crossplane-packages:
 		kubectl wait --for=condition=Established "crd/$$crd" --timeout=300s; \
 	done
 	kubectl wait --for=condition=Established crd/clusterproviderconfigs.aws.m.upbound.io --timeout=300s
-	kubectl apply -f infrastructure/crossplane/providers/provider-config.yaml
+	kubectl apply -f infrastructure/crossplane/provider-configs/provider-config.yaml
 
 # Install the direct namespaced v2 public APIs before their Compositions.
 crossplane-definitions:
@@ -204,7 +204,7 @@ crossplane-definitions:
 			exit 1; \
 		fi; \
 	done
-	kubectl apply -f infrastructure/crossplane/definitions/
+	kubectl apply -f infrastructure/crossplane/apis/definitions/
 	@set -eu; \
 	for xrd in objectbuckets.idp.io serverinstances.idp.io postgressqlinstances.idp.io redisinstances.idp.io; do \
 		kubectl wait --for=condition=Established "xrd/$$xrd" --timeout=180s; \
@@ -230,7 +230,7 @@ crossplane-compositions:
 	echo "$(GREEN)VPC: $$vpc_id | Subnets: $$private_subnet_1, $$private_subnet_2$(NC)"; \
 	render_dir="$$(mktemp -d /tmp/idp-crossplane.XXXXXX)"; \
 	trap 'rm -rf "$$render_dir"' EXIT HUP INT TERM; \
-	for file in infrastructure/crossplane/compositions/*.yaml; do \
+	for file in infrastructure/crossplane/apis/compositions/*.yaml; do \
 		VPC_ID="$$vpc_id" PRIVATE_SUBNET_1="$$private_subnet_1" PRIVATE_SUBNET_2="$$private_subnet_2" \
 			envsubst '$$VPC_ID $$PRIVATE_SUBNET_1 $$PRIVATE_SUBNET_2' < "$$file" > "$$render_dir/$$(basename "$$file")"; \
 	done; \
