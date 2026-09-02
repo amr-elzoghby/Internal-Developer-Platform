@@ -1,0 +1,14 @@
+apiVersion: apiextensions.crossplane.io/v1alpha1
+kind: ManagedResourceActivationPolicy
+metadata:
+  name: idp-aws-resources
+spec:
+  activate:
+    - buckets.s3.aws.m.upbound.io
+    - instances.ec2.aws.m.upbound.io
+    - securitygroups.ec2.aws.m.upbound.io
+    - securitygrouprules.ec2.aws.m.upbound.io
+    - instances.rds.aws.m.upbound.io
+    - subnetgroups.rds.aws.m.upbound.io
+    - replicationgroups.elasticache.aws.m.upbound.io
+    - subnetgroups.elasticache.aws.m.upbound.io

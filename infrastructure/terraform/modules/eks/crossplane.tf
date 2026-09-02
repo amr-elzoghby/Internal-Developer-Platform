@@ -12,6 +12,13 @@ resource "helm_release" "crossplane" {
   wait_for_jobs    = true
   timeout          = 600
   depends_on       = [aws_eks_node_group.stable]
+
+  # Crossplane v2 otherwise activates every ManagedResourceDefinition shipped
+  # by every provider. The platform applies an exact MRAP before providers.
+  set {
+    name  = "provider.defaultActivations"
+    value = "{}"
+  }
 }
 
 locals {

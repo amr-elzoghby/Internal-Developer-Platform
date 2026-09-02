@@ -140,7 +140,7 @@ crossplane-config:
 	$(MAKE) crossplane-compositions
 
 # Install the provider/function packages only after Crossplane's package CRDs
-# are established, then wait for the AWS ProviderConfig APIs before using them.
+# are established, then wait for the AWS ClusterProviderConfig API before use.
 crossplane-packages:
 	@echo "$(GREEN)Configuring Crossplane Runtimes with dedicated IRSA roles...$(NC)"
 	@set -eu; \
@@ -150,7 +150,8 @@ crossplane-packages:
 		functions.pkg.crossplane.io \
 		compositeresourcedefinitions.apiextensions.crossplane.io \
 		compositions.apiextensions.crossplane.io \
-		compositionrevisions.apiextensions.crossplane.io; do \
+		compositionrevisions.apiextensions.crossplane.io \
+		managedresourceactivationpolicies.apiextensions.crossplane.io; do \
 		kubectl wait --for=condition=Established "crd/$$crd" --timeout=180s; \
 	done
 	@set -eu; \
@@ -165,6 +166,7 @@ crossplane-packages:
 	CROSSPLANE_EC2_ROLE_ARN="$$ec2_role_arn" \
 	envsubst '$$CROSSPLANE_S3_ROLE_ARN $$CROSSPLANE_RDS_ROLE_ARN $$CROSSPLANE_ELASTICACHE_ROLE_ARN $$CROSSPLANE_EC2_ROLE_ARN' \
 		< infrastructure/crossplane/providers/deployment-runtime-config.yaml | kubectl apply -f -
+	kubectl apply -f infrastructure/crossplane/providers/managed-resource-activation-policy.yaml
 	kubectl apply -f infrastructure/crossplane/providers/providers.yaml
 	@set -eu; \
 	for provider in provider-aws-s3 provider-aws-rds provider-aws-elasticache provider-aws-ec2; do \
@@ -173,9 +175,20 @@ crossplane-packages:
 	done
 	kubectl wait --for=condition=Installed function.pkg.crossplane.io/function-python --timeout=600s
 	kubectl wait --for=condition=Healthy function.pkg.crossplane.io/function-python --timeout=600s
+	kubectl wait --for=condition=Healthy managedresourceactivationpolicy/idp-aws-resources --timeout=300s
+	@set -eu; \
+	for crd in \
+		buckets.s3.aws.m.upbound.io \
+		instances.ec2.aws.m.upbound.io \
+		securitygroups.ec2.aws.m.upbound.io \
+		securitygrouprules.ec2.aws.m.upbound.io \
+		instances.rds.aws.m.upbound.io \
+		subnetgroups.rds.aws.m.upbound.io \
+		replicationgroups.elasticache.aws.m.upbound.io \
+		subnetgroups.elasticache.aws.m.upbound.io; do \
+		kubectl wait --for=condition=Established "crd/$$crd" --timeout=300s; \
+	done
 	kubectl wait --for=condition=Established crd/clusterproviderconfigs.aws.m.upbound.io --timeout=300s
-	# Keep the legacy API available until EC2, RDS, and Redis complete their v2 migration.
-	kubectl wait --for=condition=Established crd/providerconfigs.aws.upbound.io --timeout=300s
 	kubectl apply -f infrastructure/crossplane/providers/provider-config.yaml
 
 # Install the direct namespaced v2 public APIs before their Compositions.
