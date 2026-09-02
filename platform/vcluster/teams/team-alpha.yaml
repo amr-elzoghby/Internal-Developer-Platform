@@ -1,5 +1,13 @@
 controlPlane:
   statefulSet:
+    labels:
+      platform.idp.io/owner: team-alpha
+      platform.idp.io/vcluster: team-alpha
+    pods:
+      labels:
+        platform.idp.io/owner: team-alpha
+        platform.idp.io/vcluster: team-alpha
+        team: team-alpha
     resources:
       limits:
         cpu: "500m"

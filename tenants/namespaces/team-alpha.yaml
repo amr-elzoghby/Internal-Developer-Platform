@@ -4,6 +4,7 @@ metadata:
   name: team-alpha
   labels:
     platform.idp.io/tenant: "true"
+    platform.idp.io/workload-policy: baseline
     pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/enforce-version: v1.36
     pod-security.kubernetes.io/audit: restricted

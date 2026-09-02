@@ -1,4 +1,4 @@
-.PHONY: help confirm-destroy infra-up infra-down kubeconfig cluster-up storage-up tenant-up vcluster-up vcluster-down eso-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
+.PHONY: help confirm-destroy infra-up infra-down kubeconfig cluster-up storage-up tenant-up admission-up vcluster-up vcluster-down eso-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -19,6 +19,7 @@ help:
 	@echo "  monitoring-up       Deploy Prometheus, Grafana, and Kubecost FinOps stack"
 	@echo "  storage-up          Apply the encrypted gp3 StorageClass"
 	@echo "  tenant-up           Create and configure host-cluster tenant namespaces"
+	@echo "  admission-up        Enforce native Kubernetes workload policies"
 	@echo "  crossplane-config   Install providers, XRDs, then Compositions in order"
 	@echo "  vcluster-up          Install an optional vCluster (requires TEAM=<approved-team>)"
 	@echo "  vcluster-down        Uninstall one vCluster safely (requires TEAM=<approved-team>)"
@@ -65,9 +66,9 @@ cluster-up: kubeconfig
 	$(MAKE) storage-up
 	$(MAKE) eso-up
 	$(MAKE) tenant-up
+	$(MAKE) admission-up
 	$(MAKE) crossplane-config
 	$(MAKE) argocd-up
-	$(MAKE) kyverno-up
 
 # Configure encrypted gp3 volumes before any optional stateful tenant services.
 storage-up:
@@ -99,17 +100,19 @@ vcluster-up:
 		exit 1; \
 	esac
 	@cluster="$$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}')"; \
-	case "$$cluster" in *"$(CLUSTER_NAME)"*) ;; *) \
+	cluster_name="$${cluster##*/}"; \
+	if [ "$$cluster_name" != "$(CLUSTER_NAME)" ]; then \
 		echo "$(RED)Refusing to install against context '$$cluster'; expected cluster $(CLUSTER_NAME).$(NC)"; \
 		exit 1; \
-	esac
+	fi
 	@kubectl get namespace "$(TEAM)" >/dev/null
 	@kubectl get storageclass gp3 >/dev/null
+	kubectl apply -f "platform/vcluster/host-namespaces/$(TEAM).yaml"
 	helm repo add loft-sh https://charts.loft.sh --force-update
 	helm repo update loft-sh
 	helm upgrade --install "$(TEAM)" loft-sh/vcluster \
 		--version "$(VCLUSTER_CHART_VERSION)" \
-		--namespace "$(TEAM)" \
+		--namespace "vcluster-$(TEAM)" \
 		--wait --atomic \
 		-f platform/vcluster/base/values.yaml \
 		-f "platform/vcluster/teams/$(TEAM).yaml"
@@ -125,12 +128,13 @@ vcluster-down:
 		exit 1; \
 	esac
 	@cluster="$$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}')"; \
-	case "$$cluster" in *"$(CLUSTER_NAME)"*) ;; *) \
+	cluster_name="$${cluster##*/}"; \
+	if [ "$$cluster_name" != "$(CLUSTER_NAME)" ]; then \
 		echo "$(RED)Refusing to uninstall against context '$$cluster'; expected cluster $(CLUSTER_NAME).$(NC)"; \
 		exit 1; \
-	esac
-	helm status "$(TEAM)" --namespace "$(TEAM)" >/dev/null
-	helm uninstall "$(TEAM)" --namespace "$(TEAM)" --keep-history
+	fi
+	helm status "$(TEAM)" --namespace "vcluster-$(TEAM)" >/dev/null
+	helm uninstall "$(TEAM)" --namespace "vcluster-$(TEAM)" --keep-history
 
 # Configure Crossplane in dependency order. Sub-makes keep the phases sequential
 # even when the top-level make command is invoked with parallel execution.
@@ -253,10 +257,18 @@ argocd-up:
 	kubectl apply -f platform/argocd/projects/
 	kubectl apply -f platform/argocd/applicationsets/
 
-# Configure Kyverno policy engine and security guardrails
+# Enforce policies that Kubernetes 1.36 supports natively. The installer waits
+# for CEL type-checking before it enables the deny bindings.
+admission-up:
+	@echo "$(GREEN)Installing native Kubernetes admission policies...$(NC)"
+	./platform/security/admission/install.sh
+
+# Kyverno is intentionally not part of the bootstrap until an approved release
+# supports Kubernetes 1.36. Keep this target fail-closed for explicit callers.
 kyverno-up:
-	@echo "$(GREEN)Installing Kyverno Policy Engine...$(NC)"
-	./platform/security/kyverno/install/install.sh
+	@echo "$(RED)Kyverno is disabled: the pinned policy engine is not approved for Kubernetes 1.36.$(NC)"
+	@echo "Use 'make admission-up' for the supported native controls."
+	@exit 1
 
 # Configure Prometheus, Grafana, and Kubecost Monitoring & FinOps
 monitoring-up:

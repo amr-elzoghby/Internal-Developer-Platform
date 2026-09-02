@@ -1,0 +1,32 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: idp-workload-baseline
+  annotations:
+    kubernetes.io/description: Enforce the IDP workload baseline in explicitly managed namespaces.
+spec:
+  policyName: idp-workload-baseline
+  validationActions:
+    - Deny
+    - Audit
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        platform.idp.io/workload-policy: baseline
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: idp-tenant-identity
+  annotations:
+    kubernetes.io/description: Enforce namespace ownership labels on native tenant Pods.
+spec:
+  policyName: idp-tenant-identity
+  validationActions:
+    - Deny
+    - Audit
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        platform.idp.io/tenant: "true"

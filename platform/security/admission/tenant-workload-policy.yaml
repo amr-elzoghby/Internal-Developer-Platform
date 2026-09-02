@@ -1,0 +1,84 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: idp-workload-baseline
+  annotations:
+    kubernetes.io/description: Enforce baseline supply-chain and resource controls for platform workloads.
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+        scope: Namespaced
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["UPDATE"]
+        resources:
+          - pods/ephemeralcontainers
+          - pods/resize
+        scope: Namespaced
+  validations:
+    - expression: >-
+        object.spec.containers.all(container,
+          (container.image.matches('^[^@[:space:]]+@sha256:[0-9a-f]{64}$') ||
+           (!container.image.contains('@') &&
+            container.image.matches('^[^[:space:]]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'))) &&
+          !container.image.endsWith(':latest')) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(container,
+          (container.image.matches('^[^@[:space:]]+@sha256:[0-9a-f]{64}$') ||
+           (!container.image.contains('@') &&
+            container.image.matches('^[^[:space:]]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'))) &&
+          !container.image.endsWith(':latest'))) &&
+        (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(container,
+          (container.image.matches('^[^@[:space:]]+@sha256:[0-9a-f]{64}$') ||
+           (!container.image.contains('@') &&
+            container.image.matches('^[^[:space:]]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'))) &&
+          !container.image.endsWith(':latest')))
+      message: Every container image must use an explicit non-latest tag or a SHA-256 digest.
+      reason: Invalid
+    - expression: >-
+        object.spec.containers.all(container,
+          has(container.resources) &&
+          has(container.resources.requests) &&
+          has(container.resources.limits) &&
+          'cpu' in container.resources.requests &&
+          'memory' in container.resources.requests &&
+          'cpu' in container.resources.limits &&
+          'memory' in container.resources.limits) &&
+        (!has(object.spec.initContainers) || object.spec.initContainers.all(container,
+          has(container.resources) &&
+          has(container.resources.requests) &&
+          has(container.resources.limits) &&
+          'cpu' in container.resources.requests &&
+          'memory' in container.resources.requests &&
+          'cpu' in container.resources.limits &&
+          'memory' in container.resources.limits))
+      message: Every regular and init container must define CPU and memory requests and limits.
+      reason: Invalid
+
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: idp-tenant-identity
+  annotations:
+    kubernetes.io/description: Bind each native tenant Pod to the team that owns its namespace.
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [""]
+        apiVersions: ["v1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["pods"]
+        scope: Namespaced
+  validations:
+    - expression: >-
+        has(object.metadata.labels) &&
+        'team' in object.metadata.labels &&
+        object.metadata.labels['team'] == namespaceObject.metadata.name
+      message: The Pod team label must exist and exactly match its tenant namespace.
+      reason: Invalid

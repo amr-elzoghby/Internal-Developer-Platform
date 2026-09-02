@@ -1,5 +1,13 @@
 controlPlane:
   statefulSet:
+    labels:
+      platform.idp.io/owner: team-gamma
+      platform.idp.io/vcluster: team-gamma
+    pods:
+      labels:
+        platform.idp.io/owner: team-gamma
+        platform.idp.io/vcluster: team-gamma
+        team: team-gamma
     resources:
       limits:
         cpu: "500m"
