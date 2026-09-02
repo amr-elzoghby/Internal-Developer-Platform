@@ -238,7 +238,7 @@ It cannot authenticate users, enforce RBAC, write files, run Git commands, provi
 
 `platform/backstage` contains catalog/configuration material, not a self-contained Backstage application. Its Dockerfile expects a Backstage monorepo with `package.json`, `yarn.lock`, `packages`, and `plugins`, which are not present here.
 
-The Node.js and Python templates currently publish standalone repositories. They are useful scaffolds, but those repositories are not discovered by the current monorepo ApplicationSets. This integration gap is tracked in the hardening plan.
+The Node.js and Python templates currently publish standalone repositories. They are useful scaffolds, but those repositories are not discovered by the current monorepo ApplicationSets. This integration gap remains open.
 
 ## Security controls represented in code
 
@@ -315,8 +315,6 @@ External Secrets, Prometheus, and Kubecost chart versions are not pinned in the 
 │   ├── namespaces/
 │   ├── rbac/
 │   └── templates/
-├── folder-restructure-tomorrow.md
-├── platform-hardening-plan.md
 ├── Makefile
 └── README.md
 ```
@@ -382,7 +380,7 @@ The EKS Terraform validation reports deprecation warnings from the downloaded `t
 
 ## Known gaps
 
-The full risk register and ordered remediation plan live in [platform-hardening-plan.md](platform-hardening-plan.md). The highest-priority gaps are:
+The highest-priority gaps are:
 
 1. No end-to-end deployment or live isolation evidence.
 2. Stable EKS nodes currently target public subnets.
@@ -395,8 +393,6 @@ The full risk register and ordered remediation plan live in [platform-hardening-
 9. Redis lacks production encryption, authentication, high availability, and backup settings.
 10. External Secrets and monitoring chart versions are unpinned.
 11. Backstage is configuration-only, not a runnable production portal.
-
-The planned repository reorganization is documented separately in [folder-restructure-tomorrow.md](folder-restructure-tomorrow.md). It has not been executed.
 
 ## Destructive operations
 

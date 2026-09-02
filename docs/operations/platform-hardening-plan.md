@@ -358,7 +358,7 @@ Argo CD وvCluster وCrossplane وMetrics Server مثبتة النسخ. External
 
 ### المرحلة G — إعادة هيكلة المجلدات
 
-الخطة التفصيلية موجودة في `folder-restructure-tomorrow.md`. لا يبدأ النقل قبل تثبيت state/live-path assumptions، ولا يُخلط مع تغييرات السلوك.
+الخطة التفصيلية موجودة في `repository-restructure-plan.md`. لا يبدأ أي نقل يؤثر على بيئة حية قبل تثبيت state/live-path assumptions، ولا يُخلط مع تغييرات السلوك.
 
 ## معايير الجاهزية النهائية
 
