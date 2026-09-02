@@ -1,13 +1,11 @@
-apiVersion: apiextensions.crossplane.io/v1
+apiVersion: apiextensions.crossplane.io/v2
 kind: CompositeResourceDefinition
 metadata:
-  name: xpostgressqlinstances.idp.io
+  name: postgressqlinstances.idp.io
 spec:
+  scope: Namespaced
   group: idp.io
   names:
-    kind: XPostgresSQLInstance
-    plural: xpostgressqlinstances
-  claimNames:
     kind: PostgresSQLInstance
     plural: postgressqlinstances
   versions:
@@ -23,10 +21,17 @@ spec:
               properties:
                 storageGB:
                   type: integer
+                  description: Allocated encrypted gp3 storage in GiB.
                   default: 20
+                  minimum: 20
+                  maximum: 1000
                 size:
                   type: string
+                  description: Platform-approved RDS capacity tier.
                   default: small
+                  enum:
+                    - small
+                    - medium
               required:
                 - storageGB
                 - size

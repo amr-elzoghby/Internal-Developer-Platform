@@ -178,11 +178,11 @@ crossplane-packages:
 	kubectl wait --for=condition=Established crd/providerconfigs.aws.upbound.io --timeout=300s
 	kubectl apply -f infrastructure/crossplane/providers/provider-config.yaml
 
-# Install the public APIs before their Compositions. S3 and EC2 use direct
-# namespaced v2 XRs; RDS and Redis keep legacy claims during migration.
+# Install the public APIs before their Compositions. S3, EC2, and RDS use
+# direct namespaced v2 XRs; Redis keeps a legacy claim during migration.
 crossplane-definitions:
 	@set -eu; \
-	for legacy_xrd in xobjectbuckets.idp.io xserverinstances.idp.io; do \
+	for legacy_xrd in xobjectbuckets.idp.io xserverinstances.idp.io xpostgressqlinstances.idp.io; do \
 		if kubectl get "xrd/$$legacy_xrd" >/dev/null 2>&1; then \
 			echo "$(RED)Legacy XRD $$legacy_xrd detected; namespaced v2 requires a fresh install or a planned live migration.$(NC)"; \
 			exit 1; \
@@ -190,12 +190,11 @@ crossplane-definitions:
 	done
 	kubectl apply -f infrastructure/crossplane/definitions/
 	@set -eu; \
-	for xrd in objectbuckets.idp.io serverinstances.idp.io; do \
+	for xrd in objectbuckets.idp.io serverinstances.idp.io postgressqlinstances.idp.io; do \
 		kubectl wait --for=condition=Established "xrd/$$xrd" --timeout=180s; \
 	done
 	@set -eu; \
 	for xrd in \
-		xpostgressqlinstances.idp.io \
 		xredisinstances.idp.io; do \
 		kubectl wait --for=condition=Established "xrd/$$xrd" --timeout=180s; \
 		kubectl wait --for=condition=Offered "xrd/$$xrd" --timeout=180s; \
@@ -204,7 +203,7 @@ crossplane-definitions:
 	for crd in \
 		objectbuckets.idp.io \
 		serverinstances.idp.io \
-		xpostgressqlinstances.idp.io postgressqlinstances.idp.io \
+		postgressqlinstances.idp.io \
 		xredisinstances.idp.io redisinstances.idp.io; do \
 		kubectl wait --for=condition=Established "crd/$$crd" --timeout=180s; \
 	done
@@ -230,7 +229,7 @@ crossplane-compositions:
 	for composition in \
 		objectbuckets.idp.io \
 		serverinstances.idp.io \
-		xpostgressqlinstances.idp.io \
+		postgressqlinstances.idp.io \
 		xredisinstances.idp.io; do \
 		revision="$$(python3 infrastructure/crossplane/scripts/find-matching-composition-revision.py \
 			"$$composition" --timeout 120)"; \

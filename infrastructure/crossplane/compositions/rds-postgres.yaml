@@ -1,11 +1,11 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: xpostgressqlinstances.idp.io
+  name: postgressqlinstances.idp.io
 spec:
   compositeTypeRef:
     apiVersion: idp.io/v1alpha1
-    kind: XPostgresSQLInstance
+    kind: PostgresSQLInstance
   mode: Pipeline
   pipeline:
     - step: python-script
@@ -15,135 +15,187 @@ spec:
         apiVersion: python.fn.crossplane.io/v1beta1
         kind: Script
         script: |
+          from crossplane.function.proto.v1 import run_function_pb2 as fnv1
+
+          MANAGEMENT_POLICIES = [
+              "Create",
+              "Observe",
+              "Update",
+              "LateInitialize",
+          ]
+
           def compose(req, rsp):
               composite = req.observed.composite.resource
+              metadata = composite["metadata"]
               spec = composite["spec"] if "spec" in composite else {}
+              namespace = metadata["namespace"]
+              db_name = metadata["name"]
               storage = spec["storageGB"] if "storageGB" in spec else 20
               size = spec["size"] if "size" in spec else "small"
-              
-              # Map user size to AWS Instance Class
-              instance_class = "db.t3.micro"
-              if size == "medium":
-                  instance_class = "db.t3.small"
-              elif size == "large":
-                  instance_class = "db.t3.medium"
 
-              # 1. Security Group for RDS
-              sg = {
-                  "apiVersion": "ec2.aws.upbound.io/v1beta1",
+              # The XRD enum limits this lookup to platform-approved tiers.
+              instance_classes = {
+                  "small": "db.t3.micro",
+                  "medium": "db.t3.small",
+              }
+              instance_class = instance_classes[size]
+
+              # VPC-wide ingress remains transitional until Security Groups for Pods
+              # can replace the CIDR with a tenant workload security group.
+              security_group = {
+                  "apiVersion": "ec2.aws.m.upbound.io/v1beta1",
                   "kind": "SecurityGroup",
+                  "metadata": {
+                      "name": f"{db_name}-rds-sg",
+                      "namespace": namespace,
+                  },
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "managementPolicies": MANAGEMENT_POLICIES,
+                      "providerConfigRef": {
+                          "kind": "ClusterProviderConfig",
+                          "name": "default",
+                      },
                       "forProvider": {
                           "region": "us-east-1",
-                          "description": "RDS Instance Security Group",
+                          "description": f"RDS security group for {namespace}/{db_name}",
                           "vpcId": "${VPC_ID}",
                           "tags": {
                               "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod"
-                          }
-                      }
-                  }
+                              "Environment": "prod",
+                              "TenantNamespace": namespace,
+                          },
+                      },
+                  },
               }
 
-              # 1b. Security Group Rule for RDS
-              sg_rule = {
-                  "apiVersion": "ec2.aws.upbound.io/v1beta1",
+              security_group_rule = {
+                  "apiVersion": "ec2.aws.m.upbound.io/v1beta1",
                   "kind": "SecurityGroupRule",
+                  "metadata": {
+                      "name": f"{db_name}-rds-ingress",
+                      "namespace": namespace,
+                  },
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "managementPolicies": MANAGEMENT_POLICIES,
+                      "providerConfigRef": {
+                          "kind": "ClusterProviderConfig",
+                          "name": "default",
+                      },
                       "forProvider": {
                           "region": "us-east-1",
                           "securityGroupIdSelector": {
-                              "matchControllerRef": True
+                              "namespace": namespace,
+                              "matchControllerRef": True,
                           },
                           "type": "ingress",
                           "fromPort": 5432,
                           "toPort": 5432,
                           "protocol": "tcp",
-                          "cidrBlocks": ["10.0.0.0/16"]
-                      }
-                  }
+                          "cidrBlocks": ["10.0.0.0/16"],
+                      },
+                  },
               }
 
-              # 2. DB Subnet Group
               subnet_group = {
-                  "apiVersion": "rds.aws.upbound.io/v1beta1",
+                  "apiVersion": "rds.aws.m.upbound.io/v1beta1",
                   "kind": "SubnetGroup",
+                  "metadata": {
+                      "name": f"{db_name}-rds-subnets",
+                      "namespace": namespace,
+                  },
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "managementPolicies": MANAGEMENT_POLICIES,
+                      "providerConfigRef": {
+                          "kind": "ClusterProviderConfig",
+                          "name": "default",
+                      },
                       "forProvider": {
                           "region": "us-east-1",
-                          "description": "DB Subnet Group for RDS",
+                          "description": f"RDS subnet group for {namespace}/{db_name}",
                           "subnetIds": ["${PRIVATE_SUBNET_1}", "${PRIVATE_SUBNET_2}"],
                           "tags": {
                               "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod"
-                          }
-                      }
-                  }
+                              "Environment": "prod",
+                              "TenantNamespace": namespace,
+                          },
+                      },
+                  },
               }
 
-              # 3. RDS Instance
-              claim_ns = composite["spec"]["claimRef"]["namespace"] if "spec" in composite and "claimRef" in composite["spec"] and "namespace" in composite["spec"]["claimRef"] else "default"
-              db_name = composite["spec"]["claimRef"]["name"] if "spec" in composite and "claimRef" in composite["spec"] and "name" in composite["spec"]["claimRef"] else "rds-db"
-
-              rds = {
-                  "apiVersion": "rds.aws.upbound.io/v1beta1",
+              rds_instance = {
+                  "apiVersion": "rds.aws.m.upbound.io/v1beta1",
                   "kind": "Instance",
+                  "metadata": {
+                      "name": db_name,
+                      "namespace": namespace,
+                  },
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "managementPolicies": MANAGEMENT_POLICIES,
+                      "providerConfigRef": {
+                          "kind": "ClusterProviderConfig",
+                          "name": "default",
+                      },
                       "forProvider": {
                           "region": "us-east-1",
                           "allocatedStorage": storage,
+                          "storageType": "gp3",
+                          "storageEncrypted": True,
+                          "backupRetentionPeriod": 7,
+                          "copyTagsToSnapshot": True,
+                          "deletionProtection": True,
                           "dbSubnetGroupNameSelector": {
-                              "matchControllerRef": True
+                              "namespace": namespace,
+                              "matchControllerRef": True,
                           },
                           "vpcSecurityGroupIdSelector": {
-                              "matchControllerRef": True
+                              "namespace": namespace,
+                              "matchControllerRef": True,
                           },
                           "engine": "postgres",
-                          "engineVersion": "15.13",
+                          "engineVersion": "15.19",
+                          "autoMinorVersionUpgrade": True,
                           "instanceClass": instance_class,
                           "publiclyAccessible": False,
-                          "skipFinalSnapshot": True,
                           "username": "postgres",
                           "passwordSecretRef": {
                               "name": f"{db_name}-password",
-                              "namespace": claim_ns,
-                              "key": "password"
+                              "key": "password",
                           },
                           "tags": {
                               "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod"
-                          }
+                              "Environment": "prod",
+                              "TenantNamespace": namespace,
+                          },
                       },
                       "writeConnectionSecretToRef": {
                           "name": f"{db_name}-conn",
-                          "namespace": claim_ns
-                      }
-                  }
+                      },
+                  },
               }
 
-              # Helper to check if a composed resource is ready
               def is_ready(name):
                   if name in req.observed.resources:
-                      obs = req.observed.resources[name].resource
-                      status = obs["status"] if "status" in obs else {}
+                      observed = req.observed.resources[name].resource
+                      status = observed["status"] if "status" in observed else {}
                       conditions = status["conditions"] if "conditions" in status else []
-                      for cond in conditions:
-                          if "type" in cond and cond["type"] == "Ready" and "status" in cond and cond["status"] == "True":
+                      for condition in conditions:
+                          if (
+                              "type" in condition
+                              and condition["type"] == "Ready"
+                              and "status" in condition
+                              and condition["status"] == "True"
+                          ):
                               return True
                   return False
 
-              rsp.desired.resources["security-group"].resource.update(sg)
-              rsp.desired.resources["security-group"].ready = 1 if is_ready("security-group") else 2
-
-              rsp.desired.resources["security-group-rule"].resource.update(sg_rule)
-              rsp.desired.resources["security-group-rule"].ready = 1 if is_ready("security-group-rule") else 2
-
-              rsp.desired.resources["subnet-group"].resource.update(subnet_group)
-              rsp.desired.resources["subnet-group"].ready = 1 if is_ready("subnet-group") else 2
-
-              rsp.desired.resources["rds-instance"].resource.update(rds)
-              rsp.desired.resources["rds-instance"].ready = 1 if is_ready("rds-instance") else 2
+              resources = {
+                  "security-group": security_group,
+                  "security-group-rule": security_group_rule,
+                  "subnet-group": subnet_group,
+                  "rds-instance": rds_instance,
+              }
+              for name, resource in resources.items():
+                  rsp.desired.resources[name].resource.update(resource)
+                  rsp.desired.resources[name].ready = (
+                      fnv1.READY_TRUE if is_ready(name) else fnv1.READY_FALSE
+                  )
