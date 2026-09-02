@@ -7,5 +7,5 @@ metadata:
     backstage.io/kubernetes-id: ${{ values.component_id }}
 spec:
   type: service
-  lifecycle: production
+  lifecycle: experimental
   owner: ${{ values.owner }}

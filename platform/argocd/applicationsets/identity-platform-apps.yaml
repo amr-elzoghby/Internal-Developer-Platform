@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: team-alpha-apps
+  name: identity-platform-apps
   namespace: argocd
 spec:
   generators:
@@ -9,19 +9,19 @@ spec:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
         revision: main
         directories:
-          - path: apps/team-alpha/*
+          - path: apps/identity-platform/*
   template:
     metadata:
-      name: 'team-alpha-{{path.basename}}'
+      name: 'identity-platform-{{path.basename}}'
     spec:
-      project: team-alpha
+      project: identity-platform
       source:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
         targetRevision: main
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: team-alpha
+        namespace: identity-platform
       syncPolicy:
         automated:
           prune: true

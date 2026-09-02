@@ -1,8 +1,8 @@
 apiVersion: idp.io/v1alpha1
 kind: PostgresSQLInstance
 metadata:
-  name: team-alpha-db
-  namespace: team-alpha
+  name: identity-platform-db
+  namespace: identity-platform
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:

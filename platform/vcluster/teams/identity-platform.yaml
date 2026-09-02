@@ -1,0 +1,17 @@
+controlPlane:
+  statefulSet:
+    labels:
+      platform.idp.io/owner: identity-platform
+      platform.idp.io/vcluster: identity-platform
+    pods:
+      labels:
+        platform.idp.io/owner: identity-platform
+        platform.idp.io/vcluster: identity-platform
+        team: identity-platform
+    resources:
+      limits:
+        cpu: "500m"
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi

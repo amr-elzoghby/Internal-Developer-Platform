@@ -9,7 +9,7 @@ metadata:
     - crossplane
     - rds
 spec:
-  owner: team-alpha
+  owner: platform-engineering
   type: resource
 
   parameters:
@@ -46,9 +46,9 @@ spec:
           title: Requesting Team
           type: string
           enum:
-            - team-alpha
-            - team-beta
-            - team-gamma
+            - identity-platform
+            - platform-engineering
+            - data-platform
         password_secret_name:
           title: Password secret name
           type: string

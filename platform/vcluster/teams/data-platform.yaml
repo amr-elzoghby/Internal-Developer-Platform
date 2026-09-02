@@ -1,0 +1,17 @@
+controlPlane:
+  statefulSet:
+    labels:
+      platform.idp.io/owner: data-platform
+      platform.idp.io/vcluster: data-platform
+    pods:
+      labels:
+        platform.idp.io/owner: data-platform
+        platform.idp.io/vcluster: data-platform
+        team: data-platform
+    resources:
+      limits:
+        cpu: "500m"
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: 128Mi

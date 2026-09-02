@@ -28,7 +28,7 @@ spec:
             - crossplane-system
             - argocd
       validate:
-        message: "Every Deployment must specify a 'team' label in metadata.labels (e.g. team: team-alpha)."
+        message: "Every Deployment must specify a 'team' label in metadata.labels (e.g. team: identity-platform)."
         pattern:
           metadata:
             labels:

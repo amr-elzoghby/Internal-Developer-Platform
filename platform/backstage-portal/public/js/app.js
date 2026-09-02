@@ -1,12 +1,23 @@
 let currentInfraType = 'postgres';
 let currentComponentData = null;
 let allServicesData = [];
-let activeUserSession = JSON.parse(localStorage.getItem('idp-session')) || {
-  team: 'team-alpha',
-  name: 'Amr Elzoghby',
-  role: 'team-alpha • Owner',
-  avatar: 'AE'
-};
+const teamViews = Object.freeze({
+  'identity-platform': { team: 'identity-platform', name: 'Identity Platform', role: 'Read-only team view', avatar: 'IP' },
+  'platform-engineering': { team: 'platform-engineering', name: 'Platform Engineering', role: 'Read-only team view', avatar: 'PE' },
+  'data-platform': { team: 'data-platform', name: 'Data Platform', role: 'Read-only team view', avatar: 'DP' }
+});
+
+function loadTeamView() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('idp-team-view-v2'));
+    if (saved && teamViews[saved.team]) return teamViews[saved.team];
+  } catch (error) {
+    localStorage.removeItem('idp-team-view-v2');
+  }
+  return teamViews['identity-platform'];
+}
+
+let activeUserSession = loadTeamView();
 
 function esc(str) {
   const d = document.createElement('div');
@@ -30,7 +41,7 @@ async function fetchCatalog(forceRefresh) {
   return catalogCache;
 }
 
-// Restore session on load
+// Restore the local presentation view on load. This is not authentication.
 document.addEventListener('DOMContentLoaded', () => {
   const avatarEl = document.getElementById('user-avatar');
   const nameEl = document.getElementById('user-name');
@@ -88,45 +99,20 @@ function showPage(pageId) {
 
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-function openLoginModal() {
-  document.getElementById('login-passcode').value = '';
-  document.getElementById('login-error-banner').style.display = 'none';
-  document.getElementById('modal-login').classList.add('active');
+function openTeamViewModal() {
+  document.getElementById('team-view-select').value = activeUserSession.team;
+  document.getElementById('modal-team-view').classList.add('active');
 }
 
-async function executeTeamLogin() {
-  const team = document.getElementById('login-team-select').value;
-  const passcode = document.getElementById('login-passcode').value.trim();
-  const errorBanner = document.getElementById('login-error-banner');
+function selectTeamView() {
+  const team = document.getElementById('team-view-select').value;
+  activeUserSession = teamViews[team] || teamViews['identity-platform'];
+  localStorage.setItem('idp-team-view-v2', JSON.stringify(activeUserSession));
 
-  try {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ team, passcode })
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      errorBanner.innerText = `❌ Access Denied: ${data.error}`;
-      errorBanner.style.display = 'block';
-      return;
-    }
-
-    errorBanner.style.display = 'none';
-    activeUserSession = { team: data.team, name: data.name, role: data.role, avatar: data.avatar };
-    localStorage.setItem('idp-session', JSON.stringify(activeUserSession));
-
-    document.getElementById('user-avatar').innerText = activeUserSession.avatar;
-    document.getElementById('user-name').innerText = activeUserSession.name;
-    document.getElementById('user-role-badge').innerText = activeUserSession.role;
-
-    closeModal('modal-login');
-    refreshCatalog();
-  } catch (err) {
-    errorBanner.innerText = '❌ Connection error. Please try again.';
-    errorBanner.style.display = 'block';
-  }
+  document.getElementById('user-avatar').innerText = activeUserSession.avatar;
+  document.getElementById('user-name').innerText = activeUserSession.name;
+  document.getElementById('user-role-badge').innerText = activeUserSession.role;
+  closeModal('modal-team-view');
 }
 
 async function refreshCatalog() {
@@ -268,9 +254,9 @@ function switchInspectorTab(tab, element) {
         <p style="color:var(--text-muted);">○ Pods: ${esc(c.status.pods)}</p>
         <p style="color:var(--text-muted);">○ Argo CD: ${esc(c.status.argocd)}</p>
         <hr style="border-color:var(--border-color); margin:12px 0;"/>
-        <p><strong>CPU Usage:</strong> ${esc(c.status.cpuUsage || '42m / 500m (8%)')}</p>
-        <p><strong>Memory Usage:</strong> ${esc(c.status.memoryUsage || '112Mi / 512Mi (21%)')}</p>
-        <p><strong>Restarts:</strong> ${esc(c.status.restarts || '0 (Stable)')}</p>
+        <p><strong>CPU Usage:</strong> ${esc(c.status.cpuUsage || 'Unavailable')}</p>
+        <p><strong>Memory Usage:</strong> ${esc(c.status.memoryUsage || 'Unavailable')}</p>
+        <p><strong>Restarts:</strong> ${esc(c.status.restarts || 'Unavailable')}</p>
       </div>`;
   } else if (tab === 'claims') {
     let claimsList = c.infraFiles || [];
@@ -279,7 +265,7 @@ function switchInspectorTab(tab, element) {
         <p style="font-weight:600; margin-bottom:12px;">Active Crossplane / K8s Infrastructure Claims (${claimsList.length}):</p>
         ${claimsList.length > 0 
           ? claimsList.map(item => `<div class="claim-file-item">📄 infra/${esc(item)}</div>`).join('')
-          : '<p style="color:var(--text-dim);">No Infrastructure Claims attached yet. Use the Self-Service portal to request resources!</p>'}
+          : '<p style="color:var(--text-dim);">No infrastructure claim files were detected for this component.</p>'}
       </div>`;
   }
 }
@@ -391,7 +377,7 @@ function renderSinglePaneDashboard(name) {
       <h3>☸️ K8s & GitOps Status</h3>
       <p style="color:var(--text-muted);">○ Pods: ${esc(c.status.pods)}<br/>
          ○ Argo CD: ${esc(c.status.argocd)}<br/>
-         <strong>Metrics:</strong> CPU ${esc(c.status.cpuUsage || '8%')} | Memory ${esc(c.status.memoryUsage || '21%')}</p>
+         <strong>Metrics:</strong> CPU ${esc(c.status.cpuUsage || 'Unavailable')} | Memory ${esc(c.status.memoryUsage || 'Unavailable')}</p>
     </div>
 
     <div class="card">

@@ -3,14 +3,12 @@ kind: Template
 metadata:
   name: create-python-fastapi-service
   title: Create Python FastAPI Service (Golden Path)
-  description: Scaffold a high-performance Python FastAPI service with Docker, GitHub Actions CI/CD, and Kubernetes manifests.
+  description: Scaffold a Python FastAPI service starter with Docker.
   tags:
     - python
     - fastapi
-    - kubernetes
-    - gitops
 spec:
-  owner: team-alpha
+  owner: platform-engineering
   type: service
 
   parameters:
@@ -27,14 +25,18 @@ spec:
         description:
           title: Description
           type: string
-          default: Production Python FastAPI Microservice
+          default: Python FastAPI Microservice
         owner:
           title: Owner Team
           type: string
-          ui:field: OwnerPicker
-          ui:options:
-            catalogFilter:
-              kind: Group
+          enum:
+            - identity-platform
+            - platform-engineering
+            - data-platform
+          enumNames:
+            - Identity Platform
+            - Platform Engineering
+            - Data Platform
 
     - title: Git Repository Destination
       required:

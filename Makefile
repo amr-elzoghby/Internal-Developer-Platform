@@ -6,7 +6,7 @@ RED    := \033[0;31m
 NC     := \033[0m
 
 TF_DIR := infrastructure/terraform/environments/prod
-TEAMS := team-alpha team-beta team-gamma
+TEAMS := identity-platform platform-engineering data-platform
 CLUSTER_NAME ?= idp-prod
 VCLUSTER_CHART_VERSION := 0.36.1
 
@@ -15,7 +15,7 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  up                  Deploy all AWS infra and K8s platform configs"
-	@echo "  portal-up           Launch Backstage Developer Portal on http://localhost:3000"
+	@echo "  portal-up           Launch the local read-only catalog on http://localhost:3000"
 	@echo "  monitoring-up       Deploy Prometheus, Grafana, and Kubecost FinOps stack"
 	@echo "  storage-up          Apply the encrypted gp3 StorageClass"
 	@echo "  tenant-up           Create and configure host-cluster tenant namespaces"
@@ -92,7 +92,7 @@ tenant-up:
 # Install a vCluster only when a team explicitly needs an isolated Kubernetes API.
 vcluster-up:
 	@if [ -z "$(TEAM)" ]; then \
-		echo "$(RED)TEAM is required. Example: make vcluster-up TEAM=team-alpha$(NC)"; \
+		echo "$(RED)TEAM is required. Example: make vcluster-up TEAM=identity-platform$(NC)"; \
 		exit 1; \
 	fi
 	@case " $(TEAMS) " in *" $(TEAM) "*) ;; *) \
@@ -120,7 +120,7 @@ vcluster-up:
 # Remove one optional vCluster without deleting its host namespace or PVCs.
 vcluster-down:
 	@if [ -z "$(TEAM)" ]; then \
-		echo "$(RED)TEAM is required. Example: make vcluster-down TEAM=team-alpha$(NC)"; \
+		echo "$(RED)TEAM is required. Example: make vcluster-down TEAM=identity-platform$(NC)"; \
 		exit 1; \
 	fi
 	@case " $(TEAMS) " in *" $(TEAM) "*) ;; *) \
@@ -280,9 +280,9 @@ monitoring-up:
 	helm upgrade --install prometheus prometheus-community/kube-prometheus-stack -n monitoring -f platform/monitoring/prometheus/values.yaml
 	helm upgrade --install kubecost kubecost/cost-analyzer -n monitoring -f platform/monitoring/kubecost/values.yaml
 
-# Launch Backstage Developer Portal
+# Launch the lightweight local catalog. This is not the Backstage backend.
 portal-up:
-	@echo "$(GREEN)Launching Backstage Developer Portal on http://localhost:3000...$(NC)"
+	@echo "$(GREEN)Launching local read-only IDP catalog on http://localhost:3000...$(NC)"
 	node platform/backstage-portal/server.js
 
 # Clean up shared platform components. Tenant namespaces and optional vClusters are preserved.

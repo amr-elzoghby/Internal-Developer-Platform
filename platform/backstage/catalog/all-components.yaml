@@ -1,48 +1,52 @@
 apiVersion: backstage.io/v1alpha1
 kind: Domain
 metadata:
-  name: platform-engineering
+  name: internal-developer-platform
   description: Internal Developer Platform Domain
+spec:
+  owner: platform-engineering
 ---
 apiVersion: backstage.io/v1alpha1
 kind: System
 metadata:
-  name: core-services
-  description: Production Core Application Services
-  domain: platform-engineering
+  name: platform-services
+  description: Services managed through the internal developer platform
+spec:
+  owner: platform-engineering
+  domain: internal-developer-platform
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
-  name: team-alpha
-  description: Alpha Engineering Team
+  name: identity-platform
+  description: Identity and access platform engineering team
 spec:
   type: team
   profile:
-    displayName: Team Alpha
-    email: team-alpha@idp.internal
+    displayName: Identity Platform
+    email: identity-platform@idp.internal
   children: []
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
-  name: team-beta
-  description: Beta Engineering Team
+  name: platform-engineering
+  description: Internal developer platform engineering team
 spec:
   type: team
   profile:
-    displayName: Team Beta
-    email: team-beta@idp.internal
+    displayName: Platform Engineering
+    email: platform-engineering@idp.internal
   children: []
 ---
 apiVersion: backstage.io/v1alpha1
 kind: Group
 metadata:
-  name: team-gamma
-  description: Gamma Engineering Team
+  name: data-platform
+  description: Data infrastructure and analytics platform team
 spec:
   type: team
   profile:
-    displayName: Team Gamma
-    email: team-gamma@idp.internal
+    displayName: Data Platform
+    email: data-platform@idp.internal
   children: []

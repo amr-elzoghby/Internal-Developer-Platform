@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: team-gamma
+  name: platform-engineering
   labels:
     platform.idp.io/tenant: "true"
     platform.idp.io/workload-policy: baseline

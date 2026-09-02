@@ -3,24 +3,11 @@ const fs = require('fs');
 const path = require('path');
 const { loadClaimSpecs, listServices } = require('./services/catalogService');
 
-const envPath = path.join(__dirname, '.env');
-if (fs.existsSync(envPath)) {
-  fs.readFileSync(envPath, 'utf8').split('\n').forEach(line => {
-    const match = line.match(/^\s*([\w]+)\s*=\s*(.+)\s*$/);
-    if (match) process.env[match[1]] = match[2];
-  });
-}
-
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '127.0.0.1';
 const PROJECTS_DIR = path.resolve(process.env.PROJECTS_DIR || '/home/amr');
 const CLAIMS_DIR = path.join(__dirname, 'claims');
 const PUBLIC_DIR = fs.realpathSync(path.join(__dirname, 'public'));
-const REQUIRED_ENV_VARS = [
-  'TEAM_ALPHA_PASSCODE',
-  'TEAM_BETA_PASSCODE',
-  'TEAM_GAMMA_PASSCODE'
-];
 
 function isInsideDirectory(candidate, root) {
   return candidate === root || candidate.startsWith(`${root}${path.sep}`);
@@ -60,38 +47,15 @@ function serveFile(req, res, filePath, contentType, headers) {
   });
 }
 
-function parseBody(req, maxSize = 1048576) {
-  return new Promise((resolve, reject) => {
-    let body = '';
-    let size = 0;
-    req.on('data', chunk => {
-      size += chunk.length;
-      if (size > maxSize) {
-        req.destroy();
-        return reject(new Error('Request body too large'));
-      }
-      body += chunk;
-    });
-    req.on('end', () => {
-      try {
-        resolve(JSON.parse(body || '{}'));
-      } catch (e) {
-        reject(new Error('Invalid JSON in request body'));
-      }
-    });
-    req.on('error', (err) => reject(err));
-  });
-}
-
-const server = http.createServer(async (req, res) => {
-  // Enterprise Security & CORS Headers
+const server = http.createServer((req, res) => {
+  // This local catalog is same-origin and read-only.
   const allowedOrigins = [`http://localhost:${PORT}`, `http://127.0.0.1:${PORT}`];
   const requestOrigin = req.headers.origin;
   const corsOrigin = allowedOrigins.includes(requestOrigin) ? requestOrigin : allowedOrigins[0];
   const corsHeaders = {
     'Access-Control-Allow-Origin': corsOrigin,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
     'X-XSS-Protection': '1; mode=block'
@@ -108,34 +72,6 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'OPTIONS') {
     res.writeHead(204, corsHeaders);
     return res.end();
-  }
-
-  // ── API: Team Authentication (server-side validation) ───────
-  if (req.method === 'POST' && requestPath === '/api/auth/login') {
-    let params;
-    try {
-      params = await parseBody(req);
-    } catch (parseErr) {
-      res.writeHead(400, Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' }));
-      return res.end(JSON.stringify({ error: parseErr.message }));
-    }
-    const { team, passcode } = params;
-    const teamPasscodes = {
-      'team-alpha': process.env.TEAM_ALPHA_PASSCODE,
-      'team-beta': process.env.TEAM_BETA_PASSCODE,
-      'team-gamma': process.env.TEAM_GAMMA_PASSCODE
-    };
-    const teamProfiles = {
-      'team-alpha': { name: 'Amr Elzoghby', role: 'team-alpha • Owner', avatar: 'AE' },
-      'team-beta': { name: 'John Doe', role: 'team-beta • Platform Eng', avatar: 'JD' },
-      'team-gamma': { name: 'Sarah Smith', role: 'team-gamma • Developer', avatar: 'SS' }
-    };
-    if (!team || !passcode || teamPasscodes[team] !== passcode) {
-      res.writeHead(401, Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' }));
-      return res.end(JSON.stringify({ error: 'Invalid team or passcode.' }));
-    }
-    res.writeHead(200, Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' }));
-    return res.end(JSON.stringify({ success: true, team, ...teamProfiles[team] }));
   }
 
   // ── API 0: Kubernetes Health Probes (Liveness & Readiness) ───
@@ -189,12 +125,6 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
-  const missing = REQUIRED_ENV_VARS.filter(v => !process.env[v]);
-  if (missing.length > 0) {
-    console.warn(`\n⚠️  WARNING: Missing environment variables: ${missing.join(', ')}`);
-    console.warn(`   Team login will fail until these are configured.`);
-    console.warn(`   Run: cp .env.example .env  then set your passcodes.\n`);
-  }
   console.log(`\n======================================================`);
   console.log(`🚀 Local IDP catalog available at http://${HOST}:${PORT}`);
   console.log(`   Read-only mode: infrastructure changes must use an approved Backstage Golden Path PR`);

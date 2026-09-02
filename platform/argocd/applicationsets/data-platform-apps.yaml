@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: team-beta-apps
+  name: data-platform-apps
   namespace: argocd
 spec:
   generators:
@@ -9,19 +9,19 @@ spec:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
         revision: main
         directories:
-          - path: apps/team-beta/*
+          - path: apps/data-platform/*
   template:
     metadata:
-      name: 'team-beta-{{path.basename}}'
+      name: 'data-platform-{{path.basename}}'
     spec:
-      project: team-beta
+      project: data-platform
       source:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
         targetRevision: main
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: team-beta
+        namespace: data-platform
       syncPolicy:
         automated:
           prune: true

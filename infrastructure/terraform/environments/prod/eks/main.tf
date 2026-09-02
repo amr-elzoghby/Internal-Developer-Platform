@@ -23,7 +23,7 @@ provider "helm" {
 }
 
 locals {
-  tenant_namespaces = toset(["team-alpha", "team-beta", "team-gamma"])
+  tenant_namespaces = toset(["identity-platform", "platform-engineering", "data-platform"])
 }
 
 module "eks" {

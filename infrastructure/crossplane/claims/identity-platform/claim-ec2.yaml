@@ -1,8 +1,8 @@
 apiVersion: idp.io/v1alpha1
 kind: ServerInstance
 metadata:
-  name: team-alpha-web-server
-  namespace: team-alpha
+  name: identity-platform-web-server
+  namespace: identity-platform
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
     platform.idp.io/ami-source: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64

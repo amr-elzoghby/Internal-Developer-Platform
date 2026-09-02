@@ -63,14 +63,14 @@ variable "tenant_access_entries" {
   validation {
     condition = alltrue([
       for entry in values(var.tenant_access_entries) :
-      contains(["team-alpha", "team-beta", "team-gamma"], entry.tenant)
+      contains(["identity-platform", "platform-engineering", "data-platform"], entry.tenant)
     ])
     error_message = "Every tenant access entry must target an approved production tenant."
   }
 
   validation {
     condition = alltrue(flatten([
-      for tenant in ["team-alpha", "team-beta", "team-gamma"] : [
+      for tenant in ["identity-platform", "platform-engineering", "data-platform"] : [
         for access_level in ["viewer", "operator"] : contains([
           for entry in values(var.tenant_access_entries) : "${entry.tenant}/${entry.access_level}"
         ], "${tenant}/${access_level}")

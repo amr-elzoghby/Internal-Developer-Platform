@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: vcluster-team-gamma
+  name: vcluster-data-platform
   labels:
-    platform.idp.io/owner: team-gamma
-    platform.idp.io/vcluster: team-gamma
+    platform.idp.io/owner: data-platform
+    platform.idp.io/vcluster: data-platform
     platform.idp.io/workload-policy: baseline
     pod-security.kubernetes.io/enforce: baseline
     pod-security.kubernetes.io/enforce-version: v1.36
@@ -18,7 +18,7 @@ apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: vcluster-host-quota
-  namespace: vcluster-team-gamma
+  namespace: vcluster-data-platform
 spec:
   hard:
     pods: "30"
@@ -37,7 +37,7 @@ apiVersion: v1
 kind: LimitRange
 metadata:
   name: vcluster-host-limits
-  namespace: vcluster-team-gamma
+  namespace: vcluster-data-platform
 spec:
   limits:
     - type: Container
@@ -62,7 +62,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: vcluster-default-deny
-  namespace: vcluster-team-gamma
+  namespace: vcluster-data-platform
 spec:
   podSelector: {}
   policyTypes:
@@ -74,11 +74,11 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: vcluster-control-plane-boundary
-  namespace: vcluster-team-gamma
+  namespace: vcluster-data-platform
 spec:
   podSelector:
     matchLabels:
-      release: team-gamma
+      release: data-platform
   policyTypes:
     - Ingress
     - Egress
@@ -86,17 +86,17 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              release: team-gamma
+              release: data-platform
         - podSelector:
             matchLabels:
-              vcluster.loft.sh/managed-by: team-gamma
+              vcluster.loft.sh/managed-by: data-platform
       ports:
         - protocol: TCP
           port: 8443
     - from:
         - namespaceSelector:
             matchLabels:
-              kubernetes.io/metadata.name: team-gamma
+              kubernetes.io/metadata.name: data-platform
       ports:
         - protocol: TCP
           port: 8443
@@ -104,10 +104,10 @@ spec:
     - to:
         - podSelector:
             matchLabels:
-              release: team-gamma
+              release: data-platform
         - podSelector:
             matchLabels:
-              vcluster.loft.sh/managed-by: team-gamma
+              vcluster.loft.sh/managed-by: data-platform
     - to:
         - namespaceSelector:
             matchLabels:
@@ -133,11 +133,11 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: vcluster-workload-boundary
-  namespace: vcluster-team-gamma
+  namespace: vcluster-data-platform
 spec:
   podSelector:
     matchLabels:
-      vcluster.loft.sh/managed-by: team-gamma
+      vcluster.loft.sh/managed-by: data-platform
   policyTypes:
     - Ingress
     - Egress
@@ -145,18 +145,18 @@ spec:
     - from:
         - podSelector:
             matchLabels:
-              release: team-gamma
+              release: data-platform
         - podSelector:
             matchLabels:
-              vcluster.loft.sh/managed-by: team-gamma
+              vcluster.loft.sh/managed-by: data-platform
   egress:
     - to:
         - podSelector:
             matchLabels:
-              release: team-gamma
+              release: data-platform
         - podSelector:
             matchLabels:
-              vcluster.loft.sh/managed-by: team-gamma
+              vcluster.loft.sh/managed-by: data-platform
     - to:
         - namespaceSelector:
             matchLabels:

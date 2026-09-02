@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  name: team-gamma-apps
+  name: platform-engineering-apps
   namespace: argocd
 spec:
   generators:
@@ -9,19 +9,19 @@ spec:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
         revision: main
         directories:
-          - path: apps/team-gamma/*
+          - path: apps/platform-engineering/*
   template:
     metadata:
-      name: 'team-gamma-{{path.basename}}'
+      name: 'platform-engineering-{{path.basename}}'
     spec:
-      project: team-gamma
+      project: platform-engineering
       source:
         repoURL: 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
         targetRevision: main
         path: '{{path}}'
       destination:
         server: https://kubernetes.default.svc
-        namespace: team-gamma
+        namespace: platform-engineering
       syncPolicy:
         automated:
           prune: true

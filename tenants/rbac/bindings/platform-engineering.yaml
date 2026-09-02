@@ -2,11 +2,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: tenant-viewers
-  namespace: team-alpha
+  namespace: platform-engineering
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: Group
-    name: idp:tenant:team-alpha:viewer
+    name: idp:tenant:platform-engineering:viewer
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -17,11 +17,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: tenant-operators-view
-  namespace: team-alpha
+  namespace: platform-engineering
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: Group
-    name: idp:tenant:team-alpha:operator
+    name: idp:tenant:platform-engineering:operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
@@ -32,11 +32,11 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: tenant-operators-actions
-  namespace: team-alpha
+  namespace: platform-engineering
 subjects:
   - apiGroup: rbac.authorization.k8s.io
     kind: Group
-    name: idp:tenant:team-alpha:operator
+    name: idp:tenant:platform-engineering:operator
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole

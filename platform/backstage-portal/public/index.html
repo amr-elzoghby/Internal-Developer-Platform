@@ -40,15 +40,15 @@
         <input type="text" class="search-input" id="global-search" aria-label="Search registered services or claims" placeholder="Search registered services or claims..." oninput="handleSearch(this.value)" />
       </div>
 
-      <!-- TEAM AUTHENTICATION CONTAINER -->
+      <!-- LOCAL TEAM VIEW SELECTOR -->
       <div class="team-auth-container">
-        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" aria-label="Switch Team or Login" onclick="openLoginModal()">🔑 Switch Team / Login</button>
+        <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 12px;" aria-label="Switch local team view" onclick="openTeamViewModal()">Switch Team View</button>
 
         <div class="user-profile">
-          <div class="avatar" id="user-avatar">AE</div>
+          <div class="avatar" id="user-avatar">IP</div>
           <div style="font-size: 13px;">
-            <strong id="user-name">Amr Elzoghby</strong>
-            <span class="badge badge-rbac" id="user-role-badge">team-alpha • Owner</span>
+            <strong id="user-name">Identity Platform</strong>
+            <span class="badge badge-rbac" id="user-role-badge">Read-only team view</span>
           </div>
         </div>
       </div>
@@ -191,31 +191,24 @@
     </main>
   </div>
 
-  <!-- TEAM AUTHENTICATION MODAL -->
-  <div class="modal-overlay" id="modal-login">
+  <!-- LOCAL TEAM VIEW MODAL: PRESENTATION ONLY, NOT AUTHENTICATION -->
+  <div class="modal-overlay" id="modal-team-view">
     <div class="modal-box">
-      <h2 style="margin-bottom:6px;">🔑 Developer Identity & Team Login</h2>
-      <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Unlock a local, read-only team view. This does not grant Kubernetes or Git repository permissions.</p>
+      <h2 style="margin-bottom:6px;">Local Team View</h2>
+      <p style="color:var(--text-muted); font-size:13px; margin-bottom:20px;">Choose a presentation view. This is not authentication and grants no Kubernetes or Git repository permissions.</p>
 
       <div class="form-group">
         <label>Select Team</label>
-        <select id="login-team-select">
-          <option value="team-alpha">team-alpha (Frontend & Auth Systems)</option>
-          <option value="team-beta">team-beta (Platform Engineering)</option>
-          <option value="team-gamma">team-gamma (Data Engineering)</option>
+        <select id="team-view-select">
+          <option value="identity-platform">Identity Platform</option>
+          <option value="platform-engineering">Platform Engineering</option>
+          <option value="data-platform">Data Platform</option>
         </select>
       </div>
 
-      <div class="form-group">
-        <label>Team Access Token / Passcode</label>
-        <input type="password" id="login-passcode" placeholder="Enter team access passcode" />
-      </div>
-
-      <div class="error-banner" id="login-error-banner"></div>
-
       <div class="modal-actions">
-        <button class="btn btn-secondary" onclick="closeModal('modal-login')">Cancel</button>
-        <button class="btn" onclick="executeTeamLogin()">Authenticate Session</button>
+        <button class="btn btn-secondary" onclick="closeModal('modal-team-view')">Cancel</button>
+        <button class="btn" onclick="selectTeamView()">Apply View</button>
       </div>
     </div>
   </div>

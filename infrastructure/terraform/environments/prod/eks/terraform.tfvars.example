@@ -19,34 +19,34 @@ platform_access_entries = {
 }
 
 tenant_access_entries = {
-  team-alpha-viewer = {
-    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamAlphaViewer_REPLACE_ME"
-    tenant        = "team-alpha"
+  identity-platform-viewer = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_IdentityPlatformViewer_REPLACE_ME"
+    tenant        = "identity-platform"
     access_level  = "viewer"
   }
-  team-alpha-operator = {
-    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamAlphaOperator_REPLACE_ME"
-    tenant        = "team-alpha"
+  identity-platform-operator = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_IdentityPlatformOperator_REPLACE_ME"
+    tenant        = "identity-platform"
     access_level  = "operator"
   }
-  team-beta-viewer = {
-    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamBetaViewer_REPLACE_ME"
-    tenant        = "team-beta"
+  platform-engineering-viewer = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_PlatformEngineeringViewer_REPLACE_ME"
+    tenant        = "platform-engineering"
     access_level  = "viewer"
   }
-  team-beta-operator = {
-    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamBetaOperator_REPLACE_ME"
-    tenant        = "team-beta"
+  platform-engineering-operator = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_PlatformEngineeringOperator_REPLACE_ME"
+    tenant        = "platform-engineering"
     access_level  = "operator"
   }
-  team-gamma-viewer = {
-    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamGammaViewer_REPLACE_ME"
-    tenant        = "team-gamma"
+  data-platform-viewer = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_DataPlatformViewer_REPLACE_ME"
+    tenant        = "data-platform"
     access_level  = "viewer"
   }
-  team-gamma-operator = {
-    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_TeamGammaOperator_REPLACE_ME"
-    tenant        = "team-gamma"
+  data-platform-operator = {
+    principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_DataPlatformOperator_REPLACE_ME"
+    tenant        = "data-platform"
     access_level  = "operator"
   }
 }

@@ -2,10 +2,10 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: login-app
-  namespace: team-alpha
+  namespace: identity-platform
   labels:
     app: login-app
-    team: team-alpha
+    team: identity-platform
 spec:
   replicas: 1
   revisionHistoryLimit: 3
@@ -16,7 +16,7 @@ spec:
     metadata:
       labels:
         app: login-app
-        team: team-alpha
+        team: identity-platform
     spec:
       serviceAccountName: tenant-workload
       automountServiceAccountToken: false
@@ -25,6 +25,9 @@ spec:
           type: RuntimeDefault
       containers:
         - name: login-app
+          # Keep the immutable, already-published artifact address stable during
+          # the ownership rename. Move it only after copying the image to a new
+          # repository and verifying its digest.
           image: 851236938302.dkr.ecr.us-east-1.amazonaws.com/idp-team-alpha-login-app:246b429077dd2bc39e9a8e05c635f05e62b10902
           imagePullPolicy: IfNotPresent
           ports:
@@ -66,34 +69,34 @@ spec:
             - name: DB_HOST
               valueFrom:
                 secretKeyRef:
-                  name: team-alpha-db-conn
+                  name: identity-platform-db-conn
                   key: host
             - name: DB_USER
               valueFrom:
                 secretKeyRef:
-                  name: team-alpha-db-conn
+                  name: identity-platform-db-conn
                   key: username
             - name: DB_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: team-alpha-db-conn
+                  name: identity-platform-db-conn
                   key: password
             - name: DB_NAME
               value: postgres
             - name: DB_PORT
               valueFrom:
                 secretKeyRef:
-                  name: team-alpha-db-conn
+                  name: identity-platform-db-conn
                   key: port
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: login-app
-  namespace: team-alpha
+  namespace: identity-platform
   labels:
     app: login-app
-    team: team-alpha
+    team: identity-platform
 spec:
   type: ClusterIP
   ports:
@@ -106,10 +109,10 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: login-app-ingress
-  namespace: team-alpha
+  namespace: identity-platform
   labels:
     app: login-app
-    team: team-alpha
+    team: identity-platform
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:

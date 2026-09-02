@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       service_path:
-        description: 'Service path (e.g. apps/team-alpha/login-app)'
+        description: 'Service path (e.g. apps/identity-platform/login-app)'
         required: false
 
 # Every job declares only the permissions it needs.

@@ -7,7 +7,7 @@ app.get('/', (req, res) => {
     status: 'healthy',
     service: '${{ values.component_id }}',
     owner: '${{ values.owner }}',
-    message: 'Welcome to your production-ready Internal Developer Platform service!'
+    message: 'Welcome to your Internal Developer Platform service starter!'
   });
 });
 

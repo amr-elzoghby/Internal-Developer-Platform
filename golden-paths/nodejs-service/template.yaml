@@ -3,14 +3,13 @@ kind: Template
 metadata:
   name: create-nodejs-microservice
   title: Create Node.js Microservice (Golden Path)
-  description: Scaffold a production-ready Node.js Express service with Docker, GitHub Actions CI/CD, and Kubernetes manifests.
+  description: Scaffold a Node.js Express service starter with Docker and Kubernetes manifests.
   tags:
     - nodejs
     - express
     - kubernetes
-    - gitops
 spec:
-  owner: team-alpha
+  owner: platform-engineering
   type: service
 
   parameters:
@@ -18,7 +17,6 @@ spec:
       required:
         - component_id
         - owner
-        - namespace
         - image_repository
         - image_tag
       properties:
@@ -33,27 +31,19 @@ spec:
           title: Description
           type: string
           description: Short explanation of what this service does
-          default: Production Node.js Microservice
+          default: Node.js Microservice
         owner:
           title: Owner Team
           type: string
-          description: Select the Backstage group that owns this microservice
-          ui:field: OwnerPicker
-          ui:options:
-            catalogFilter:
-              kind: Group
-        namespace:
-          title: Deployment Namespace
-          type: string
-          description: Select the platform-managed Kubernetes tenant namespace
+          description: Select the platform-managed team that owns and runs this microservice
           enum:
-            - team-alpha
-            - team-beta
-            - team-gamma
+            - identity-platform
+            - platform-engineering
+            - data-platform
           enumNames:
-            - Team Alpha
-            - Team Beta
-            - Team Gamma
+            - Identity Platform
+            - Platform Engineering
+            - Data Platform
         image_repository:
           title: Container Image Repository
           type: string
@@ -62,21 +52,8 @@ spec:
         image_tag:
           title: Immutable Image Tag
           type: string
-          description: Full 40-character Git commit SHA used by CI; latest is not accepted
+          description: Full 40-character Git commit SHA for the prebuilt image; latest is not accepted
           pattern: '^[0-9a-f]{40}$'
-
-    - title: Infrastructure Options
-      properties:
-        include_db:
-          title: Provision AWS RDS Database?
-          type: boolean
-          default: false
-          description: Check if your microservice requires an AWS RDS Postgres database via Crossplane.
-        include_s3:
-          title: Provision AWS S3 Bucket?
-          type: boolean
-          default: false
-          description: Check if your microservice requires an AWS S3 Object Storage bucket via Crossplane.
 
     - title: Git Repository Destination
       required:
@@ -100,11 +77,9 @@ spec:
           component_id: ${{ parameters.component_id }}
           description: ${{ parameters.description }}
           owner: ${{ parameters.owner }}
-          namespace: ${{ parameters.namespace }}
+          namespace: ${{ parameters.owner }}
           image_repository: ${{ parameters.image_repository }}
           image_tag: ${{ parameters.image_tag }}
-          include_db: ${{ parameters.include_db }}
-          include_s3: ${{ parameters.include_s3 }}
 
     - id: publish-github
       name: Publish Repository to GitHub

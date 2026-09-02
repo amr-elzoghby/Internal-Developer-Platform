@@ -48,7 +48,7 @@ function listServices(projectsDir) {
 
         services.push({
           name: nameMatch ? nameMatch[1].trim() : d,
-          owner: ownerMatch ? ownerMatch[1].trim() : 'team-alpha',
+          owner: ownerMatch ? ownerMatch[1].trim() : 'identity-platform',
           type: typeMatch ? typeMatch[1].trim() : 'service',
           system: systemMatch ? systemMatch[1].trim() : 'shopscale-ecommerce',
           lifecycle: lifecycleMatch ? lifecycleMatch[1].trim() : 'production',

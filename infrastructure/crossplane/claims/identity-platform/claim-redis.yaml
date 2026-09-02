@@ -1,9 +1,9 @@
 apiVersion: idp.io/v1alpha1
-kind: ObjectBucket
+kind: RedisInstance
 metadata:
-  name: team-alpha-s3-bucket
-  namespace: team-alpha
+  name: identity-platform-cache
+  namespace: identity-platform
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
-  region: us-east-1
+  size: small

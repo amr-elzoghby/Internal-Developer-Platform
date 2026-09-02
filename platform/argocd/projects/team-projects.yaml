@@ -1,12 +1,12 @@
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: team-alpha
+  name: identity-platform
   namespace: argocd
 spec:
-  description: "ArgoCD Project for Team Alpha"
+  description: "Argo CD project for Identity Platform workloads"
   destinations:
-    - namespace: team-alpha
+    - namespace: identity-platform
       server: https://kubernetes.default.svc
   sourceRepos:
     - 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
@@ -39,12 +39,12 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: team-beta
+  name: platform-engineering
   namespace: argocd
 spec:
-  description: "ArgoCD Project for Team Beta"
+  description: "Argo CD project for Platform Engineering workloads"
   destinations:
-    - namespace: team-beta
+    - namespace: platform-engineering
       server: https://kubernetes.default.svc
   sourceRepos:
     - 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
@@ -77,12 +77,12 @@ spec:
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: team-gamma
+  name: data-platform
   namespace: argocd
 spec:
-  description: "ArgoCD Project for Team Gamma"
+  description: "Argo CD project for Data Platform workloads"
   destinations:
-    - namespace: team-gamma
+    - namespace: data-platform
       server: https://kubernetes.default.svc
   sourceRepos:
     - 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
@@ -120,11 +120,11 @@ metadata:
 spec:
   description: "ArgoCD Project for Platform Infrastructure & Crossplane Claims"
   destinations:
-    - namespace: team-alpha
+    - namespace: identity-platform
       server: https://kubernetes.default.svc
-    - namespace: team-beta
+    - namespace: platform-engineering
       server: https://kubernetes.default.svc
-    - namespace: team-gamma
+    - namespace: data-platform
       server: https://kubernetes.default.svc
   sourceRepos:
     - 'https://github.com/amr-elzoghby/Internal-Developer-Platform.git'
