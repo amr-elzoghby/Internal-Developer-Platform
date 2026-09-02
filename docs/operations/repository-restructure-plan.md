@@ -1,6 +1,6 @@
 # خطة إعادة هيكلة مجلدات المشروع
 
-> الحالة: **قيد التنفيذ.** نُقلت ملفات التوثيق أولًا، وتظل بقية المراحل خاضعة لاختبارات مستقلة.
+> الحالة: **مكتملة ثابتًا في 3 سبتمبر 2026.** لم تُشغّل أي عملية على AWS أو Kubernetes، وما زال `terraform plan` الحي gate منفصلة إذا ظهرت بيئة حقيقية.
 >
 > الهدف: جعل حدود Terraform وKubernetes وGitOps والـDeveloper Experience واضحة، بدون تغيير سلوك المنصة أو كسر Terraform state أو مسارات Argo CD وCI.
 
@@ -25,9 +25,7 @@
 ├── apps/
 │   └── <team>/<service>/
 ├── docs/
-│   ├── architecture/
 │   ├── operations/
-│   ├── reviews/
 │   └── images/
 ├── infrastructure/
 │   ├── terraform/
@@ -94,7 +92,7 @@
 | `platform/storageclass.yaml` | `platform/bootstrap/storage/gp3.yaml` | `storage-up` |
 | `platform/monitoring` | `platform/observability` | `monitoring-up` |
 | `golden-paths` | `templates/backstage` | Backstage catalog locations وREADME |
-| ملفات الخطط والتقارير في root | `docs/operations` و`docs/reviews` | روابط README فقط |
+| ملفات الخطط في root | `docs/operations` | أبقيناها خارج عرض README العام |
 
 ## قواعد حماية Terraform
 
@@ -103,7 +101,7 @@
   - `prod/network/terraform.tfstate`
   - `prod/eks/terraform.tfstate`
 - نقل root module لا يغير resource addresses وحده، لكن تغيير أسماء modules أو resources يفعل ذلك.
-- نحدّث `source = "../../../modules/..."` حسب المسار الجديد ونشغّل `terraform init -backend=false` و`terraform validate` لكل root.
+- لم نحتج لتغيير `source = "../../../modules/..."` لأن عمق `stacks/prod/<root>` يساوي عمق المسار القديم. شغّلنا `terraform validate` لكل root بعد النقل.
 - لو state موجودة، نشغّل `terraform init -reconfigure` و`terraform plan` في بيئة مراجعة بعد أخذ نسخة مشفرة من state. لا نستخدم `-migrate-state` أو `state mv` بلا سبب مثبت.
 - معيار النجاح للبيئة الحية: `terraform plan` لا يعرض destroy/recreate ناتجًا فقط عن النقل.
 
@@ -120,53 +118,17 @@
 | Crossplane bootstrap | packages ثم definitions ثم compositions، بهذا الترتيب |
 | Terraform EKS root | يقرأ network remote state من نفس bucket/key |
 
-## ترتيب التنفيذ المقترح
+## سجل التنفيذ
 
-### Commit 1 — توحيد التوثيق
+| Commit | التغيير | النتيجة |
+|---|---|---|
+| `4052c88` | نقل الخطط إلى `docs/operations` وإزالتها من عرض README | اكتمل |
+| `13a101a` | نقل القوالب إلى `templates/backstage` وتجميع Backstage والـlocal catalog | اكتمل |
+| `3a5d0db` | فصل bootstrap وGitOps وobservability وتعريف Kyverno بأنها disabled | اكتمل |
+| `8bc06bc` | تقسيم Crossplane إلى `packages` و`provider-configs` و`apis` | اكتمل |
+| `f91cdce` | نقل Terraform roots من `environments` إلى `stacks` | اكتمل؛ كل الملفات `100% rename` |
 
-- إنشاء `docs/architecture` و`docs/operations` و`docs/reviews`.
-- نقل الخطط والتقارير فقط وتحديث الروابط.
-- لا نلمس أي مسار تنفيذي.
-
-### Commit 2 — تنظيم Developer Experience
-
-- نقل `golden-paths` إلى `templates/backstage`.
-- جمع Backstage config والـlocal catalog تحت `platform/developer-portal`.
-- تحديث catalog locations و`make portal-up`.
-- اختبار template rendering والـlocal catalog.
-
-### Commit 3 — تنظيم platform bootstrap وobservability
-
-- نقل storage وKarpenter وmonitoring.
-- تحديث `Makefile`.
-- تشغيل dry-run لكل target وعدم الاتصال بالـcluster تلقائيًا.
-
-### Commit 4 — تنظيم Argo CD
-
-- نقل `platform/argocd` إلى `platform/gitops/argocd`.
-- تحديث installer و`Makefile` وكل الروابط.
-- التحقق أن ApplicationSets ما زالت تراقب paths الصحيحة.
-
-### Commit 5 — تنظيم Crossplane
-
-- تقسيم package declarations عن provider configs.
-- نقل definitions/compositions تحت `apis` مع بقاء claims في watched path أو تحديث AppSet معها في نفس commit.
-- الحفاظ على ترتيب التثبيت والـwaits.
-- render لكل Composition ثم schema/static validation.
-
-### Commit 6 — نقل Terraform roots
-
-- `environments` تصبح `stacks`.
-- تحديث relative module sources و`TF_DIR`.
-- عدم تغيير HCL semantics أو backend keys.
-- `fmt -check` و`init -backend=false` و`validate` للـnetwork والـEKS.
-- لو توجد state حية: مراجعة plan بلا تغييرات غير مقصودة قبل الدمج.
-
-### Commit 7 — تنظيف نهائي
-
-- حذف المجلدات الفارغة والملفات غير المرجعية فقط بعد `rg` شامل.
-- تحديث tree والروابط في README.
-- تشغيل مجموعة القبول كاملة.
+تم دمج Argo CD مع commit تنظيم platform لأنهما تغيير مسارات مترابط واحد. بقيت عقود Argo للـapps والـclaims كما هي ولم ننقلها.
 
 ## مصفوفة الاختبارات بعد كل مرحلة
 
@@ -174,7 +136,7 @@
 git diff --check
 rg للبحث عن المسارات القديمة
 YAML/JSON parse لكل manifests
-terraform fmt -check
+terraform fmt -check  # roots المنقولة؛ فحص modules الكامل مسجل منفصلًا
 terraform init -backend=false && terraform validate  # لكل root
 make -n tenant-up
 make -n vcluster-up TEAM=identity-platform
@@ -206,6 +168,11 @@ Helm render للـvCluster لكل الفرق الثلاثة
 - README والخريطة يطابقان الشجرة الفعلية.
 - كل commit قابل للمراجعة والرجوع منفردًا.
 
-## أول خطوة في التنفيذ
+## نتيجة التنفيذ
 
-نبدأ بـinventory آلي لكل path reference، ثم نثبت هل توجد state/cluster حية. بعد ذلك ننفذ **Commit 1 فقط** ونراجع نتائجه قبل متابعة بقية المراحل.
+- لا توجد مراجع تنفيذية للمسارات القديمة؛ ظهورها داخل جدول خريطة النقل أعلاه مقصود كسجل migration.
+- حُذفت المجلدات المحلية الفارغة القديمة، بدون لمس `.terraform` cache أو ملفات المستخدم.
+- `terraform.md` و`issus.md` بقيا untracked ولم يدخلا أي commit.
+- نجح `terraform validate` للـnetwork والـEKS roots، ونجح `fmt -check` للـroots المنقولة. الفحص recursive الكامل ما زال يعرض formatting قديمًا في `modules/network/vpc.tf` لم نخلطه مع نقل المسارات.
+- نجح parsing لـ71 ملف YAML و10 ملفات JSON، وفحوص Bash/Node، وكل Make dry-runs، وHelm render لـvCluster للفرق الثلاثة (924 سطرًا).
+- لم يُنفذ `terraform plan` على remote backend ولم يحدث أي اتصال تغييري بـAWS/EKS.
