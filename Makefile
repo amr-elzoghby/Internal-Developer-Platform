@@ -62,7 +62,7 @@ eso-up:
 
 # Deploy Kubernetes platform components
 cluster-up: kubeconfig
-	kubectl apply -f platform/karpenter/
+	kubectl apply -f platform/bootstrap/karpenter/
 	$(MAKE) storage-up
 	$(MAKE) eso-up
 	$(MAKE) tenant-up
@@ -72,7 +72,7 @@ cluster-up: kubeconfig
 
 # Configure encrypted gp3 volumes before any optional stateful tenant services.
 storage-up:
-	kubectl apply -f platform/storageclass.yaml
+	kubectl apply -f platform/bootstrap/storage/gp3.yaml
 	kubectl get storageclass gp3
 
 # Create tenant boundaries directly on the host EKS cluster.
@@ -250,12 +250,12 @@ crossplane-compositions:
 # Configure ArgoCD and multi-tenant GitOps
 argocd-up:
 	@echo "$(GREEN)Installing ArgoCD...$(NC)"
-	./platform/argocd/install/install.sh
+	./platform/gitops/argocd/install/install.sh
 	@echo "$(GREEN)Waiting for ArgoCD CRDs...$(NC)"
 	kubectl wait --for=condition=Established crd/applicationsets.argoproj.io --timeout=120s
 	@echo "$(GREEN)Applying ArgoCD Projects and ApplicationSets...$(NC)"
-	kubectl apply -f platform/argocd/projects/
-	kubectl apply -f platform/argocd/applicationsets/
+	kubectl apply -f platform/gitops/argocd/projects/
+	kubectl apply -f platform/gitops/argocd/applicationsets/
 
 # Enforce policies that Kubernetes 1.36 supports natively. The installer waits
 # for CEL type-checking before it enables the deny bindings.
@@ -277,8 +277,8 @@ monitoring-up:
 	helm repo add kubecost https://kubecost.github.io/cost-analyzer/ --force-update || true
 	helm repo update
 	kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
-	helm upgrade --install prometheus prometheus-community/kube-prometheus-stack -n monitoring -f platform/monitoring/prometheus/values.yaml
-	helm upgrade --install kubecost kubecost/cost-analyzer -n monitoring -f platform/monitoring/kubecost/values.yaml
+	helm upgrade --install prometheus prometheus-community/kube-prometheus-stack -n monitoring -f platform/observability/prometheus/values.yaml
+	helm upgrade --install kubecost kubecost/cost-analyzer -n monitoring -f platform/observability/kubecost/values.yaml
 
 # Launch the lightweight local catalog. This is not the Backstage backend.
 portal-up:
@@ -288,7 +288,7 @@ portal-up:
 # Clean up shared platform components. Tenant namespaces and optional vClusters are preserved.
 cluster-down: confirm-destroy
 	kubectl delete namespace argocd monitoring external-secrets kyverno --ignore-not-found
-	kubectl delete -f platform/karpenter/ --ignore-not-found
+	kubectl delete -f platform/bootstrap/karpenter/ --ignore-not-found
 
 # Full environment bootstrap
 up: infra-up cluster-up monitoring-up

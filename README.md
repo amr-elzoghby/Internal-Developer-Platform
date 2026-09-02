@@ -303,13 +303,13 @@ External Secrets, Prometheus, and Kubecost chart versions are not pinned in the 
 │       ├── claims/identity-platform/
 │       └── scripts/
 ├── platform/
-│   ├── argocd/
+│   ├── bootstrap/{karpenter,storage}/
 │   ├── developer-portal/
 │   │   ├── backstage-config/
 │   │   └── local-catalog/
-│   ├── karpenter/
-│   ├── monitoring/
-│   ├── security/{admission,kyverno}/
+│   ├── gitops/argocd/
+│   ├── observability/{prometheus,grafana,kubecost}/
+│   ├── security/{admission,kyverno-disabled}/
 │   └── vcluster/{base,host-namespaces,teams}/
 ├── tenants/
 │   ├── base/
