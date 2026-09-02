@@ -223,7 +223,7 @@ The approved database template writes a PostgreSQL claim and ExternalSecret into
 
 ### Local catalog
 
-`make portal-up` launches `platform/backstage-portal/server.js` on `127.0.0.1:3000`.
+`make portal-up` launches `platform/developer-portal/local-catalog/server.js` on `127.0.0.1:3000`.
 
 It can:
 
@@ -236,7 +236,7 @@ It cannot authenticate users, enforce RBAC, write files, run Git commands, provi
 
 ### Backstage assets
 
-`platform/backstage` contains catalog/configuration material, not a self-contained Backstage application. Its Dockerfile expects a Backstage monorepo with `package.json`, `yarn.lock`, `packages`, and `plugins`, which are not present here.
+`platform/developer-portal/backstage-config` contains catalog/configuration material, not a self-contained Backstage application. Its Dockerfile expects a Backstage monorepo with `package.json`, `yarn.lock`, `packages`, and `plugins`, which are not present here.
 
 The Node.js and Python templates currently publish standalone repositories. They are useful scaffolds, but those repositories are not discovered by the current monorepo ApplicationSets. This integration gap remains open.
 
@@ -288,7 +288,7 @@ External Secrets, Prometheus, and Kubecost chart versions are not pinned in the 
 │   └── workflows/service-ci.yaml
 ├── apps/
 │   └── identity-platform/login-app/deployment.yaml
-├── golden-paths/
+├── templates/backstage/
 │   ├── infra-database/
 │   ├── nodejs-service/
 │   └── python-fastapi/
@@ -304,8 +304,9 @@ External Secrets, Prometheus, and Kubecost chart versions are not pinned in the 
 │       └── scripts/
 ├── platform/
 │   ├── argocd/
-│   ├── backstage/
-│   ├── backstage-portal/
+│   ├── developer-portal/
+│   │   ├── backstage-config/
+│   │   └── local-catalog/
 │   ├── karpenter/
 │   ├── monitoring/
 │   ├── security/{admission,kyverno}/

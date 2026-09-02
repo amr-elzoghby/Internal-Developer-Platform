@@ -283,7 +283,7 @@ monitoring-up:
 # Launch the lightweight local catalog. This is not the Backstage backend.
 portal-up:
 	@echo "$(GREEN)Launching local read-only IDP catalog on http://localhost:3000...$(NC)"
-	node platform/backstage-portal/server.js
+	node platform/developer-portal/local-catalog/server.js
 
 # Clean up shared platform components. Tenant namespaces and optional vClusters are preserved.
 cluster-down: confirm-destroy

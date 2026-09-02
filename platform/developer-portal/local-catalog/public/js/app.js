@@ -56,7 +56,7 @@ const infrastructureSources = {
   postgres: {
     title: 'PostgreSQL RDS',
     linkText: 'Open Approved Golden Path',
-    url: 'https://github.com/amr-elzoghby/Internal-Developer-Platform/tree/main/golden-paths/infra-database',
+    url: 'https://github.com/amr-elzoghby/Internal-Developer-Platform/tree/main/templates/backstage/infra-database',
     availability: 'Available through the approved Backstage Golden Path, which opens a pull request.'
   },
   redis: {

@@ -285,7 +285,7 @@ Argo CD وvCluster وCrossplane وMetrics Server مثبتة النسخ. External
 
 #### 14. Backstage ليست application قابلة للبناء من هذا المستودع
 
-`platform/backstage` يحتوي config/catalog وDockerfile يفترض وجود `packages` و`plugins` وroot Yarn project غير موجودة. `make portal-up` يشغّل local Node catalog للقراءة فقط.
+`platform/developer-portal/backstage-config` يحتوي config/catalog وDockerfile يفترض وجود `packages` و`plugins` وroot Yarn project غير موجودة. `make portal-up` يشغّل `platform/developer-portal/local-catalog` للقراءة فقط.
 
 **القرار المطلوب:** إما scaffold رسمي لتطبيق Backstage وتوصيل auth/catalog/scaffolder، أو إبقاء config كمرجع وتسميته بوضوح.
 

@@ -6,7 +6,7 @@
 /infrastructure/ @amr-elzoghby
 /platform/ @amr-elzoghby
 /tenants/ @amr-elzoghby
-/golden-paths/ @amr-elzoghby
+/templates/ @amr-elzoghby
 
 # Workload manifests changed by the image automation
 /apps/**/deployment.yaml @amr-elzoghby

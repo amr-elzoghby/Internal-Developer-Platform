@@ -51,11 +51,11 @@ catalog:
       target: ./catalog/all-components.yaml
     
     - type: file
-      target: ../../golden-paths/nodejs-service/template.yaml
+      target: ../../../templates/backstage/nodejs-service/template.yaml
     - type: file
-      target: ../../golden-paths/python-fastapi/template.yaml
+      target: ../../../templates/backstage/python-fastapi/template.yaml
     - type: file
-      target: ../../golden-paths/infra-database/template.yaml
+      target: ../../../templates/backstage/infra-database/template.yaml
 
 kubernetes:
   serviceLocatorMethod:
