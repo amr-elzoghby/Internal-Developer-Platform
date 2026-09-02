@@ -1,11 +1,11 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: xredisinstances.idp.io
+  name: redisinstances.idp.io
 spec:
   compositeTypeRef:
     apiVersion: idp.io/v1alpha1
-    kind: XRedisInstance
+    kind: RedisInstance
   mode: Pipeline
   pipeline:
     - step: python-script
@@ -15,23 +15,37 @@ spec:
         apiVersion: python.fn.crossplane.io/v1beta1
         kind: Script
         script: |
+          from crossplane.function.proto.v1 import run_function_pb2 as fnv1
+
           def compose(req, rsp):
               composite = req.observed.composite.resource
               spec = composite["spec"] if "spec" in composite else {}
               size = spec["size"] if "size" in spec else "small"
-              
+              namespace = composite["metadata"]["namespace"]
+              redis_name = composite["metadata"]["name"]
+
               node_type = "cache.t3.micro"
               if size == "medium":
                   node_type = "cache.t3.small"
-              elif size == "large":
-                  node_type = "cache.t3.medium"
 
               # 1. Security Group for Redis
               sg = {
-                  "apiVersion": "ec2.aws.upbound.io/v1beta1",
+                  "apiVersion": "ec2.aws.m.upbound.io/v1beta1",
                   "kind": "SecurityGroup",
+                  "metadata": {
+                      "namespace": namespace
+                  },
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "managementPolicies": [
+                          "Create",
+                          "Observe",
+                          "Update",
+                          "LateInitialize"
+                      ],
+                      "providerConfigRef": {
+                          "kind": "ClusterProviderConfig",
+                          "name": "default"
+                      },
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "Redis Security Group",
@@ -46,14 +60,27 @@ spec:
 
               # 1b. Security Group Rule for Redis
               sg_rule = {
-                  "apiVersion": "ec2.aws.upbound.io/v1beta1",
+                  "apiVersion": "ec2.aws.m.upbound.io/v1beta1",
                   "kind": "SecurityGroupRule",
+                  "metadata": {
+                      "namespace": namespace
+                  },
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "managementPolicies": [
+                          "Create",
+                          "Observe",
+                          "Update",
+                          "LateInitialize"
+                      ],
+                      "providerConfigRef": {
+                          "kind": "ClusterProviderConfig",
+                          "name": "default"
+                      },
                       "forProvider": {
                           "region": "us-east-1",
                           "securityGroupIdSelector": {
-                              "matchControllerRef": True
+                              "matchControllerRef": True,
+                              "namespace": namespace
                           },
                           "type": "ingress",
                           "fromPort": 6379,
@@ -66,10 +93,22 @@ spec:
 
               # 2. ElastiCache Subnet Group
               subnet_group = {
-                  "apiVersion": "elasticache.aws.upbound.io/v1beta1",
+                  "apiVersion": "elasticache.aws.m.upbound.io/v1beta1",
                   "kind": "SubnetGroup",
+                  "metadata": {
+                      "namespace": namespace
+                  },
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "managementPolicies": [
+                          "Create",
+                          "Observe",
+                          "Update",
+                          "LateInitialize"
+                      ],
+                      "providerConfigRef": {
+                          "kind": "ClusterProviderConfig",
+                          "name": "default"
+                      },
                       "forProvider": {
                           "region": "us-east-1",
                           "description": "Redis Subnet Group",
@@ -83,26 +122,37 @@ spec:
               }
 
               # 3. Redis Replication Group
-              claim_ns = composite["spec"]["claimRef"]["namespace"] if "spec" in composite and "claimRef" in composite["spec"] and "namespace" in composite["spec"]["claimRef"] else "default"
-              redis_name = composite["metadata"]["name"] if "metadata" in composite and "name" in composite["metadata"] else "redis-db"
-
               redis = {
-                  "apiVersion": "elasticache.aws.upbound.io/v1beta1",
+                  "apiVersion": "elasticache.aws.m.upbound.io/v1beta1",
                   "kind": "ReplicationGroup",
+                  "metadata": {
+                      "namespace": namespace
+                  },
                   "spec": {
-                      "deletionPolicy": "Orphan",
+                      "managementPolicies": [
+                          "Create",
+                          "Observe",
+                          "Update",
+                          "LateInitialize"
+                      ],
+                      "providerConfigRef": {
+                          "kind": "ClusterProviderConfig",
+                          "name": "default"
+                      },
                       "forProvider": {
                           "region": "us-east-1",
-                          "replicationGroupDescription": "ElastiCache Redis cluster",
+                          "description": "ElastiCache Redis cluster",
                           "engine": "redis",
-                          "engineVersion": "7.0",
+                          "engineVersion": "7.1",
                           "nodeType": node_type,
                           "numCacheClusters": 1,
-                          "cacheSubnetGroupNameSelector": {
-                              "matchControllerRef": True
+                          "subnetGroupNameSelector": {
+                              "matchControllerRef": True,
+                              "namespace": namespace
                           },
                           "securityGroupIdSelector": {
-                              "matchControllerRef": True
+                              "matchControllerRef": True,
+                              "namespace": namespace
                           },
                           "tags": {
                               "ManagedBy": "Crossplane-IDP",
@@ -110,13 +160,37 @@ spec:
                           }
                       },
                       "writeConnectionSecretToRef": {
-                          "name": f"{redis_name}-conn",
-                          "namespace": claim_ns
+                          "name": f"{redis_name}-conn"
                       }
                   }
               }
 
+              def is_ready(name):
+                  if name in req.observed.resources:
+                      observed = req.observed.resources[name].resource
+                      status = observed["status"] if "status" in observed else {}
+                      conditions = status["conditions"] if "conditions" in status else []
+                      for condition in conditions:
+                          if "type" in condition and condition["type"] == "Ready" and "status" in condition and condition["status"] == "True":
+                              return True
+                  return False
+
               rsp.desired.resources["security-group"].resource.update(sg)
+              rsp.desired.resources["security-group"].ready = (
+                  fnv1.READY_TRUE if is_ready("security-group") else fnv1.READY_FALSE
+              )
+
               rsp.desired.resources["security-group-rule"].resource.update(sg_rule)
+              rsp.desired.resources["security-group-rule"].ready = (
+                  fnv1.READY_TRUE if is_ready("security-group-rule") else fnv1.READY_FALSE
+              )
+
               rsp.desired.resources["subnet-group"].resource.update(subnet_group)
+              rsp.desired.resources["subnet-group"].ready = (
+                  fnv1.READY_TRUE if is_ready("subnet-group") else fnv1.READY_FALSE
+              )
+
               rsp.desired.resources["redis-instance"].resource.update(redis)
+              rsp.desired.resources["redis-instance"].ready = (
+                  fnv1.READY_TRUE if is_ready("redis-instance") else fnv1.READY_FALSE
+              )

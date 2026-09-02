@@ -1,13 +1,11 @@
-apiVersion: apiextensions.crossplane.io/v1
+apiVersion: apiextensions.crossplane.io/v2
 kind: CompositeResourceDefinition
 metadata:
-  name: xredisinstances.idp.io
+  name: redisinstances.idp.io
 spec:
+  scope: Namespaced
   group: idp.io
   names:
-    kind: XRedisInstance
-    plural: xredisinstances
-  claimNames:
     kind: RedisInstance
     plural: redisinstances
   versions:
@@ -24,5 +22,8 @@ spec:
                 size:
                   type: string
                   default: small
+                  enum:
+                    - small
+                    - medium
               required:
                 - size
