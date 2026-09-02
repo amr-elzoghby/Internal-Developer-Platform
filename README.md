@@ -1,433 +1,409 @@
 <div align="center">
 
-<img src="docs/images/architecture-diagram.png" alt="Platform Architecture" width="800"/>
+<img src="docs/images/platform-architecture-hero.png" alt="Conceptual architecture of the Internal Developer Platform" width="100%"/>
 
 # Internal Developer Platform
 
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.30-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
-[![Terraform](https://img.shields.io/badge/Terraform-1.5+-7B42BC?logo=terraform&logoColor=white)](https://terraform.io)
-[![AWS EKS](https://img.shields.io/badge/AWS-EKS-FF9900?logo=amazonaws&logoColor=white)](https://aws.amazon.com/eks/)
-[![Crossplane](https://img.shields.io/badge/Crossplane-IaC-blue?logo=crossplane&logoColor=white)](https://crossplane.io)
-[![ArgoCD](https://img.shields.io/badge/ArgoCD-GitOps-EF7B4D?logo=argo&logoColor=white)](https://argoproj.github.io/cd/)
-[![Kyverno](https://img.shields.io/badge/Kyverno-Policy-00599C?logo=kubernetes&logoColor=white)](https://kyverno.io)
-[![Backstage](https://img.shields.io/badge/Backstage-Portal-9BF0E1?logo=backstage&logoColor=black)](https://backstage.io)
+[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.36-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
+[![Crossplane](https://img.shields.io/badge/Crossplane-2.4.0-5F43E9)](https://www.crossplane.io/)
+[![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.5.7-844FBA?logo=terraform&logoColor=white)](https://developer.hashicorp.com/terraform)
+[![AWS](https://img.shields.io/badge/AWS-EKS-FF9900?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/eks/)
+[![Validation](https://img.shields.io/badge/status-statically_validated-yellow)](#validation-evidence)
 
-Self-service platform on **AWS EKS** where developers provision services, databases, and environments — **no DevOps bottleneck.**
+An AWS EKS platform reference implementation built around reviewed Git changes, namespace-scoped tenancy, GitOps delivery, and namespaced Crossplane APIs.
 
 </div>
 
----
+> [!IMPORTANT]
+> This repository has passed local and static validation, but the current revision has not been deployed end to end to a live AWS/EKS environment. “Configured” below means the implementation exists in Git; it does not mean a controller or cloud resource is currently running.
 
-## 📑 Table of Contents
+## What this repository contains
 
-- [The Problem](#-the-problem)
-- [The Solution](#-the-solution)
-- [Architecture](#-architecture)
-- [Technology Stack](#-technology-stack)
-- [Project Structure](#-project-structure)
-- [Roadmap](#-roadmap)
+- Two Terraform roots: one for the VPC and one for EKS and its AWS integrations.
+- Three native EKS tenant namespaces with EKS access entries, Kubernetes RBAC, quotas, limits, Pod Security Admission, and NetworkPolicies.
+- Argo CD AppProjects and ApplicationSets scoped to each approved team.
+- Four direct, namespaced Crossplane v2 APIs for S3, EC2, RDS PostgreSQL, and ElastiCache Redis.
+- GitHub Actions that build changed monorepo services, scan them with Trivy, push immutable ECR tags, and open a manifest-update pull request.
+- Backstage template definitions plus a lightweight, local, read-only catalog.
+- Optional vCluster profiles for teams that genuinely need a separate Kubernetes API.
 
----
+It does **not** currently provide a fully built Backstage application, a verified live cluster, automatic deployment for the standalone Node/Python template repositories, or a working external Ingress path.
 
-## ❌ The Problem
+## Current component status
 
-In a typical DevOps setup, every time a developer needs something new:
+| Area | Repository state | Live evidence |
+|---|---|---|
+| Terraform network | Implemented; `validate` passes | Not applied in this review |
+| Terraform EKS | Implemented; `validate` passes with dependency deprecation warnings | Not applied in this review |
+| Tenant RBAC and admission | Manifests implemented and parsed | No EKS API-server tests yet |
+| Argo CD | Chart and boundaries configured | No sync test yet |
+| Crossplane | Core, providers, XRDs, Compositions, and claims configured | No provider reconciliation test yet |
+| GitHub Actions | Workflow implemented for `apps/<team>/<service>` | No workflow run verified for this revision |
+| Local catalog | Read-only server and UI; local HTTP smoke passed | Local only |
+| Backstage | Configuration, catalog entities, and templates only | Docker build is not self-contained |
+| vCluster | Optional; Helm render passes for all three teams | No virtual cluster installed in this review |
+| Monitoring | Values/dashboard files exist; separate Make target | No live Prometheus/Grafana/Kubecost evidence |
+| Kyverno | Legacy policy files retained | Bootstrap intentionally disables it |
 
+## Architecture
+
+The generated image above is a high-level visual. This diagram is the source of truth for the relationships implemented in the repository:
+
+```mermaid
+flowchart LR
+    DEV[Developer or platform engineer]
+    GIT[(GitHub repository)]
+    LOCAL[Local read-only catalog]
+    TPL[Backstage templates]
+    BOOT[Explicit Make bootstrap]
+    CI[GitHub Actions]
+    ECR[(Amazon ECR)]
+
+    subgraph TF[Terraform]
+        NETROOT[prod/network root]
+        EKSROOT[prod/eks root]
+        NETSTATE[(network remote state)]
+    end
+
+    subgraph AWS[AWS account]
+        VPC[VPC, subnets and endpoints]
+
+        subgraph HOST[Host EKS 1.36]
+            ARGO[Argo CD]
+            CP[Crossplane 2.4]
+            ESO[External Secrets]
+            POLICY[PSA and native admission]
+            KARP[Karpenter and EKS add-ons]
+
+            subgraph TENANTS[Native tenant namespaces]
+                ID[identity-platform]
+                PE[platform-engineering]
+                DATA[data-platform]
+            end
+
+            VCL[Optional per-team vClusters]
+        end
+
+        CLOUD[S3, EC2, RDS and ElastiCache]
+        SM[AWS Secrets Manager]
+    end
+
+    DEV -->|pull request| GIT
+    LOCAL -. reads workspace metadata .-> GIT
+    TPL -. intended scaffolder or claim PR .-> GIT
+    DEV -->|authorized bootstrap command| BOOT
+    GIT -->|changed app with Dockerfile| CI
+    CI -->|immutable image| ECR
+    CI -->|manifest update PR| GIT
+    GIT -->|apps and claims| ARGO
+    ARGO --> TENANTS
+    ARGO -->|namespaced IDP claims| CP
+    CP -->|IRSA, one role per provider family| CLOUD
+    ESO -->|per-tenant IRSA| SM
+
+    NETROOT --> VPC
+    NETROOT --> NETSTATE
+    NETSTATE --> EKSROOT
+    EKSROOT -->|cluster, IAM, add-ons and core charts| KARP
+    EKSROOT --> CP
+    BOOT --> ESO
+    BOOT --> POLICY
+    BOOT --> ARGO
+    BOOT --> CP
+    BOOT --> TENANTS
+    ECR --> TENANTS
+    POLICY --> TENANTS
+    KARP --> TENANTS
+    TENANTS -. explicit opt-in .-> VCL
 ```
-Developer: "I need a new service with a PostgreSQL database"
-    → Opens a ticket
-    → Waits for the DevOps engineer
-    → DevOps creates: Namespace, Deployment, Service, HPA, Ingress, Secrets,
-                       Database, CI/CD pipeline, Monitoring dashboard...
-    → Days or weeks later: service is ready
+
+### Terraform dependency flow
+
+```text
+infrastructure/terraform/environments/prod/network
+  └─ module.network
+     ├─ VPC 10.0.0.0/16
+     ├─ two public and two private subnets
+     ├─ route tables and Internet Gateway
+     ├─ node and endpoint Security Groups
+     └─ S3, ECR, STS, EKS, EC2, SSM and Logs endpoints
+
+network outputs
+  └─ S3 remote state: prod/network/terraform.tfstate
+     └─ read by prod/eks
+        └─ module.eks
+           ├─ EKS 1.36 and encrypted Kubernetes Secrets
+           ├─ stable managed node group
+           ├─ EKS managed add-ons and Metrics Server
+           ├─ Karpenter and Crossplane Helm releases
+           ├─ EKS access entries and tenant IRSA roles
+           └─ GitHub Actions OIDC/ECR permissions
 ```
 
-**The DevOps engineer is the bottleneck.** Nothing moves without them.
+The roots deliberately use separate state keys:
 
----
+- `prod/network/terraform.tfstate`
+- `prod/eks/terraform.tfstate`
 
-## ✅ The Solution
+The backend bucket and DynamoDB lock table are assumed to exist; this repository does not bootstrap them.
 
-Build a **self-service platform** where developers help themselves:
+## Tenant model
 
+| Team | Native namespace | EKS groups | Argo CD project | Optional vCluster host namespace |
+|---|---|---|---|---|
+| Identity Platform | `identity-platform` | `idp:tenant:identity-platform:viewer/operator` | `identity-platform` | `vcluster-identity-platform` |
+| Platform Engineering | `platform-engineering` | `idp:tenant:platform-engineering:viewer/operator` | `platform-engineering` | `vcluster-platform-engineering` |
+| Data Platform | `data-platform` | `idp:tenant:data-platform:viewer/operator` | `data-platform` | `vcluster-data-platform` |
+
+Native namespaces are the default isolation boundary. A viewer can inspect ordinary workload resources and logs inside its own namespace. An operator adds limited pod deletion and scale operations. Neither role is granted Secret access or RBAC mutation.
+
+Each namespace receives:
+
+- `ResourceQuota` and `LimitRange`.
+- a restricted workload ServiceAccount with token automount disabled by default.
+- a per-tenant External Secrets IRSA identity.
+- Pod Security labels: baseline enforced; restricted audited and warned.
+- native admission rules for explicit non-`latest` images, CPU/memory requests and limits, and a team label matching the namespace.
+- a default tenant NetworkPolicy that permits same-namespace traffic, DNS, and HTTPS egress.
+
+The current HTTPS egress and database Security Group rules are transitional and broader than the final target; see [Known gaps](#known-gaps).
+
+## GitOps and application delivery
+
+Argo CD watches:
+
+- `apps/identity-platform/*`
+- `apps/platform-engineering/*`
+- `apps/data-platform/*`
+- `infrastructure/crossplane/claims/*`
+
+Team AppProjects can deploy only to their own namespace and only approved namespaced workload kinds. The default project is closed. The infrastructure project accepts only the four `idp.io` claim kinds and External Secrets resources in approved tenant namespaces.
+
+For a service already inside `apps/<team>/<service>` with a `Dockerfile`:
+
+```text
+merge app change to main
+→ GitHub Actions detects the service
+→ assume AWS role with GitHub OIDC
+→ build or reuse the commit-SHA image
+→ fail on CRITICAL Trivy findings
+→ push to an immutable ECR repository
+→ open a dedicated manifest-update pull request
+→ review and merge
+→ Argo CD reconciles the manifest
 ```
-Developer opens Backstage Portal
-    → Picks a template (Node.js / Python / React)
-    → Fills out a form: service name, team, needs database?
-    → Clicks "Create"
-    → Within minutes:
-        ✅ Git repo scaffolded with production-ready boilerplate
-        ✅ CI/CD pipeline configured and ready
-        ✅ Database provisioned on AWS (via Crossplane)
-        ✅ Kubernetes namespace with RBAC, quotas, network policies
-        ✅ Application deployed and accessible
-        ✅ Monitoring dashboard live
-    → Zero manual intervention.
-```
 
----
+The workflow does not build the current `login-app` example because that directory contains only a deployment manifest. Its old ECR repository name is intentionally retained until the published artifact is verified and copied by digest.
 
-## 🏗️ Architecture
+## Crossplane infrastructure APIs
 
-The platform has **three layers**:
+Crossplane uses direct namespaced v2 XRDs. A claim and its generated managed resources stay in the requesting namespace.
 
-| Layer | Components | Purpose |
-|:--|:--|:--|
-| **Developer Experience** | Backstage Portal, Golden Path Templates | Self-service UI + ready-to-use templates |
-| **Platform Core** | ArgoCD, GitHub Actions, Crossplane, Karpenter, Kyverno | GitOps, CI/CD, infra provisioning, scaling, policies |
-| **AWS Resources** | RDS, S3, SQS, ElastiCache, ECR | Managed services provisioned automatically by Crossplane |
+| API | AWS resources generated | Current safety defaults |
+|---|---|---|
+| `ObjectBucket` | S3 Bucket | generated platform-prefixed name and management tags; explicit encryption/versioning/public-access resources are not implemented yet |
+| `ServerInstance` | EC2 Instance, Security Group, rule | private subnet, approved sizes, and AMI ID format validation; IMDSv2 and root-volume encryption are not declared yet |
+| `PostgresSQLInstance` | RDS Instance, subnet group, Security Group, rule | private, encrypted gp3, 7-day backups, deletion protection |
+| `RedisInstance` | ElastiCache Replication Group, subnet group, Security Group, rule | private subnet placement and approved sizes; further hardening required |
 
-### How It Works
+The package layer is intentionally limited:
 
-```
-                    Backstage Portal
-                         │
-               ┌──────────┼──────────────┐
-               ▼          ▼              ▼
-            ArgoCD    Crossplane   GitHub Actions
-           (deploy)  (provision)     (build)
-               │          │              │
-               ▼          ▼              ▼
-         ┌─────────┐  ┌──────┐      ┌─────┐
-         │ Team NS │  │ RDS  │      │ ECR │
-         │ (pods)  │  │ S3   │      │     │
-         └─────────┘  │ SQS  │      └─────┘
-                     └──────┘
-```
+- Crossplane Core `2.4.0`
+- Upbound AWS providers `2.7.1` for S3, EC2, RDS, and ElastiCache
+- Crossplane Function Python `0.5.0`
+- one `ClusterProviderConfig`
+- four dedicated IRSA roles
+- one ManagedResourceActivationPolicy activating exactly eight managed resource kinds
 
----
+Managed resources omit the `Delete` management policy. Removing a Git claim therefore does not automatically delete the cloud resource. This protects stateful resources from accidental Git pruning, but requires an explicit orphan cleanup and deletion runbook.
 
-## 🛠️ Technology Stack
+The approved database template writes a PostgreSQL claim and ExternalSecret into the monorepo claims path through a pull request. Redis, S3, and EC2 have APIs but no reviewed Backstage request template yet.
 
-| Layer | Technology | Purpose |
-|:--|:--|:--|
-| **Infrastructure** | Terraform | EKS Cluster + VPC + Networking |
-| **Cluster** | AWS EKS (K8s 1.30) | Container orchestration |
-| **Node Scaling** | Karpenter | Fast node provisioning (Spot + On-Demand) |
-| **GitOps** | ArgoCD + ApplicationSets | Multi-tenant continuous delivery |
-| **CI/CD** | GitHub Actions | Build, scan, push — triggered on every PR/merge |
-| **Infra Provisioning** | Crossplane | AWS resources as Kubernetes CRDs |
-| **Developer Portal** | Backstage | Service catalog + self-service UI |
-| **Templates** | Backstage Software Templates | Golden path scaffolding |
-| **Multi-Tenancy** | Namespaces + RBAC + Quotas | Team isolation and resource control |
-| **Policy** | Kyverno | Kubernetes-native policy engine (the "K" in BACK) |
-| **Secrets Management** | External Secrets Operator (ESO) + AWS Secrets Manager | Centralized, dynamic secret synchronization & auto-generated random passwords |
-| **Secrets Encryption** | AWS KMS | K8s Secrets encrypted at rest |
-| **Pod Isolation** | VPC CNI + IRSA | Per-pod IAM roles + native NetworkPolicies |
-| **Node Access** | SSM (no SSH) | Secure node debugging without open ports |
-| **Metadata Protection** | IMDSv2 (Enforced) | Enforced on all EC2 nodes — prevents SSRF metadata attacks |
-| **Monitoring** | Prometheus + Grafana | Metrics and dashboards |
-| **Cost** | Kubecost | Per-team cost tracking |
-| **TLS** | cert-manager + Let's Encrypt | Automatic HTTPS |
+## Developer experience
 
----
+### Local catalog
 
-## 📂 Project Structure
+`make portal-up` launches `platform/backstage-portal/server.js` on `127.0.0.1:3000`.
 
-```
+It can:
+
+- scan local `catalog-info.yaml` files;
+- show detected infrastructure YAML files;
+- display the four implemented API contracts;
+- present a local team view selector.
+
+It cannot authenticate users, enforce RBAC, write files, run Git commands, provision infrastructure, or report live Kubernetes/Argo/Trivy/SonarQube metrics. The team selector is presentation-only.
+
+### Backstage assets
+
+`platform/backstage` contains catalog/configuration material, not a self-contained Backstage application. Its Dockerfile expects a Backstage monorepo with `package.json`, `yarn.lock`, `packages`, and `plugins`, which are not present here.
+
+The Node.js and Python templates currently publish standalone repositories. They are useful scaffolds, but those repositories are not discovered by the current monorepo ApplicationSets. This integration gap is tracked in the hardening plan.
+
+## Security controls represented in code
+
+- EKS Secrets encryption with a rotating customer-managed KMS key.
+- EKS control-plane logging for API, audit, authenticator, controller manager, and scheduler.
+- IMDSv2 required in the stable node launch template.
+- IRSA trust restricted to exact provider or tenant ServiceAccounts.
+- separate Crossplane IAM roles for each AWS service family.
+- an explicit deny preventing the S3 provider from accessing the Terraform state bucket.
+- ownership-tag guardrails around managed RDS, ElastiCache, and EC2 resources.
+- namespace-scoped tenant RBAC with no Secret or RBAC write permissions.
+- Pod Security Admission and fail-closed native ValidatingAdmissionPolicies.
+- Argo CD destination and resource allowlists.
+- GitHub Actions OIDC, empty workflow-level permissions, immutable ECR tags, and a CRITICAL Trivy gate.
+- confirmation guard before destructive Make targets.
+
+These are implementation controls, not audit evidence. IAM behavior, admission behavior, and isolation still need live positive and negative tests.
+
+## Version pins
+
+| Component | Version or constraint |
+|---|---|
+| Kubernetes / EKS | `1.36` |
+| Terraform | network `>=1.5.0`; EKS `>=1.5.7` |
+| AWS provider | network `~>5.0`; EKS `>=6.52,<7.0` |
+| Karpenter | `1.14.1` |
+| Crossplane | `2.4.0` |
+| Upbound AWS providers | `2.7.1` |
+| Function Python | `0.5.0` |
+| Argo CD Helm chart | `10.1.4` |
+| vCluster Helm chart | `0.36.1` |
+| Metrics Server chart | `3.13.1` |
+| VPC CNI | `v1.22.4-eksbuild.3` |
+| CoreDNS | `v1.14.3-eksbuild.14` |
+| kube-proxy | `v1.36.0-eksbuild.17` |
+| EBS CSI | `v1.65.0-eksbuild.1` |
+| EKS Pod Identity Agent | `v1.3.10-eksbuild.3` |
+
+External Secrets, Prometheus, and Kubecost chart versions are not pinned in the Makefile yet.
+
+## Repository map
+
+```text
 .
 ├── .github/
-│   └── workflows/
-│       └── service-ci.yaml             # GitHub Actions CI/CD pipeline
-├── .gitignore
+│   ├── CODEOWNERS
+│   └── workflows/service-ci.yaml
 ├── apps/
-│   └── team-alpha/
-│       └── login-app/
-│           └── deployment.yaml
-├── infrastructure/
-│   ├── terraform/
-│   │   ├── modules/
-│   │   │   ├── network/
-│   │   │   │   ├── vpc.tf              # VPC, Subnets, IGW, Route Tables
-│   │   │   │   ├── security.tf         # Security Groups (EKS Nodes, VPC Endpoints)
-│   │   │   │   ├── endpoints.tf        # VPC Endpoints (S3, ECR, STS, EKS)
-│   │   │   │   ├── variables.tf
-│   │   │   │   ├── versions.tf
-│   │   │   │   └── outputs.tf
-│   │   │   └── eks/
-│   │   │       ├── cluster.tf          # EKS Cluster + KMS Encryption + Node Group
-│   │   │       ├── iam.tf              # IAM Roles + OIDC Provider (IRSA)
-│   │   │       ├── karpenter.tf        # Karpenter IRSA + Helm Release
-│   │   │       ├── addons.tf           # EBS CSI, CoreDNS, VPC CNI, Metrics Server
-│   │   │       ├── crossplane.tf
-│   │   │       ├── github-oidc.tf
-│   │   │       ├── variables.tf
-│   │   │       ├── versions.tf
-│   │   │       ├── templates/
-│   │   │       │   └── karpenter-values.yaml.tpl
-│   │   │       └── outputs.tf
-│   │   └── environments/
-│   │       └── prod/
-│   │           ├── network/            # Prod VPC config
-│   │           │   ├── main.tf
-│   │           │   ├── variables.tf
-│   │           │   └── backend.tf
-│   │           └── eks/                # Prod EKS config
-│   │               ├── main.tf
-│   │               ├── secrets.tf          # AWS Secrets Manager secret with random password
-│   │               ├── variables.tf
-│   │               └── backend.tf
-│   └── crossplane/
-│       ├── providers/
-│       │   ├── providers.yaml          # AWS Provider & Python function packages
-│       │   ├── provider-config.yaml    # AWS ProviderConfig (IRSA credentials)
-│       │   └── deployment-runtime-config.yaml
-│       ├── compositions/
-│       │   ├── s3-bucket.yaml          # S3 Composition using Python function
-│       │   ├── rds-postgres.yaml       # RDS PostgreSQL Composition using Python function
-│       │   ├── redis-elasticache.yaml  # Redis ElastiCache Composition using Python function
-│       │   └── ec2-server.yaml         # EC2 Server & Security Group Composition
-│       ├── functions/
-│       └── claims/
-│           └── team-alpha/
-│               ├── claim-s3.yaml           # Example developer request for S3
-│               ├── claim-rds.yaml          # Example developer request for RDS
-│               ├── claim-redis.yaml        # Example developer request for Redis
-│               ├── claim-ec2.yaml          # Example developer request for EC2 Server
-│               ├── secret-store.yaml       # External Secrets Operator AWS SecretStore
-│               └── external-secret.yaml    # ESO ExternalSecret mapping AWS Secrets Manager
-├── platform/
-│   ├── vcluster/                       # Virtual cluster Helm values for teams
-│   │   ├── base/
-│   │   │   └── values.yaml             # Base vCluster settings
-│   │   └── teams/
-│   │       ├── team-alpha.yaml         # Team Alpha values
-│   │       ├── team-beta.yaml          # Team Beta values
-│   │       └── team-gamma.yaml         # Team Gamma values
-│   ├── argocd/
-│   │   ├── install/                    # ArgoCD Helm values
-│   │   │   ├── install.sh
-│   │   │   └── values.yaml
-│   │   ├── applicationsets/            # Auto-generate apps per team
-│   │   │   ├── infra-claims-appset.yaml
-│   │   │   ├── team-alpha-apps.yaml
-│   │   │   ├── team-beta-apps.yaml
-│   │   │   └── team-gamma-apps.yaml
-│   │   └── projects/                   # ArgoCD project per team
-│   │       └── team-projects.yaml
-│   ├── monitoring/
-│   │   ├── prometheus/                 # Prometheus Helm values
-│   │   │   └── values.yaml
-│   │   ├── grafana/                    # Dashboards
-│   │   │   └── dashboards/
-│   │   │       └── platform-overview.json
-│   │   └── kubecost/                   # Cost tracking
-│   │       └── values.yaml
-│   ├── security/
-│   │   └── kyverno/                    # Kyverno policies (pod security, Crossplane guardrails)
-│   │       ├── install/
-│   │       │   ├── install.sh
-│   │       │   └── values.yaml
-│   │       └── policies/
-│   │           ├── kustomization.yaml
-│   │           ├── crossplane-guardrails/
-│   │           │   ├── enforce-s3-encryption.yaml
-│   │           │   ├── restrict-ec2-size.yaml
-│   │           │   └── restrict-rds-size.yaml
-│   │           └── pod-security/
-│   │               ├── disallow-latest-tag.yaml
-│   │               ├── disallow-privileged.yaml
-│   │               ├── enforce-resource-limits.yaml
-│   │               └── require-team-labels.yaml
-│   ├── backstage/                      # Backstage core app
-│   │   ├── Dockerfile
-│   │   ├── app-config.yaml
-│   │   └── catalog/
-│   │       └── all-components.yaml
-│   ├── backstage-portal/               # Backstage portal code
-│   │   ├── .env
-│   │   ├── .env.example                # Sample environment variables for team login passcodes
-│   │   ├── claims/                     # Modular Infrastructure Claim Spec Definitions (9 Capabilities)
-│   │   │   ├── domain.json             # Custom Subdomain Claim Parameters (subdomainHost, pathPrefix)
-│   │   │   ├── grafana.json            # Grafana Dashboard Claim Parameters (folder, metrics)
-│   │   │   ├── kafka.json              # Kafka Topic Claim Parameters (partitions, replicationFactor)
-│   │   │   ├── oauth.json              # Payment OAuth Claim Parameters (provider, scopes)
-│   │   │   ├── postgres.json           # PostgreSQL RDS Claim Parameters (storageGB, engineVersion)
-│   │   │   ├── redis.json              # Redis ElastiCache Claim Parameters (memoryMB, version)
-│   │   │   ├── s3.json                 # AWS S3 Storage Claim Parameters (acl, versioning)
-│   │   │   ├── slack.json              # Slack Alerts Claim Parameters (channel, webhookUrl, events)
-│   │   │   └── ssl.json                # SSL Cert-Manager Claim Parameters (domainName, issuer)
-│   │   ├── public/                     # Enterprise Material 3 Backstage Portal UI
-│   │   │   ├── index.html
-│   │   │   ├── css/
-│   │   │   │   └── style.css
-│   │   │   └── js/
-│   │   │       └── app.js
-│   │   ├── server.js                   # Enterprise Portal HTTP Router & Controller
-│   │   └── services/
-│   │       ├── catalogService.js       # Catalog discovery and async GitOps automation
-│   │       └── claimGenerator.js       # Manifest generator engine for 9 platform claims
-│   ├── karpenter/
-│   │   ├── node-class.yaml
-│   │   └── node-pool.yaml
-│   └── storageclass.yaml
-├── tenants/
-│   └── base/                           # Namespace isolation policies
-│       ├── limit-range.yaml            # Default container sizes
-│       ├── network-policy.yaml         # Blocks cross-team namespace traffic
-│       └── resource-quota.yaml         # CPU/Mem caps per team namespace
+│   └── identity-platform/login-app/deployment.yaml
 ├── golden-paths/
 │   ├── infra-database/
-│   │   ├── skeleton/
-│   │   │   ├── catalog-info.yaml
-│   │   │   └── claim.yaml
-│   │   └── template.yaml
-│   ├── nodejs-service/                 # Node.js template
-│   │   ├── skeleton/                   # App code + Dockerfile + K8s manifests
-│   │   │   ├── Dockerfile
-│   │   │   ├── catalog-info.yaml
-│   │   │   ├── package.json
-│   │   │   ├── manifests/
-│   │   │   │   └── deployment.yaml
-│   │   │   └── src/
-│   │   │       └── server.js
-│   │   └── template.yaml               # Backstage template definition
-│   └── python-fastapi/                 # Python FastAPI template
-│       ├── skeleton/
-│       │   ├── Dockerfile
-│       │   ├── catalog-info.yaml
-│       │   ├── main.py
-│       │   └── requirements.txt
-│       └── template.yaml
-├── docs/
-│   └── images/
-│       ├── architecture-diagram.png
-│       ├── demo-showcase.gif
-│       ├── Screenshot 2026-07-14 134211.png
-│       ├── Screenshot 2026-07-14 134350.png
-│       ├── Screenshot 2026-07-14 134411.png
-│       ├── Screenshot 2026-07-14 134444.png
-│       ├── Screenshot 2026-07-14 152451.png
-│       ├── Screenshot 2026-07-27 193755.png
-│       ├── Screenshot 2026-07-27 193806.png
-│       └── Screenshot 2026-07-27 193850.png
+│   ├── nodejs-service/
+│   └── python-fastapi/
+├── infrastructure/
+│   ├── terraform/
+│   │   ├── environments/prod/{network,eks}/
+│   │   └── modules/{network,eks}/
+│   └── crossplane/
+│       ├── providers/
+│       ├── definitions/
+│       ├── compositions/
+│       ├── claims/identity-platform/
+│       └── scripts/
+├── platform/
+│   ├── argocd/
+│   ├── backstage/
+│   ├── backstage-portal/
+│   ├── karpenter/
+│   ├── monitoring/
+│   ├── security/{admission,kyverno}/
+│   └── vcluster/{base,host-namespaces,teams}/
+├── tenants/
+│   ├── base/
+│   ├── namespaces/
+│   ├── rbac/
+│   └── templates/
+├── folder-restructure-tomorrow.md
+├── platform-hardening-plan.md
 ├── Makefile
 └── README.md
 ```
 
----
+## Safe local validation
 
-## 🚀 Quick Start & Operational Commands
+Prerequisites:
 
-Execute platform deployment, observability, and portal management via simple `make` recipes:
+- Terraform `>=1.5.7`
+- AWS CLI, Helm, kubectl, Make
+- Python 3 and `envsubst`
+- Node.js for the local catalog
 
-| Command | Action |
-|:--|:--|
-| `make up` | Full environment bootstrap (AWS Infra + K8s Platform + Monitoring) |
-| `make portal-up` | Launch Backstage Developer Portal on `http://localhost:3000` |
-| `make monitoring-up` | Deploy Prometheus, Grafana, and Kubecost FinOps stack |
-| `make status` | View cluster status, EKS nodes, and Karpenter NodePools |
-| `make down` | Teardown Kubernetes cluster resources & AWS infrastructure |
+Commands that do not intentionally apply infrastructure:
 
----
+```bash
+# May download providers, but uses no remote backend.
+make validate
 
-## 🗺️ Roadmap
+# Inspect the command graph without executing it.
+make -n cluster-up
+make -n tenant-up
+make -n vcluster-up TEAM=identity-platform
 
-### Phase 1 — Base Infrastructure ✅
-> EKS cluster with Terraform, Karpenter, and core networking.
+# Run the read-only local catalog. PROJECTS_DIR must contain service
+# repositories with catalog-info.yaml at their top level.
+PROJECTS_DIR=/path/to/service-workspace make portal-up
+```
 
-- [x] VPC + Subnets + Security Groups (Terraform module)
-- [x] VPC Endpoints (S3, ECR, STS, EKS — no NAT Gateway needed)
-- [x] EKS Cluster + On-Demand Node Group
-- [x] KMS Encryption for K8s Secrets at rest
-- [x] IRSA (OIDC + VPC CNI per-pod IAM roles)
-- [x] Native NetworkPolicy support (VPC CNI)
-- [x] Karpenter for node auto-scaling
-- [x] EKS Managed Addons (EBS CSI, CoreDNS, VPC CNI, kube-proxy)
-- [x] Metrics Server
-- [x] IMDSv2 enforced on all node groups (stable & Karpenter) to block SSRF metadata attacks
-- [x] Makefile (`make infra-up`, `make infra-down`)
+Before any AWS plan:
 
-### Phase 2 — Multi-Tenancy ✅
-> Virtualized Kubernetes clusters (vCluster) and policy-based isolation per team.
+1. Confirm the intended AWS account and `us-east-1` region.
+2. Create or deliberately replace the backend bucket and lock-table configuration.
+3. Copy `infrastructure/terraform/environments/prod/eks/terraform.tfvars.example` to an ignored `terraform.tfvars`.
+4. Replace every `REPLACE_ME` IAM role ARN with a real role in the cluster account.
+5. Review the network plan first, then the EKS plan.
 
-- [x] Base vCluster configuration (`values.yaml`)
-- [x] vCluster profiles for teams (`team-alpha`, `team-beta`, `team-gamma`)
-- [x] ResourceQuotas and LimitRanges per namespace for host-level safety
-- [x] NetworkPolicies: Deny traffic between team namespaces
-- [x] Makefile automation (`make cluster-up` installs namespaces, policies, and vClusters)
+```bash
+terraform -chdir=infrastructure/terraform/environments/prod/network init
+terraform -chdir=infrastructure/terraform/environments/prod/network plan
 
-### Phase 3 — Crossplane (Infrastructure as Code) ✅
-> Developers provision AWS resources by writing Kubernetes CRDs.
+terraform -chdir=infrastructure/terraform/environments/prod/eks init
+terraform -chdir=infrastructure/terraform/environments/prod/eks plan
+```
 
-- [x] Install Crossplane + AWS Provider
-- [x] PostgreSQL Composition (RDS + SecurityGroup + SubnetGroup)
-- [x] S3 Bucket Composition
-- [x] Redis Composition (ElastiCache)
-- [x] EC2 Server Composition (Instance + SecurityGroup + SecurityGroupRule)
-- [x] External Secrets Operator (ESO) + AWS Secrets Manager integration for secure, dynamic RDS password generation
-- [x] Example Claims for developer self-service
+Do not use `make up` as a first validation command: `infra-up` currently invokes `terraform apply -auto-approve`.
 
-#### 📸 Database Provisioning Workflow Showcase
+## Validation evidence
 
-| Step 1: Apply Developer Database Claim | Step 2: Check Developer Claim Sync Pending |
-| :---: | :---: |
-| <img src="docs/images/Screenshot%202026-07-14%20134211.png" width="100%"> | <img src="docs/images/Screenshot%202026-07-14%20134350.png" width="100%"> |
+The current revision was checked with:
 
-| Step 3: Underlying AWS Composed Resources | Step 4: Verify Composite Resource Sync |
-| :---: | :---: |
-| <img src="docs/images/Screenshot%202026-07-14%20134411.png" width="100%"> | <img src="docs/images/Screenshot%202026-07-14%20134444.png" width="100%"> |
+- Terraform formatting and validation for both roots.
+- YAML and JSON parsing across repository manifests.
+- Helm template rendering for vCluster `0.36.1` for all three teams.
+- rendered Golden Path checks for YAML, JavaScript, and Python.
+- JavaScript syntax checks for the local catalog.
+- local HTTP smoke tests for catalog, health, and claim-spec endpoints.
+- negative local tests confirming removed login/write endpoints return `404` and path traversal does not expose files.
+- Make dry-runs for tenant and optional-vCluster paths.
+- reference searches for retired team names and portal capabilities.
 
-##### 🏆 Final Result: Database Provisioned & Connection Secret Generated (READY = True)
-<p align="center">
-  <img src="docs/images/Screenshot%202026-07-14%20152451.png" width="90%">
-</p>
+The EKS Terraform validation reports deprecation warnings from the downloaded `terraform-aws-modules/iam` dependency. They do not fail validation, but the module should be upgraded in a reviewed change.
 
-### Phase 4 — GitOps & Continuous Delivery ✅
-> ArgoCD for deployments, GitHub Actions for builds — all driven from Git.
+## Known gaps
 
-- [x] ArgoCD install + multi-tenant projects per team/vCluster
-- [x] ApplicationSets: auto-generate apps & Crossplane Claims from Git
-- [x] GitHub Actions workflows: build → scan → push to ECR (AWS OIDC + Trivy scanner)
-- [x] Auto-trigger on PR/merge to main
+The full risk register and ordered remediation plan live in [platform-hardening-plan.md](platform-hardening-plan.md). The highest-priority gaps are:
 
-#### 📹 GitOps & CI/CD Pipeline Demo
-<p align="center">
-  <img src="docs/images/demo-showcase.gif" width="90%">
-</p>
+1. No end-to-end deployment or live isolation evidence.
+2. Stable EKS nodes currently target public subnets.
+3. The EKS public endpoint has no CIDR allowlist in this module.
+4. NGINX Ingress resources exist without an installed NGINX controller.
+5. standalone service templates are not connected to the monorepo Argo CD contract.
+6. Crossplane provider schemas, EC2 namespaced rendering, and connection-secret keys need live canaries.
+7. S3 and EC2 Compositions do not yet declare the required production data and instance hardening controls.
+8. tenant HTTPS egress and RDS/Redis VPC-wide ingress are broader than the target design.
+9. Redis lacks production encryption, authentication, high availability, and backup settings.
+10. External Secrets and monitoring chart versions are unpinned.
+11. Backstage is configuration-only, not a runnable production portal.
 
+The planned repository reorganization is documented separately in [folder-restructure-tomorrow.md](folder-restructure-tomorrow.md). It has not been executed.
 
-### Phase 5 — Security & Policy Engine (The "K" in BACK) ✅
-> Kyverno as the Kubernetes-native policy controller — guardrails before self-service.
+## Destructive operations
 
-- [x] Kyverno installation script (`install.sh`) & Helm configuration (`values.yaml`) integrated into Makefile (`make kyverno-up`)
-- [x] Best-practice pod policies: require team labels, block privileged containers, enforce CPU/memory limits, block `:latest` tags
-- [x] Crossplane guardrails: restrict RDS and EC2 instance sizes (`small` / `medium`), enforce S3 region compliance
-- [x] Kustomize root manifest (`kustomization.yaml`) for clean GitOps policy deployment
+`make down`, `make infra-down`, and `make cluster-down` require the exact `CONFIRM_DESTROY=idp-prod` value. `cluster-down` does not explicitly delete tenant namespaces, and `vcluster-down` retains Helm history and PVCs. The full `make down` path still destroys the EKS infrastructure, so it is destructive to everything hosted on that cluster.
 
-### Phase 6 — Developer Self-Service (Backstage Portal) ✅
-> The portal that ties it all together — developers click, platform delivers.
-
-- [x] Backstage setup + production `app-config.yaml` & Dockerfile
-- [x] Scaffolder Golden Path Templates (`scaffolder.backstage.io/v1beta3`): Node.js, Python FastAPI
-- [x] 🔐 Environment Variable Protected Team Login & RBAC Role Authentication Modal (via local `.env` credentials)
-- [x] 🗄️ Custom Resource Secret Identifier Input (`writeConnectionSecretToRef.name`) to prevent environment variable conflicts
-- [x] 🛠️ 9 Parametric Infrastructure Self-Service Claims (PostgreSQL RDS, Redis ElastiCache, AWS S3, Kafka Topics, SSL Certs, Payment OAuth Keys, Grafana Dashboards, Slack Webhooks, Custom Subdomains)
-- [x] System Catalog registration (`all-components.yaml` for teams, domains, systems)
-- [x] Kubernetes & ArgoCD plugin configuration for live pod health & deployment sync
-- [x] Single Pane of Glass multi-tab Component Inspector (Overview, CI/CD Security, K8s Pods, Infra Claims)
-- [x] ⚡ In-Memory API Caching (30s TTL) & Dynamic System Metadata Parsing from `catalog-info.yaml`
-- [x] 🎨 Material 3 Dark-Mode UI with CSS Utility Classes, Responsive Layouts, and Shimmer Skeleton Loading
-- [x] ♿ Built-in Accessibility (`ARIA` attributes, keyboard navigation) and Page Transition Micro-Animations
-
-#### 📸 Backstage Enterprise Developer Portal Showcase
-
-| Software Catalog & Active Claims | Single Pane Inspector View | TechDocs Documentation Viewer |
-| :---: | :---: | :---: |
-| <img src="docs/images/Screenshot%202026-07-27%20193755.png" width="100%"> | <img src="docs/images/Screenshot%202026-07-27%20193806.png" width="100%"> | <img src="docs/images/Screenshot%202026-07-27%20193850.png" width="100%"> |
-
-
-### Phase 7 — Monitoring, Cost & Documentation ✅
-> Observability, cost tracking, and project documentation.
-
-- [x] Prometheus + Grafana dashboards (`platform/monitoring/prometheus/values.yaml` & `platform-overview.json`)
-- [x] Kubecost for per-team cost visibility & FinOps (`platform/monitoring/kubecost/values.yaml`)
-- [x] Architecture diagram + onboarding docs
-- [x] Full README with deploy instructions & enterprise developer portal integration
+Even with that guard, always inspect the active AWS account, kube-context, Terraform plan, backups, and rollback path before running a destructive command.
 
 ---
 
-<p align="center">
-  Built with ❤️ by <a href="https://github.com/amr-elzoghby">Amr Elzoghby</a>
-</p>
-
+Maintained by [Amr Elzoghby](https://github.com/amr-elzoghby).
