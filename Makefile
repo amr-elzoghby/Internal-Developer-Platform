@@ -5,7 +5,7 @@ YELLOW := \033[0;33m
 RED    := \033[0;31m
 NC     := \033[0m
 
-TF_DIR := infrastructure/terraform/environments/prod
+TF_DIR := infrastructure/terraform/stacks/prod
 TEAMS := identity-platform platform-engineering data-platform
 CLUSTER_NAME ?= idp-prod
 VCLUSTER_CHART_VERSION := 0.36.1

@@ -60,8 +60,8 @@ flowchart LR
     ECR[(Amazon ECR)]
 
     subgraph TF[Terraform]
-        NETROOT[prod/network root]
-        EKSROOT[prod/eks root]
+        NETROOT[stacks/prod/network root]
+        EKSROOT[stacks/prod/eks root]
         NETSTATE[(network remote state)]
     end
 
@@ -120,7 +120,7 @@ flowchart LR
 ### Terraform dependency flow
 
 ```text
-infrastructure/terraform/environments/prod/network
+infrastructure/terraform/stacks/prod/network
   └─ module.network
      ├─ VPC 10.0.0.0/16
      ├─ two public and two private subnets
@@ -130,7 +130,7 @@ infrastructure/terraform/environments/prod/network
 
 network outputs
   └─ S3 remote state: prod/network/terraform.tfstate
-     └─ read by prod/eks
+     └─ read by stacks/prod/eks
         └─ module.eks
            ├─ EKS 1.36 and encrypted Kubernetes Secrets
            ├─ stable managed node group
@@ -294,7 +294,7 @@ External Secrets, Prometheus, and Kubecost chart versions are not pinned in the 
 │   └── python-fastapi/
 ├── infrastructure/
 │   ├── terraform/
-│   │   ├── environments/prod/{network,eks}/
+│   │   ├── stacks/prod/{network,eks}/
 │   │   └── modules/{network,eks}/
 │   └── crossplane/
 │       ├── packages/
@@ -349,16 +349,16 @@ Before any AWS plan:
 
 1. Confirm the intended AWS account and `us-east-1` region.
 2. Create or deliberately replace the backend bucket and lock-table configuration.
-3. Copy `infrastructure/terraform/environments/prod/eks/terraform.tfvars.example` to an ignored `terraform.tfvars`.
+3. Copy `infrastructure/terraform/stacks/prod/eks/terraform.tfvars.example` to an ignored `terraform.tfvars`.
 4. Replace every `REPLACE_ME` IAM role ARN with a real role in the cluster account.
 5. Review the network plan first, then the EKS plan.
 
 ```bash
-terraform -chdir=infrastructure/terraform/environments/prod/network init
-terraform -chdir=infrastructure/terraform/environments/prod/network plan
+terraform -chdir=infrastructure/terraform/stacks/prod/network init
+terraform -chdir=infrastructure/terraform/stacks/prod/network plan
 
-terraform -chdir=infrastructure/terraform/environments/prod/eks init
-terraform -chdir=infrastructure/terraform/environments/prod/eks plan
+terraform -chdir=infrastructure/terraform/stacks/prod/eks init
+terraform -chdir=infrastructure/terraform/stacks/prod/eks plan
 ```
 
 Do not use `make up` as a first validation command: `infra-up` currently invokes `terraform apply -auto-approve`.
