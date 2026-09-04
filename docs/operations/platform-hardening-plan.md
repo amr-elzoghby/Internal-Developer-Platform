@@ -1,6 +1,6 @@
 # خطة تقوية المنصة — الحالة الفعلية
 
-> آخر تحديث: 2 سبتمبر 2026
+> آخر تحديث: 4 سبتمبر 2026
 >
 > حالة البيئة: صاحب المشروع أكد أن المشروع **غير مشغّل حاليًا**. نتائج هذه الوثيقة مبنية على مراجعة الكود واختبارات ثابتة ومحلية، وليست إثباتًا أن AWS أو EKS أو Crossplane يعملون في بيئة حية.
 >
@@ -10,8 +10,7 @@
 
 الأساس الأمني والمعماري تحسن بالفعل:
 
-- vCluster أصبحت اختيارية وليست جزءًا من bootstrap الافتراضي.
-- Host EKS namespaces هي حدود الفرق الأساسية.
+- Host EKS namespaces هي حدود الفرق الوحيدة المنفذة في المستودع.
 - EKS access entries وKubernetes RBAC مفصولان بين platform admins والفرق.
 - Argo CD AppProjects أصبحت مقيدة بالـnamespace والأنواع المسموحة.
 - Pod Security Admission وValidatingAdmissionPolicy الأصليتان في Kubernetes هما طبقة enforcement الحالية.
@@ -42,18 +41,14 @@ AWS
 │   ├── crossplane-system
 │   ├── external-secrets
 │   └── monitoring (اختياري عبر target منفصل)
-├── Crossplane namespaced APIs
-│   ├── ObjectBucket       → S3 Bucket
-│   ├── ServerInstance     → EC2 + Security Group
-│   ├── PostgresSQLInstance→ RDS + subnet/security groups
-│   └── RedisInstance      → ElastiCache + subnet/security groups
-└── Optional vClusters
-    ├── vcluster-identity-platform
-    ├── vcluster-platform-engineering
-    └── vcluster-data-platform
+└── Crossplane namespaced APIs
+    ├── ObjectBucket       → S3 Bucket
+    ├── ServerInstance     → EC2 + Security Group
+    ├── PostgresSQLInstance→ RDS + subnet/security groups
+    └── RedisInstance      → ElastiCache + subnet/security groups
 ```
 
-المسار الطبيعي للفرق هو Host namespace. vCluster تُثبت فقط عبر `make vcluster-up TEAM=<approved-team>` عندما يكون هناك احتياج حقيقي إلى Kubernetes API معزولة.
+المسار المعتمد للفرق هو namespace داخل Host EKS، موصولة من IAM role إلى EKS Access Entry ثم Kubernetes group وRoleBinding داخل namespace. هذا يقلل تكلفة وتعقيد التشغيل، مقابل مشاركة الـcontrol plane والـcluster-scoped APIs بين الفرق تحت إدارة فريق المنصة.
 
 ## ما تم تنفيذه
 
@@ -62,9 +57,7 @@ AWS
 | Commit | النتيجة |
 |---|---|
 | `daf7b14` | منع teardown العادي من حذف tenant namespaces |
-| `a890e20` | إخراج vCluster من `cluster-up` وجعلها opt-in |
 | `0e4179d` | إضافة encrypted `gp3` StorageClass إلى bootstrap |
-| `242c8f5`, `00014f7` | تثبيت vCluster chart على `0.36.1` ومحاذاة القيم مع النسخة |
 | `5b6e326` | اشتراط `CONFIRM_DESTROY=idp-prod` قبل teardown |
 
 ### 2. EKS identities وTenant RBAC
@@ -127,14 +120,13 @@ AWS IAM role
 
 الـmanaged resources لا تحتوي `Delete` في `managementPolicies`. حذف claim لا يحذف مورد AWS تلقائيًا؛ هذا قرار حماية بيانات، لكنه يحتاج orphan inventory وrunbook للحذف المعتمد.
 
-### 6. vCluster الاختيارية وأسماء الفرق
+### 6. Tenant namespaces وأسماء الفرق
 
 | Commit | النتيجة |
 |---|---|
-| `ff3cc5d` | host namespaces منفصلة، quotas، limits، default-deny وcontrol-plane/workload policies |
-| `d1107a6` | أسماء الفرق الجديدة في Terraform وRBAC وArgo وCrossplane وBackstage وvCluster |
+| `d1107a6` | أسماء الفرق الجديدة في Terraform وRBAC وArgo وCrossplane وBackstage |
 
-كل vCluster تمثل trust boundary لفريق واحد. مزامنة tenant NetworkPolicies إلى الـhost متوقفة عمدًا لأن السياسات additive وقد توسع host boundary. الـhost policies هي المصدر الحاكم.
+كل فريق له namespace وEKS groups وRoleBindings وArgo CD project متطابقة الاسم. الـnamespace وRBAC وNetworkPolicy وadmission هي حدود العزل الحالية؛ لا يملك كل فريق API server أو control plane أو إصدار Kubernetes مستقلًا، وتظل الموارد والـcontrollers ذات النطاق cluster-wide مملوكة لفريق المنصة.
 
 ## نتائج التحقق الحالية
 
@@ -143,7 +135,6 @@ AWS IAM role
 - `terraform validate` للـnetwork root.
 - `terraform validate` للـEKS root؛ ظهرت فقط warnings من dependency خارجية تستخدم attribute deprecated.
 - `terraform fmt -check` للملفات التي تغيرت.
-- Helm render لـvCluster `0.36.1` للفرق الثلاثة.
 - parsing لملفات YAML/JSON غير القالبية.
 - render تجريبي للـGolden Paths ثم JavaScript/Python/YAML checks.
 - JavaScript syntax checks للـlocal catalog.
@@ -151,7 +142,7 @@ AWS IAM role
   - root وhealth وclaim specs أعادت `200`.
   - login القديم وwrite API أعادا `404`.
   - محاولة path traversal لم تكشف ملفًا.
-- `make -n` لمسارات tenant وvCluster.
+- `make -n` لمسارات cluster وtenant.
 - بحث شامل عن أسماء الفرق القديمة؛ بقي اسم واحد مقصود داخل ECR image URI القديمة.
 
 لم يُشغّل:
@@ -265,7 +256,7 @@ AWS IAM role
 
 #### 11. Helm dependencies غير مثبتة كلها
 
-Argo CD وvCluster وCrossplane وMetrics Server مثبتة النسخ. External Secrets وPrometheus/Kubecost targets لا تحدد chart versions.
+Argo CD وCrossplane وMetrics Server مثبتة النسخ. External Secrets وPrometheus/Kubecost targets لا تحدد chart versions.
 
 **المستهدف:** version pins، values مراجعة، `--atomic --wait`، readiness، وسياسة تحديث دورية.
 
@@ -297,11 +288,7 @@ Argo CD وvCluster وCrossplane وMetrics Server مثبتة النسخ. External
 
 `make kyverno-up` يفشل عمدًا. يجب إما اعتماد نسخة متوافقة واختبارها، أو حذف الملفات القديمة بعد نقل أي سياسات لازمة إلى native admission/GitOps checks.
 
-#### 17. Optional vCluster تحتاج live boundary tests
-
-نختبر DNS وAPI وstorage والـcontrol-plane traffic والـworkload egress لكل فريق، ونتأكد أن سياسات host لا تُفتح بسبب أي sync option.
-
-#### 18. Orphaned cloud resources تحتاج lifecycle runbook
+#### 17. Orphaned cloud resources تحتاج lifecycle runbook
 
 حماية الموارد من delete مفيدة، لكن يجب وجود:
 
@@ -354,7 +341,6 @@ Argo CD وvCluster وCrossplane وMetrics Server مثبتة النسخ. External
 - [ ] pin ESO/monitoring dependencies.
 - [ ] alerts وSLOs وrunbooks وbackup/restore drill.
 - [ ] قرار Backstage الحقيقي.
-- [ ] اختبار vCluster فقط إن وُجد use case.
 
 ### المرحلة G — إعادة هيكلة المجلدات
 

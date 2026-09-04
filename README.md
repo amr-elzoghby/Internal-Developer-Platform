@@ -25,7 +25,6 @@ An AWS EKS platform reference implementation built around reviewed Git changes, 
 - Four direct, namespaced Crossplane v2 APIs for S3, EC2, RDS PostgreSQL, and ElastiCache Redis.
 - GitHub Actions that build changed monorepo services, scan them with Trivy, push immutable ECR tags, and open a manifest-update pull request.
 - Backstage template definitions plus a lightweight, local, read-only catalog.
-- Optional vCluster profiles for teams that genuinely need a separate Kubernetes API.
 
 It does **not** currently provide a fully built Backstage application, a verified live cluster, automatic deployment for the standalone Node/Python template repositories, or a working external Ingress path.
 
@@ -41,7 +40,6 @@ It does **not** currently provide a fully built Backstage application, a verifie
 | GitHub Actions | Workflow implemented for `apps/<team>/<service>` | No workflow run verified for this revision |
 | Local catalog | Read-only server and UI; local HTTP smoke passed | Local only |
 | Backstage | Configuration, catalog entities, and templates only | Docker build is not self-contained |
-| vCluster | Optional; Helm render passes for all three teams | No virtual cluster installed in this review |
 | Monitoring | Values/dashboard files exist; separate Make target | No live Prometheus/Grafana/Kubecost evidence |
 | Kyverno | Legacy policy files retained | Bootstrap intentionally disables it |
 
@@ -81,7 +79,6 @@ flowchart LR
                 DATA[data-platform]
             end
 
-            VCL[Optional per-team vClusters]
         end
 
         CLOUD[S3, EC2, RDS and ElastiCache]
@@ -114,7 +111,6 @@ flowchart LR
     ECR --> TENANTS
     POLICY --> TENANTS
     KARP --> TENANTS
-    TENANTS -. explicit opt-in .-> VCL
 ```
 
 ### Terraform dependency flow
@@ -149,13 +145,30 @@ The backend bucket and DynamoDB lock table are assumed to exist; this repository
 
 ## Tenant model
 
-| Team | Native namespace | EKS groups | Argo CD project | Optional vCluster host namespace |
-|---|---|---|---|---|
-| Identity Platform | `identity-platform` | `idp:tenant:identity-platform:viewer/operator` | `identity-platform` | `vcluster-identity-platform` |
-| Platform Engineering | `platform-engineering` | `idp:tenant:platform-engineering:viewer/operator` | `platform-engineering` | `vcluster-platform-engineering` |
-| Data Platform | `data-platform` | `idp:tenant:data-platform:viewer/operator` | `data-platform` | `vcluster-data-platform` |
+| Team | Native namespace | EKS groups | Argo CD project |
+|---|---|---|---|
+| Identity Platform | `identity-platform` | `idp:tenant:identity-platform:viewer`<br>`idp:tenant:identity-platform:operator` | `identity-platform` |
+| Platform Engineering | `platform-engineering` | `idp:tenant:platform-engineering:viewer`<br>`idp:tenant:platform-engineering:operator` | `platform-engineering` |
+| Data Platform | `data-platform` | `idp:tenant:data-platform:viewer`<br>`idp:tenant:data-platform:operator` | `data-platform` |
 
-Native namespaces are the default isolation boundary. A viewer can inspect ordinary workload resources and logs inside its own namespace. An operator adds limited pod deletion and scale operations. Neither role is granted Secret access or RBAC mutation.
+Native namespaces are the only tenant isolation model implemented by this repository. A viewer can inspect ordinary workload resources and logs inside its own namespace. An operator adds limited pod deletion and scale operations. Neither role is granted Secret access or RBAC mutation.
+
+The access path is `IAM role -> EKS access entry -> Kubernetes group -> one or more namespaced RoleBindings`. Viewer groups bind to `idp-tenant-viewer`; operator groups bind to both `idp-tenant-viewer` and `idp-tenant-operator-actions`. The example variables use AWS IAM Identity Center roles, so a tenant user can authenticate with a matching local AWS CLI profile and verify both the intended access and the isolation boundary:
+
+```bash
+aws sso login --profile identity-platform-viewer
+aws eks update-kubeconfig \
+  --name idp-prod \
+  --region us-east-1 \
+  --profile identity-platform-viewer \
+  --alias idp-prod-identity-platform-viewer
+
+kubectl auth can-i get pods -n identity-platform       # expected: yes
+kubectl auth can-i get secrets -n identity-platform    # expected: no
+kubectl auth can-i get pods -n data-platform           # expected: no
+```
+
+Namespace-only tenancy keeps one control plane, one bootstrap path, and lower operating cost. The trade-off is a shared control-plane blast radius: tenants cannot choose an independent Kubernetes version or API server, and cluster-scoped CRDs or controllers remain platform-owned rather than tenant-owned.
 
 Each namespace receives:
 
@@ -269,7 +282,6 @@ These are implementation controls, not audit evidence. IAM behavior, admission b
 | Upbound AWS providers | `2.7.1` |
 | Function Python | `0.5.0` |
 | Argo CD Helm chart | `10.1.4` |
-| vCluster Helm chart | `0.36.1` |
 | Metrics Server chart | `3.13.1` |
 | VPC CNI | `v1.22.4-eksbuild.3` |
 | CoreDNS | `v1.14.3-eksbuild.14` |
@@ -309,8 +321,7 @@ External Secrets, Prometheus, and Kubecost chart versions are not pinned in the 
 │   │   └── local-catalog/
 │   ├── gitops/argocd/
 │   ├── observability/{prometheus,grafana,kubecost}/
-│   ├── security/{admission,kyverno-disabled}/
-│   └── vcluster/{base,host-namespaces,teams}/
+│   └── security/{admission,kyverno-disabled}/
 ├── tenants/
 │   ├── base/
 │   ├── namespaces/
@@ -338,7 +349,6 @@ make validate
 # Inspect the command graph without executing it.
 make -n cluster-up
 make -n tenant-up
-make -n vcluster-up TEAM=identity-platform
 
 # Run the read-only local catalog. PROJECTS_DIR must contain service
 # repositories with catalog-info.yaml at their top level.
@@ -369,12 +379,11 @@ The current revision was checked with:
 
 - Terraform formatting and validation for both roots.
 - YAML and JSON parsing across repository manifests.
-- Helm template rendering for vCluster `0.36.1` for all three teams.
 - rendered Golden Path checks for YAML, JavaScript, and Python.
 - JavaScript syntax checks for the local catalog.
 - local HTTP smoke tests for catalog, health, and claim-spec endpoints.
 - negative local tests confirming removed login/write endpoints return `404` and path traversal does not expose files.
-- Make dry-runs for tenant and optional-vCluster paths.
+- Make dry-runs for the cluster and tenant bootstrap paths.
 - reference searches for retired team names and portal capabilities.
 
 The EKS Terraform validation reports deprecation warnings from the downloaded `terraform-aws-modules/iam` dependency. They do not fail validation, but the module should be upgraded in a reviewed change.
@@ -397,7 +406,7 @@ The highest-priority gaps are:
 
 ## Destructive operations
 
-`make down`, `make infra-down`, and `make cluster-down` require the exact `CONFIRM_DESTROY=idp-prod` value. `cluster-down` does not explicitly delete tenant namespaces, and `vcluster-down` retains Helm history and PVCs. The full `make down` path still destroys the EKS infrastructure, so it is destructive to everything hosted on that cluster.
+`make down`, `make infra-down`, and `make cluster-down` require the exact `CONFIRM_DESTROY=idp-prod` value. `cluster-down` does not explicitly delete tenant namespaces. The full `make down` path still destroys the EKS infrastructure, so it is destructive to everything hosted on that cluster.
 
 Even with that guard, always inspect the active AWS account, kube-context, Terraform plan, backups, and rollback path before running a destructive command.
 

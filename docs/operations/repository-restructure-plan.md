@@ -3,6 +3,8 @@
 > الحالة: **مكتملة ثابتًا في 3 سبتمبر 2026.** لم تُشغّل أي عملية على AWS أو Kubernetes، وما زال `terraform plan` الحي gate منفصلة إذا ظهرت بيئة حقيقية.
 >
 > الهدف: جعل حدود Terraform وKubernetes وGitOps والـDeveloper Experience واضحة، بدون تغيير سلوك المنصة أو كسر Terraform state أو مسارات Argo CD وCI.
+>
+> تحديث 4 سبتمبر 2026: أصبحت معمارية الفرق namespace-only، وحُدثت خريطة المستودع وعقود الاختبار لتعكس المسار الحالي.
 
 ## القرار الأساسي
 
@@ -57,10 +59,9 @@
 │   │   ├── prometheus/
 │   │   ├── grafana/
 │   │   └── kubecost/
-│   ├── security/
-│   │   ├── admission/
-│   │   └── kyverno-disabled/
-│   └── vcluster/
+│   └── security/
+│       ├── admission/
+│       └── kyverno-disabled/
 ├── tenants/
 │   ├── base/
 │   ├── namespaces/
@@ -114,7 +115,6 @@
 | GitHub Actions | `apps/<team>/<service>` و`deployment.yaml` |
 | Backstage DB template | يكتب claim داخل watched claims path |
 | Make tenant bootstrap | `tenants/namespaces` و`tenants/base` و`tenants/rbac/bindings/<team>.yaml` |
-| Optional vCluster | ملف host namespace وملف values بالاسم نفسه لكل فريق |
 | Crossplane bootstrap | packages ثم definitions ثم compositions، بهذا الترتيب |
 | Terraform EKS root | يقرأ network remote state من نفس bucket/key |
 
@@ -139,12 +139,10 @@ YAML/JSON parse لكل manifests
 terraform fmt -check  # roots المنقولة؛ فحص modules الكامل مسجل منفصلًا
 terraform init -backend=false && terraform validate  # لكل root
 make -n tenant-up
-make -n vcluster-up TEAM=identity-platform
 make -n crossplane-config
 make -n argocd-up
 node --check للـlocal catalog
 Backstage template render بقيم اختبارية
-Helm render للـvCluster لكل الفرق الثلاثة
 ```
 
 الفحوص التي تحتاج cluster أو AWS لا تُعتبر ناجحة بمجرد نجاح الاختبار الثابت. نسجلها كـ`not run` حتى تتوفر بيئة اختبار مصرح بها.
@@ -174,5 +172,5 @@ Helm render للـvCluster لكل الفرق الثلاثة
 - حُذفت المجلدات المحلية الفارغة القديمة، بدون لمس `.terraform` cache أو ملفات المستخدم.
 - `terraform.md` و`issus.md` بقيا untracked ولم يدخلا أي commit.
 - نجح `terraform validate` للـnetwork والـEKS roots، ونجح `fmt -check` للـroots المنقولة. الفحص recursive الكامل ما زال يعرض formatting قديمًا في `modules/network/vpc.tf` لم نخلطه مع نقل المسارات.
-- نجح parsing لـ71 ملف YAML و10 ملفات JSON، وفحوص Bash/Node، وكل Make dry-runs، وHelm render لـvCluster للفرق الثلاثة (924 سطرًا).
+- نجح parsing لـ64 ملف YAML و6 ملفات JSON، وفحوص Bash/Node، وMake dry-runs لمسارات cluster وtenant وCrossplane وArgo CD.
 - لم يُنفذ `terraform plan` على remote backend ولم يحدث أي اتصال تغييري بـAWS/EKS.
