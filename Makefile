@@ -8,6 +8,7 @@ NC     := \033[0m
 TF_DIR := infrastructure/terraform/stacks/prod
 TEAMS := identity-platform platform-engineering data-platform
 CLUSTER_NAME ?= idp-prod
+override ESO_CHART_VERSION := 2.10.0
 
 # Destructive targets are intentionally pinned to the reviewed production
 # identity. GNU Make command-line assignments cannot override these values.
@@ -66,13 +67,24 @@ kubeconfig:
 # Deploy External Secrets Operator (ESO)
 eso-up:
 	@echo "$(GREEN)Installing External Secrets Operator...$(NC)"
-	helm repo add external-secrets https://charts.external-secrets.io --force-update || true
-	helm repo update
 	kubectl create namespace external-secrets --dry-run=client -o yaml | kubectl apply -f -
-	helm upgrade --install external-secrets external-secrets/external-secrets -n external-secrets
+	helm upgrade --install external-secrets external-secrets \
+		--repo https://charts.external-secrets.io \
+		--version $(ESO_CHART_VERSION) \
+		--namespace external-secrets \
+		--set installCRDs=true \
+		--atomic --wait --timeout 5m
 	@echo "$(GREEN)Waiting for External Secrets CRDs...$(NC)"
 	kubectl wait --for=condition=Established crd/secretstores.external-secrets.io --timeout=120s
 	kubectl wait --for=condition=Established crd/externalsecrets.external-secrets.io --timeout=120s
+	@set -eu; \
+	for crd in secretstores.external-secrets.io externalsecrets.external-secrets.io; do \
+		served="$$(kubectl get crd "$$crd" -o jsonpath='{.spec.versions[?(@.name=="v1")].served}')"; \
+		if [ "$$served" != "true" ]; then \
+			echo "$(RED)External Secrets API v1 is not served by $$crd.$(NC)"; \
+			exit 1; \
+		fi; \
+	done
 
 # Deploy Kubernetes platform components
 cluster-up: kubeconfig

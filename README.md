@@ -289,7 +289,7 @@ These are implementation controls, not audit evidence. IAM behavior, admission b
 | EBS CSI | `v1.65.0-eksbuild.1` |
 | EKS Pod Identity Agent | `v1.3.10-eksbuild.3` |
 
-External Secrets, Prometheus, and Kubecost chart versions are not pinned in the Makefile yet.
+Prometheus and Kubecost chart versions are not pinned in the Makefile yet. External Secrets is pinned and its manifests use the served `external-secrets.io/v1` API.
 
 ## Repository map
 

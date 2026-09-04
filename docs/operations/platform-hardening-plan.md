@@ -259,7 +259,7 @@ AWS IAM role
 
 #### 11. Helm dependencies غير مثبتة كلها
 
-Argo CD وCrossplane وMetrics Server مثبتة النسخ. External Secrets وPrometheus/Kubecost targets لا تحدد chart versions.
+Argo CD وCrossplane وMetrics Server وExternal Secrets مثبتة النسخ. Prometheus/Kubecost targets لا تحدد chart versions.
 
 **المستهدف:** version pins، values مراجعة، `--atomic --wait`، readiness، وسياسة تحديث دورية.
 
