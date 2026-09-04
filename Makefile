@@ -1,4 +1,4 @@
-.PHONY: help confirm-destroy infra-up infra-down kubeconfig cluster-up storage-up tenant-up admission-up vcluster-up vcluster-down eso-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
+.PHONY: help confirm-destroy infra-up infra-down kubeconfig cluster-up storage-up tenant-up admission-up eso-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -8,7 +8,6 @@ NC     := \033[0m
 TF_DIR := infrastructure/terraform/stacks/prod
 TEAMS := identity-platform platform-engineering data-platform
 CLUSTER_NAME ?= idp-prod
-VCLUSTER_CHART_VERSION := 0.36.1
 
 help:
 	@echo "Usage: make [target]"
@@ -21,8 +20,6 @@ help:
 	@echo "  tenant-up           Create and configure host-cluster tenant namespaces"
 	@echo "  admission-up        Enforce native Kubernetes workload policies"
 	@echo "  crossplane-config   Install providers, XRDs, then Compositions in order"
-	@echo "  vcluster-up          Install an optional vCluster (requires TEAM=<approved-team>)"
-	@echo "  vcluster-down        Uninstall one vCluster safely (requires TEAM=<approved-team>)"
 	@echo "  down                Destroy the environment (requires CONFIRM_DESTROY=$(CLUSTER_NAME))"
 	@echo "  status              Show cluster nodes and autoscaling status"
 	@echo "  validate            Validate Terraform configurations"
@@ -88,53 +85,6 @@ tenant-up:
 			< tenants/templates/external-secrets-service-account.yaml.tpl | kubectl apply -n $$team -f -; \
 		kubectl apply -f tenants/rbac/bindings/$$team.yaml; \
 	done
-
-# Install a vCluster only when a team explicitly needs an isolated Kubernetes API.
-vcluster-up:
-	@if [ -z "$(TEAM)" ]; then \
-		echo "$(RED)TEAM is required. Example: make vcluster-up TEAM=identity-platform$(NC)"; \
-		exit 1; \
-	fi
-	@case " $(TEAMS) " in *" $(TEAM) "*) ;; *) \
-		echo "$(RED)Unknown TEAM '$(TEAM)'. Allowed values: $(TEAMS)$(NC)"; \
-		exit 1; \
-	esac
-	@cluster="$$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}')"; \
-	cluster_name="$${cluster##*/}"; \
-	if [ "$$cluster_name" != "$(CLUSTER_NAME)" ]; then \
-		echo "$(RED)Refusing to install against context '$$cluster'; expected cluster $(CLUSTER_NAME).$(NC)"; \
-		exit 1; \
-	fi
-	@kubectl get namespace "$(TEAM)" >/dev/null
-	@kubectl get storageclass gp3 >/dev/null
-	kubectl apply -f "platform/vcluster/host-namespaces/$(TEAM).yaml"
-	helm repo add loft-sh https://charts.loft.sh --force-update
-	helm repo update loft-sh
-	helm upgrade --install "$(TEAM)" loft-sh/vcluster \
-		--version "$(VCLUSTER_CHART_VERSION)" \
-		--namespace "vcluster-$(TEAM)" \
-		--wait --atomic \
-		-f platform/vcluster/base/values.yaml \
-		-f "platform/vcluster/teams/$(TEAM).yaml"
-
-# Remove one optional vCluster without deleting its host namespace or PVCs.
-vcluster-down:
-	@if [ -z "$(TEAM)" ]; then \
-		echo "$(RED)TEAM is required. Example: make vcluster-down TEAM=identity-platform$(NC)"; \
-		exit 1; \
-	fi
-	@case " $(TEAMS) " in *" $(TEAM) "*) ;; *) \
-		echo "$(RED)Unknown TEAM '$(TEAM)'. Allowed values: $(TEAMS)$(NC)"; \
-		exit 1; \
-	esac
-	@cluster="$$(kubectl config view --minify -o jsonpath='{.contexts[0].context.cluster}')"; \
-	cluster_name="$${cluster##*/}"; \
-	if [ "$$cluster_name" != "$(CLUSTER_NAME)" ]; then \
-		echo "$(RED)Refusing to uninstall against context '$$cluster'; expected cluster $(CLUSTER_NAME).$(NC)"; \
-		exit 1; \
-	fi
-	helm status "$(TEAM)" --namespace "vcluster-$(TEAM)" >/dev/null
-	helm uninstall "$(TEAM)" --namespace "vcluster-$(TEAM)" --keep-history
 
 # Configure Crossplane in dependency order. Sub-makes keep the phases sequential
 # even when the top-level make command is invoked with parallel execution.
@@ -285,7 +235,7 @@ portal-up:
 	@echo "$(GREEN)Launching local read-only IDP catalog on http://localhost:3000...$(NC)"
 	node platform/developer-portal/local-catalog/server.js
 
-# Clean up shared platform components. Tenant namespaces and optional vClusters are preserved.
+# Clean up shared platform components. Tenant namespaces are preserved.
 cluster-down: confirm-destroy
 	kubectl delete namespace argocd monitoring external-secrets kyverno --ignore-not-found
 	kubectl delete -f platform/bootstrap/karpenter/ --ignore-not-found
