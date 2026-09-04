@@ -320,6 +320,9 @@ External Secrets, Prometheus, and Kubecost chart versions are not pinned in the 
 │   │   ├── backstage-config/
 │   │   └── local-catalog/
 │   ├── gitops/argocd/
+│   ├── operations/
+│   │   ├── tests/
+│   │   └── verify-destroy-target.sh
 │   ├── observability/{prometheus,grafana,kubecost}/
 │   └── security/{admission,kyverno-disabled}/
 ├── tenants/
@@ -349,6 +352,9 @@ make validate
 # Inspect the command graph without executing it.
 make -n cluster-up
 make -n tenant-up
+
+# Uses mock binaries only; does not contact or change AWS/Kubernetes.
+make test-destroy-guard
 
 # Run the read-only local catalog. PROJECTS_DIR must contain service
 # repositories with catalog-info.yaml at their top level.
@@ -406,7 +412,9 @@ The highest-priority gaps are:
 
 ## Destructive operations
 
-`make down`, `make infra-down`, and `make cluster-down` require the exact `CONFIRM_DESTROY=idp-prod` value. `cluster-down` does not explicitly delete tenant namespaces. The full `make down` path still destroys the EKS infrastructure, so it is destructive to everything hosted on that cluster.
+`make down`, `make infra-down`, and `make cluster-down` require the exact `CONFIRM_DESTROY=851236938302/us-east-1/idp-prod` value. The production account, region, and cluster identity are review-pinned and cannot be overridden from the Make command line.
+
+Before Terraform destroy, the guard verifies the active AWS account, passes the reviewed region and cluster inputs, forces the default workspace, and the AWS providers and S3 backends independently reject every other account. These checks prevent accidental account/input drift; they do not prove the contents of an already initialized Terraform state, so reviewing the destroy plan remains mandatory. Before any Kubernetes deletion, the guard also verifies the live EKS ARN and `ACTIVE` status. It snapshots the selected kube-context into a private temporary file, matches that snapshot's endpoint and certificate authority to EKS, checks the required delete permissions, and uses only that verified snapshot for every delete. Any missing credential, API failure, Kubernetes identity mismatch, insecure TLS context, or insufficient permission stops `cluster-down` before the first deletion. `cluster-down` does not explicitly delete tenant namespaces, but the full `make down` path destroys the EKS infrastructure and therefore everything hosted on that cluster.
 
 Even with that guard, always inspect the active AWS account, kube-context, Terraform plan, backups, and rollback path before running a destructive command.
 

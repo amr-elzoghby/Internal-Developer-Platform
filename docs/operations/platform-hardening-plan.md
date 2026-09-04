@@ -58,7 +58,9 @@ AWS
 |---|---|
 | `daf7b14` | منع teardown العادي من حذف tenant namespaces |
 | `0e4179d` | إضافة encrypted `gp3` StorageClass إلى bootstrap |
-| `5b6e326` | اشتراط `CONFIRM_DESTROY=idp-prod` قبل teardown |
+| `5b6e326` | إضافة أول confirmation guard قبل teardown؛ طُورت لاحقًا إلى تحقق كامل من هوية الهدف |
+
+الحماية الحالية تثبت account/region/cluster الخاصة بالإنتاج داخل الكود، وتتحقق من AWS caller وEKS ARN وحالة Cluster، ثم تنشئ snapshot خاصة من kubeconfig وتطابق endpoint وCA والصلاحيات قبل أي حذف. أوامر `kubectl delete` تستخدم الـsnapshot نفسها، بينما Terraform تثبت الـvariables والـdefault workspace وتستخدم `allowed_account_ids` في الـproviders والـbackends.
 
 ### 2. EKS identities وTenant RBAC
 
@@ -143,6 +145,7 @@ AWS IAM role
   - login القديم وwrite API أعادا `404`.
   - محاولة path traversal لم تكشف ملفًا.
 - `make -n` لمسارات cluster وtenant.
+- اختبارات `make test-destroy-guard` المحلية تغطي فشل التأكيد والـaccount وARN وendpoint وCA والصلاحيات، وتثبت عدم وصول أي حالة فشل إلى أمر حذف.
 - بحث شامل عن أسماء الفرق القديمة؛ بقي اسم واحد مقصود داخل ECR image URI القديمة.
 
 لم يُشغّل:

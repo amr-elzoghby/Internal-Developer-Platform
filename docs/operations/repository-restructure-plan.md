@@ -59,6 +59,9 @@
 │   │   ├── prometheus/
 │   │   ├── grafana/
 │   │   └── kubecost/
+│   ├── operations/
+│   │   ├── tests/
+│   │   └── verify-destroy-target.sh
 │   └── security/
 │       ├── admission/
 │       └── kyverno-disabled/

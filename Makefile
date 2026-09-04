@@ -1,4 +1,4 @@
-.PHONY: help confirm-destroy infra-up infra-down kubeconfig cluster-up storage-up tenant-up admission-up eso-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
+.PHONY: help confirm-destroy verify-aws-destroy-target test-destroy-guard infra-up infra-down kubeconfig cluster-up storage-up tenant-up admission-up eso-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -8,6 +8,13 @@ NC     := \033[0m
 TF_DIR := infrastructure/terraform/stacks/prod
 TEAMS := identity-platform platform-engineering data-platform
 CLUSTER_NAME ?= idp-prod
+
+# Destructive targets are intentionally pinned to the reviewed production
+# identity. GNU Make command-line assignments cannot override these values.
+override DESTROY_AWS_ACCOUNT_ID := 851236938302
+override DESTROY_AWS_REGION := us-east-1
+override DESTROY_CLUSTER_NAME := idp-prod
+override DESTROY_CONFIRMATION := $(DESTROY_AWS_ACCOUNT_ID)/$(DESTROY_AWS_REGION)/$(DESTROY_CLUSTER_NAME)
 
 help:
 	@echo "Usage: make [target]"
@@ -20,8 +27,9 @@ help:
 	@echo "  tenant-up           Create and configure host-cluster tenant namespaces"
 	@echo "  admission-up        Enforce native Kubernetes workload policies"
 	@echo "  crossplane-config   Install providers, XRDs, then Compositions in order"
-	@echo "  down                Destroy the environment (requires CONFIRM_DESTROY=$(CLUSTER_NAME))"
+	@echo "  down                Destroy the environment (requires CONFIRM_DESTROY=$(DESTROY_CONFIRMATION))"
 	@echo "  status              Show cluster nodes and autoscaling status"
+	@echo "  test-destroy-guard  Run mocked destructive-target safety tests"
 	@echo "  validate            Validate Terraform configurations"
 
 # Deploy AWS infrastructure (VPC, Subnets, EKS)
@@ -29,18 +37,27 @@ infra-up:
 	cd $(TF_DIR)/network && terraform init && terraform apply -auto-approve
 	cd $(TF_DIR)/eks && terraform init && terraform apply -auto-approve
 
-# Require the exact cluster name before any destructive platform teardown.
+# Require the full reviewed account/region/cluster identity. Read the value from
+# the recipe environment so shell metacharacters in user input are not expanded.
 confirm-destroy:
-	@if [ "$(CONFIRM_DESTROY)" != "$(CLUSTER_NAME)" ]; then \
+	@expected="$(DESTROY_CONFIRMATION)"; \
+	if [ "$${CONFIRM_DESTROY:-}" != "$$expected" ]; then \
 		echo "$(RED)Destructive operation blocked.$(NC)"; \
-		echo "Run again with CONFIRM_DESTROY=$(CLUSTER_NAME) after checking the active environment."; \
+		echo "Run again with CONFIRM_DESTROY=$$expected after checking the active environment."; \
 		exit 1; \
 	fi
 
-# Tear down EKS and network infrastructure
-infra-down: confirm-destroy
-	cd $(TF_DIR)/eks && terraform destroy -auto-approve
-	cd $(TF_DIR)/network && terraform destroy -auto-approve
+# Verify AWS credentials before Terraform can destroy either production root.
+verify-aws-destroy-target: confirm-destroy
+	@./platform/operations/verify-destroy-target.sh aws \
+		"$(DESTROY_AWS_ACCOUNT_ID)" "$(DESTROY_AWS_REGION)" "$(DESTROY_CLUSTER_NAME)"
+
+# Tear down EKS and network infrastructure only in the reviewed AWS account.
+infra-down: verify-aws-destroy-target
+	cd $(TF_DIR)/eks && TF_WORKSPACE=default terraform destroy -auto-approve \
+		-var='aws_region=$(DESTROY_AWS_REGION)' -var='cluster_name=$(DESTROY_CLUSTER_NAME)'
+	cd $(TF_DIR)/network && TF_WORKSPACE=default terraform destroy -auto-approve \
+		-var='aws_region=$(DESTROY_AWS_REGION)' -var='cluster_name=$(DESTROY_CLUSTER_NAME)'
 
 # Update local Kubernetes kubeconfig credentials
 kubeconfig:
@@ -235,18 +252,36 @@ portal-up:
 	@echo "$(GREEN)Launching local read-only IDP catalog on http://localhost:3000...$(NC)"
 	node platform/developer-portal/local-catalog/server.js
 
-# Clean up shared platform components. Tenant namespaces are preserved.
+# Clean up shared platform components. The guard returns the exact kube-context
+# it verified, and every delete stays pinned to that context. Tenant namespaces
+# are preserved.
 cluster-down: confirm-destroy
-	kubectl delete namespace argocd monitoring external-secrets kyverno --ignore-not-found
-	kubectl delete -f platform/bootstrap/karpenter/ --ignore-not-found
+	@set -eu; \
+	umask 077; \
+	source_context="$$(kubectl config current-context)"; \
+	kubeconfig_snapshot="$$(mktemp /tmp/idp-destroy-kubeconfig.XXXXXX)"; \
+	trap 'rm -f "$$kubeconfig_snapshot"' EXIT; \
+	trap 'exit 129' HUP; \
+	trap 'exit 130' INT; \
+	trap 'exit 143' TERM; \
+	kubectl --context "$$source_context" config view --minify --raw --flatten > "$$kubeconfig_snapshot"; \
+	context="$$(KUBECONFIG="$$kubeconfig_snapshot" ./platform/operations/verify-destroy-target.sh cluster \
+		"$(DESTROY_AWS_ACCOUNT_ID)" "$(DESTROY_AWS_REGION)" "$(DESTROY_CLUSTER_NAME)")"; \
+	KUBECONFIG="$$kubeconfig_snapshot" kubectl --context "$$context" delete namespace argocd monitoring external-secrets kyverno --ignore-not-found; \
+	KUBECONFIG="$$kubeconfig_snapshot" kubectl --context "$$context" delete -f platform/bootstrap/karpenter/ --ignore-not-found
 
 # Full environment bootstrap
 up: infra-up cluster-up monitoring-up
 
-# Full environment teardown. Sub-makes keep the order deterministic even with make -j.
-down: confirm-destroy
+# Full environment teardown. Each sub-target runs its own target-identity guard;
+# sub-makes keep the order deterministic even with make -j.
+down:
 	$(MAKE) cluster-down
 	$(MAKE) infra-down
+
+# Exercise every destructive guard path with local mock binaries only.
+test-destroy-guard:
+	./platform/operations/tests/verify-destroy-target.sh
 
 # View status of EKS nodes and Karpenter NodePools
 status:
