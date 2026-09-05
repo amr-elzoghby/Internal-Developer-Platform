@@ -303,9 +303,16 @@ test-destroy-guard:
 
 # View status of EKS nodes and Karpenter NodePools
 status:
-	@kubectl cluster-info 2>/dev/null || echo "$(RED)Cluster not reachable$(NC)"
-	@kubectl get nodes -o wide 2>/dev/null || echo "$(RED)No nodes found$(NC)"
-	@kubectl get nodepools 2>/dev/null || echo "$(RED)No NodePools found$(NC)"
+	kubectl cluster-info
+	kubectl get nodes -o wide
+	kubectl get nodepools
+
+.PHONY: health-check
+health-check:
+	kubectl get --raw=/readyz
+	kubectl wait --for=condition=Ready nodes --all --timeout=60s
+	kubectl wait --for=condition=Ready ec2nodeclass/default --timeout=60s
+	kubectl wait --for=condition=Available deployment --all -n argocd --timeout=60s
 
 # Validate Terraform formatting and syntax
 validate:
