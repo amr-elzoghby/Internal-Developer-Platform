@@ -289,7 +289,9 @@ These are implementation controls, not audit evidence. IAM behavior, admission b
 | EBS CSI | `v1.65.0-eksbuild.1` |
 | EKS Pod Identity Agent | `v1.3.10-eksbuild.3` |
 
-Prometheus and Kubecost chart versions are not pinned in the Makefile yet. External Secrets is pinned and its manifests use the served `external-secrets.io/v1` API.
+Prometheus (`kube-prometheus-stack` chart `89.2.2`), Kubecost (`kubecost` chart `3.2.4`), and External Secrets (`2.10.0`) are pinned. Monitoring installs use atomic rollback, readiness waits, and explicit timeouts. Kubecost 3 uses its FinOps agent; the retired cost-analyzer chart and its external Prometheus URL are no longer configured. Its cluster ID is passed from `CLUSTER_NAME`, and persistent storage uses `gp3`.
+
+Admission updates compile versioned candidate policies while the previous Deny bindings remain enforced. Candidates receive Deny bindings before the old revision is retired. Compilation failures leave the previous rules active. The archived Kyverno installer exits with failure even when invoked directly.
 
 ## Repository map
 
@@ -407,7 +409,7 @@ The highest-priority gaps are:
 7. S3 and EC2 Compositions do not yet declare the required production data and instance hardening controls.
 8. tenant HTTPS egress and RDS/Redis VPC-wide ingress are broader than the target design.
 9. Redis lacks production encryption, authentication, high availability, and backup settings.
-10. External Secrets and monitoring chart versions are unpinned.
+10. Monitoring charts render locally, but cost collection, alert delivery, and storage recovery still require a sandbox test.
 11. Backstage is configuration-only, not a runnable production portal.
 
 ## Destructive operations
