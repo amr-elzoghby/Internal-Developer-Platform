@@ -26,7 +26,7 @@ An AWS EKS platform reference implementation built around reviewed Git changes, 
 - GitHub Actions that build changed monorepo services, scan them with Trivy, push immutable ECR tags, and open a manifest-update pull request.
 - Backstage template definitions plus a lightweight, local, read-only catalog.
 
-It does **not** currently provide a fully built Backstage application, a verified live cluster, automatic deployment for the standalone Node/Python template repositories, or a working external Ingress path.
+It does **not** currently provide a fully built Backstage application, a verified live cluster, or a configured external Ingress path. Service templates now submit pull requests to this monorepo; their complete build-to-deployment flow is being validated.
 
 ## Current component status
 
@@ -176,7 +176,7 @@ Each namespace receives:
 - a restricted workload ServiceAccount with token automount disabled by default.
 - a per-tenant External Secrets IRSA identity.
 - Pod Security labels: baseline enforced; restricted audited and warned.
-- native admission rules for explicit non-`latest` images, CPU/memory requests and limits, and a team label matching the namespace.
+- native admission rules for tenant-owned ECR SHA-256 image digests, CPU/memory requests and limits, and a team label matching the namespace.
 - a default tenant NetworkPolicy that permits same-namespace traffic, DNS, and HTTPS egress.
 
 The current HTTPS egress and database Security Group rules are transitional and broader than the final target; see [Known gaps](#known-gaps).
@@ -251,7 +251,9 @@ It cannot authenticate users, enforce RBAC, write files, run Git commands, provi
 
 `platform/developer-portal/backstage-config` contains catalog/configuration material, not a self-contained Backstage application. Its Dockerfile expects a Backstage monorepo with `package.json`, `yarn.lock`, `packages`, and `plugins`, which are not present here.
 
-The Node.js and Python templates currently publish standalone repositories. They are useful scaffolds, but those repositories are not discovered by the current monorepo ApplicationSets. This integration gap remains open.
+The Node.js and Python templates open reviewed pull requests into `apps/<team>/<service>` in this repository. Both emit root deployment manifests and a Kustomize entry point that Argo CD can discover. They do not create independent repositories or run a catalog registration step before the pull request merges.
+
+Infrastructure requests declare an owner and an ownership review date, retain those values in AWS tags, and use enforced Composition references with Manual revision updates. Follow the [retained-resource lifecycle](docs/operations/crossplane-lifecycle.md) and [revision promotion](docs/operations/crossplane-revisions.md) procedures before decommissioning data or moving existing requests to a new revision.
 
 ## Security controls represented in code
 
@@ -408,7 +410,7 @@ The highest-priority gaps are:
 2. Stable EKS nodes currently target public subnets.
 3. The EKS public endpoint has no CIDR allowlist in this module.
 4. NGINX Ingress resources exist without an installed NGINX controller.
-5. standalone service templates are not connected to the monorepo Argo CD contract.
+5. The monorepo template layout is implemented; build, digest promotion, and end-to-end deployment still require validation.
 6. Crossplane provider schemas, EC2 namespaced rendering, and connection-secret keys need live canaries.
 7. S3 and EC2 Compositions do not yet declare the required production data and instance hardening controls.
 8. tenant HTTPS egress and RDS/Redis VPC-wide ingress are broader than the target design.
