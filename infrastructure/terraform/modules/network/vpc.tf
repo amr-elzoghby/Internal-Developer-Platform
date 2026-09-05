@@ -80,10 +80,16 @@ resource "aws_route_table_association" "public" {
 
 # ─── Private Route Table ──────────────────────────────────────────────────────
 resource "aws_route_table" "private" {
+  count  = length(var.availability_zones)
   vpc_id = aws_vpc.main.id
 
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.private_egress[count.index].id
+  }
+
   tags = {
-    Name = "${var.name_prefix}-private-rt"
+    Name = "${var.name_prefix}-private-${var.availability_zones[count.index]}-rt"
   }
 }
 
@@ -91,5 +97,21 @@ resource "aws_route_table_association" "private" {
   count = length(aws_subnet.private)
 
   subnet_id      = aws_subnet.private[count.index].id
-  route_table_id = aws_route_table.private.id
+  route_table_id = aws_route_table.private[count.index].id
+}
+
+# One NAT per AZ provides public registry/chart and AWS API access for private
+# workers without cross-AZ egress dependence. Interface endpoints keep AWS
+# service traffic private; NAT still has an hourly and processing cost.
+resource "aws_eip" "private_egress" {
+  count  = length(var.availability_zones)
+  domain = "vpc"
+}
+
+resource "aws_nat_gateway" "private_egress" {
+  count         = length(var.availability_zones)
+  allocation_id = aws_eip.private_egress[count.index].id
+  subnet_id     = aws_subnet.public[count.index].id
+  depends_on    = [aws_internet_gateway.main]
+  tags          = { Name = "${var.name_prefix}-nat-${var.availability_zones[count.index]}" }
 }

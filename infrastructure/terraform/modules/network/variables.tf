@@ -60,7 +60,7 @@ variable "private_subnet_cidrs" {
 
 # ─── VPC Endpoints ────────────────────────────────────────────────────────────
 variable "enable_vpc_endpoints" {
-  description = "Create VPC endpoints for private subnet access (avoids NAT Gateway costs)"
+  description = "Create private AWS service endpoints alongside NAT egress"
   type        = bool
   default     = true
 }
