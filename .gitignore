@@ -27,3 +27,13 @@ dist/
 
 # Offline Reports
 troubleshooting_report
+/issus.md
+/terraform.md
+/fixes-report.local.md
+
+# Local environment inputs, rendered manifests and reviewed plans
+.idp/
+*.tfplan
+*.tfplan.json
+__pycache__/
+*.pyc
