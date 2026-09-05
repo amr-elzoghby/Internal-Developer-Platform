@@ -6,6 +6,7 @@ RED    := \033[0;31m
 NC     := \033[0m
 
 TF_DIR := infrastructure/terraform/stacks/prod
+export TF_DIR
 TEAMS := identity-platform platform-engineering data-platform
 CLUSTER_NAME ?= idp-prod
 AWS_REGION ?= us-east-1
@@ -69,7 +70,7 @@ kubeconfig:
 	aws eks update-kubeconfig --name $(CLUSTER_NAME) --region $(AWS_REGION)
 
 # Deploy External Secrets Operator (ESO)
-eso-up:
+_eso-up:
 	@echo "$(GREEN)Installing External Secrets Operator...$(NC)"
 	kubectl create namespace external-secrets --dry-run=client -o yaml | kubectl apply -f -
 	helm upgrade --install external-secrets external-secrets \
@@ -91,7 +92,7 @@ eso-up:
 	done
 
 # Deploy Kubernetes platform components
-cluster-up: kubeconfig
+_cluster-up:
 	kubectl apply -f platform/bootstrap/karpenter/
 	$(MAKE) storage-up
 	$(MAKE) eso-up
@@ -103,15 +104,15 @@ cluster-up: kubeconfig
 
 # Configure encrypted gp3 volumes before any optional stateful tenant services.
 .PHONY: reloader-up
-reloader-up:
+_reloader-up:
 	helm upgrade --install reloader reloader --repo https://stakater.github.io/stakater-charts --version $(RELOADER_CHART_VERSION) --namespace reloader --create-namespace --values platform/bootstrap/reloader/values.yaml --atomic --wait --timeout 5m
 
-storage-up:
+_storage-up:
 	kubectl apply -f platform/bootstrap/storage/gp3.yaml
 	kubectl get storageclass gp3
 
 # Create tenant boundaries directly on the host EKS cluster.
-tenant-up:
+_tenant-up:
 	kubectl apply -f tenants/namespaces/
 	kubectl apply -f tenants/rbac/cluster-roles.yaml
 	@set -eu; \
@@ -126,14 +127,14 @@ tenant-up:
 
 # Configure Crossplane in dependency order. Sub-makes keep the phases sequential
 # even when the top-level make command is invoked with parallel execution.
-crossplane-config:
+_crossplane-config:
 	$(MAKE) crossplane-packages
 	$(MAKE) crossplane-definitions
 	$(MAKE) crossplane-compositions
 
 # Install the provider/function packages only after Crossplane's package CRDs
 # are established, then wait for the AWS ClusterProviderConfig API before use.
-crossplane-packages:
+_crossplane-packages:
 	@echo "$(GREEN)Configuring Crossplane Runtimes with dedicated IRSA roles...$(NC)"
 	@set -eu; \
 	for crd in \
@@ -184,7 +185,7 @@ crossplane-packages:
 	kubectl apply -f infrastructure/crossplane/provider-configs/provider-config.yaml
 
 # Install the direct namespaced v2 public APIs before their Compositions.
-crossplane-definitions:
+_crossplane-definitions:
 	@set -eu; \
 	for legacy_xrd in xobjectbuckets.idp.io xserverinstances.idp.io xpostgressqlinstances.idp.io xredisinstances.idp.io; do \
 		if kubectl get "xrd/$$legacy_xrd" >/dev/null 2>&1; then \
@@ -208,7 +209,7 @@ crossplane-definitions:
 
 # Render environment-specific values only after the XRD APIs exist, apply the
 # Compositions, and verify the newest generated revisions have valid pipelines.
-crossplane-compositions:
+_crossplane-compositions:
 	@echo "$(GREEN)Fetching VPC/Subnet IDs from Terraform...$(NC)"
 	@set -eu; \
 	vpc_id="$$(cd $(TF_DIR)/network && terraform output -raw vpc_id)"; \
@@ -236,7 +237,7 @@ crossplane-compositions:
 	done
 
 # Configure ArgoCD and multi-tenant GitOps
-argocd-up:
+_argocd-up:
 	@echo "$(GREEN)Installing ArgoCD...$(NC)"
 	./platform/gitops/argocd/install/install.sh
 	@echo "$(GREEN)Waiting for ArgoCD CRDs...$(NC)"
@@ -247,7 +248,7 @@ argocd-up:
 
 # Enforce policies that Kubernetes 1.36 supports natively. The installer waits
 # for CEL type-checking before it enables the deny bindings.
-admission-up:
+_admission-up:
 	@echo "$(GREEN)Installing native Kubernetes admission policies...$(NC)"
 	./platform/security/admission/install.sh
 
@@ -259,7 +260,7 @@ kyverno-up:
 	@exit 1
 
 # Configure Prometheus, Grafana, and Kubecost Monitoring & FinOps
-monitoring-up:
+_monitoring-up:
 	@echo "$(GREEN)Installing Prometheus, Grafana, and Kubecost...$(NC)"
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update
 	helm repo add kubecost https://kubecost.github.io/kubecost/ --force-update
@@ -308,13 +309,13 @@ test-destroy-guard:
 	./platform/operations/tests/verify-destroy-target.sh
 
 # View status of EKS nodes and Karpenter NodePools
-status:
+_status:
 	kubectl cluster-info
 	kubectl get nodes -o wide
 	kubectl get nodepools
 
 .PHONY: health-check
-health-check:
+_health-check:
 	kubectl get --raw=/readyz
 	kubectl wait --for=condition=Ready nodes --all --timeout=60s
 	kubectl wait --for=condition=Ready ec2nodeclass/default --timeout=60s
@@ -325,3 +326,13 @@ validate:
 	terraform fmt -check -recursive infrastructure/terraform
 	cd $(TF_DIR)/network && terraform init -backend=false && terraform validate
 	cd $(TF_DIR)/eks && terraform init -backend=false && terraform validate
+
+# Public Kubernetes entry points always use an isolated, verified EKS context.
+GUARDED_TARGETS := cluster-up eso-up tenant-up reloader-up storage-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up admission-up monitoring-up status health-check
+.PHONY: $(GUARDED_TARGETS) $(addprefix _,$(GUARDED_TARGETS)) _require-verified-context
+$(GUARDED_TARGETS):
+	python3 platform/operations/in-cluster.py make _$@
+
+$(addprefix _,$(GUARDED_TARGETS)): _require-verified-context
+_require-verified-context:
+	@test -n "$${IDP_VERIFIED_KUBECONFIG:-}" && test "$${KUBECONFIG:-}" = "$${IDP_VERIFIED_KUBECONFIG}" && test -f "$${KUBECONFIG}" || { echo 'Run the public Make target so EKS identity is verified first.' >&2; exit 1; }
