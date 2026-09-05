@@ -6,5 +6,7 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
+  owner: identity-platform
+  expiresOn: "2026-12-31"
   storageGB: 20
   size: small

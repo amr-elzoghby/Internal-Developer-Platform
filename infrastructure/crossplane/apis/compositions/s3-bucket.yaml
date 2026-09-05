@@ -19,6 +19,17 @@ spec:
 
           def compose(req, rsp):
               composite = req.observed.composite.resource
+              # Ownership survives cluster loss in AWS tags; expiry triggers review, never deletion.
+              metadata = composite["metadata"]
+              lifecycle = composite["spec"]
+              resource_tags = {
+                  "ManagedBy": "Crossplane-IDP",
+                  "Environment": "${ENVIRONMENT}",
+                  "TenantNamespace": metadata["namespace"],
+                  "ClaimName": metadata["name"],
+                  "Owner": lifecycle["owner"],
+                  "ExpiresOn": lifecycle["expiresOn"],
+              }
               spec = composite["spec"] if "spec" in composite else {}
               region = spec["region"] if "region" in spec else "us-east-1"
               bucket_name = f"idp-prod-crossplane-{composite['metadata']['uid']}"
@@ -45,10 +56,7 @@ spec:
                       },
                       "forProvider": {
                           "region": region,
-                          "tags": {
-                              "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod"
-                          }
+                          "tags": resource_tags
                       }
                   }
               }

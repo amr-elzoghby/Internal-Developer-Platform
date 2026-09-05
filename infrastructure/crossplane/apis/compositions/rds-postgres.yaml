@@ -26,6 +26,17 @@ spec:
 
           def compose(req, rsp):
               composite = req.observed.composite.resource
+              # Ownership survives cluster loss in AWS tags; expiry triggers review, never deletion.
+              metadata = composite["metadata"]
+              lifecycle = composite["spec"]
+              resource_tags = {
+                  "ManagedBy": "Crossplane-IDP",
+                  "Environment": "${ENVIRONMENT}",
+                  "TenantNamespace": metadata["namespace"],
+                  "ClaimName": metadata["name"],
+                  "Owner": lifecycle["owner"],
+                  "ExpiresOn": lifecycle["expiresOn"],
+              }
               metadata = composite["metadata"]
               spec = composite["spec"] if "spec" in composite else {}
               namespace = metadata["namespace"]
@@ -59,11 +70,7 @@ spec:
                           "region": "us-east-1",
                           "description": f"RDS security group for {namespace}/{db_name}",
                           "vpcId": "${VPC_ID}",
-                          "tags": {
-                              "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod",
-                              "TenantNamespace": namespace,
-                          },
+                          "tags": resource_tags,
                       },
                   },
               }
@@ -113,11 +120,7 @@ spec:
                           "region": "us-east-1",
                           "description": f"RDS subnet group for {namespace}/{db_name}",
                           "subnetIds": ["${PRIVATE_SUBNET_1}", "${PRIVATE_SUBNET_2}"],
-                          "tags": {
-                              "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod",
-                              "TenantNamespace": namespace,
-                          },
+                          "tags": resource_tags,
                       },
                   },
               }
@@ -161,11 +164,7 @@ spec:
                               "name": f"{db_name}-password",
                               "key": "password",
                           },
-                          "tags": {
-                              "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod",
-                              "TenantNamespace": namespace,
-                          },
+                          "tags": resource_tags,
                       },
                       "writeConnectionSecretToRef": {
                           "name": f"{db_name}-conn",

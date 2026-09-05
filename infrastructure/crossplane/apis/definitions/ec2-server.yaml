@@ -19,6 +19,14 @@ spec:
             spec:
               type: object
               properties:
+                owner:
+                  type: string
+                  description: Accountable tenant team; admission requires the namespace owner.
+                  enum: [identity-platform, platform-engineering, data-platform]
+                expiresOn:
+                  type: string
+                  format: date
+                  description: Review-by date in YYYY-MM-DD; expiry never deletes cloud resources.
                 size:
                   type: string
                   default: small
@@ -30,5 +38,7 @@ spec:
                   description: AMI ID that exists in the target AWS region.
                   pattern: '^ami-([0-9a-f]{8}|[0-9a-f]{17})$'
               required:
+                - owner
+                - expiresOn
                 - size
                 - ami

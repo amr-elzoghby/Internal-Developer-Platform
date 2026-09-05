@@ -19,6 +19,7 @@ spec:
         - storage_gb
         - size
         - owner
+        - expires_on
         - password_secret_name
       properties:
         resource_name:
@@ -49,6 +50,11 @@ spec:
             - identity-platform
             - platform-engineering
             - data-platform
+        expires_on:
+          title: Ownership review date
+          type: string
+          format: date
+          description: Review resource ownership and ongoing cost by this date; no automatic deletion.
         password_secret_name:
           title: Password secret name
           type: string
@@ -68,6 +74,7 @@ spec:
           storage_gb: ${{ parameters.storage_gb }}
           size: ${{ parameters.size }}
           owner: ${{ parameters.owner }}
+          expires_on: ${{ parameters.expires_on }}
           password_secret_name: ${{ parameters.password_secret_name }}
 
     - id: publish-pr

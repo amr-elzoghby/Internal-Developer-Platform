@@ -19,6 +19,17 @@ spec:
 
           def compose(req, rsp):
               composite = req.observed.composite.resource
+              # Ownership survives cluster loss in AWS tags; expiry triggers review, never deletion.
+              metadata = composite["metadata"]
+              lifecycle = composite["spec"]
+              resource_tags = {
+                  "ManagedBy": "Crossplane-IDP",
+                  "Environment": "${ENVIRONMENT}",
+                  "TenantNamespace": metadata["namespace"],
+                  "ClaimName": metadata["name"],
+                  "Owner": lifecycle["owner"],
+                  "ExpiresOn": lifecycle["expiresOn"],
+              }
               spec = composite["spec"] if "spec" in composite else {}
               size = spec["size"] if "size" in spec else "small"
               ami = spec["ami"]
@@ -47,10 +58,7 @@ spec:
                           "region": "us-east-1",
                           "description": "EC2 Server Security Group",
                           "vpcId": "${VPC_ID}",
-                          "tags": {
-                              "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod"
-                          }
+                          "tags": resource_tags
                       }
                   }
               }
@@ -107,11 +115,7 @@ spec:
                           "vpcSecurityGroupIdSelector": {
                               "matchControllerRef": True
                           },
-                          "tags": {
-                              "Name": "idp-developer-server",
-                              "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod"
-                          }
+                          "tags": resource_tags
                       }
                   }
               }

@@ -3,6 +3,10 @@ kind: PostgresSQLInstance
 metadata:
   name: ${{ values.resource_name }}
   namespace: ${{ values.owner }}
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
+  owner: ${{ values.owner }}
+  expiresOn: ${{ values.expires_on | dump }}
   storageGB: ${{ values.storage_gb }}
   size: ${{ values.size }}

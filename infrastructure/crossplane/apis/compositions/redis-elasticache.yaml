@@ -19,6 +19,17 @@ spec:
 
           def compose(req, rsp):
               composite = req.observed.composite.resource
+              # Ownership survives cluster loss in AWS tags; expiry triggers review, never deletion.
+              metadata = composite["metadata"]
+              lifecycle = composite["spec"]
+              resource_tags = {
+                  "ManagedBy": "Crossplane-IDP",
+                  "Environment": "${ENVIRONMENT}",
+                  "TenantNamespace": metadata["namespace"],
+                  "ClaimName": metadata["name"],
+                  "Owner": lifecycle["owner"],
+                  "ExpiresOn": lifecycle["expiresOn"],
+              }
               spec = composite["spec"] if "spec" in composite else {}
               size = spec["size"] if "size" in spec else "small"
               namespace = composite["metadata"]["namespace"]
@@ -50,10 +61,7 @@ spec:
                           "region": "us-east-1",
                           "description": "Redis Security Group",
                           "vpcId": "${VPC_ID}",
-                          "tags": {
-                              "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod"
-                          }
+                          "tags": resource_tags
                       }
                   }
               }
@@ -113,10 +121,7 @@ spec:
                           "region": "us-east-1",
                           "description": "Redis Subnet Group",
                           "subnetIds": ["${PRIVATE_SUBNET_1}", "${PRIVATE_SUBNET_2}"],
-                          "tags": {
-                              "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod"
-                          }
+                          "tags": resource_tags
                       }
                   }
               }
@@ -154,10 +159,7 @@ spec:
                               "matchControllerRef": True,
                               "namespace": namespace
                           },
-                          "tags": {
-                              "ManagedBy": "Crossplane-IDP",
-                              "Environment": "prod"
-                          }
+                          "tags": resource_tags
                       },
                       "writeConnectionSecretToRef": {
                           "name": f"{redis_name}-conn"

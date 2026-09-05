@@ -19,6 +19,14 @@ spec:
             spec:
               type: object
               properties:
+                owner:
+                  type: string
+                  description: Accountable tenant team; admission requires the namespace owner.
+                  enum: [identity-platform, platform-engineering, data-platform]
+                expiresOn:
+                  type: string
+                  format: date
+                  description: Review-by date in YYYY-MM-DD; expiry never deletes cloud resources.
                 storageGB:
                   type: integer
                   description: Allocated encrypted gp3 storage in GiB.
@@ -33,5 +41,7 @@ spec:
                     - small
                     - medium
               required:
+                - owner
+                - expiresOn
                 - storageGB
                 - size

@@ -8,5 +8,7 @@ metadata:
     platform.idp.io/ami-source: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
     platform.idp.io/ami-reviewed-at: "2026-09-01"
 spec:
+  owner: identity-platform
+  expiresOn: "2026-12-31"
   size: small
   ami: ami-081b0a6eac00b4f53
