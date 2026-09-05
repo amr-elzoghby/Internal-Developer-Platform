@@ -322,5 +322,6 @@ health-check:
 
 # Validate Terraform formatting and syntax
 validate:
+	terraform fmt -check -recursive infrastructure/terraform
 	cd $(TF_DIR)/network && terraform init -backend=false && terraform validate
 	cd $(TF_DIR)/eks && terraform init -backend=false && terraform validate
