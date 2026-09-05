@@ -10,15 +10,28 @@ output "vpc_cidr" {
 
 output "public_subnet_ids" {
   description = "IDs of the public subnets"
-  value       = aws_subnet.public[*].id
+  value       = values(aws_subnet.public)[*].id
 }
 
 output "private_subnet_ids" {
   description = "IDs of the private subnets"
-  value       = aws_subnet.private[*].id
+  value       = values(aws_subnet.private)[*].id
 }
 
 output "eks_nodes_security_group_id" {
   description = "Security group ID for EKS worker nodes"
   value       = aws_security_group.eks_nodes.id
+}
+
+output "data_subnet_ids" {
+  value = values(aws_subnet.data)[*].id
+}
+output "data_subnet_cidrs" {
+  value = [for subnet in values(var.subnet_layout) : subnet.data_cidr]
+}
+output "private_subnet_cidrs" {
+  value = [for subnet in values(var.subnet_layout) : subnet.private_cidr]
+}
+output "public_subnet_cidrs" {
+  value = [for subnet in values(var.subnet_layout) : subnet.public_cidr]
 }
