@@ -1,22 +1,22 @@
 terraform {
-  required_version = ">= 1.5.7"
+  required_version = ">= 1.11.0, < 2.0"
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 6.52, < 7.0"
+      version = "= 6.62.0"
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.12"
+      version = "= 2.17.0"
     }
     tls = {
       source  = "hashicorp/tls"
-      version = "~> 4.0"
+      version = "= 4.3.0"
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 3.7"
+      version = "= 3.9.0"
     }
   }
 }

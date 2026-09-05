@@ -65,7 +65,7 @@ resource "aws_iam_openid_connect_provider" "eks" {
 # ─── IRSA for VPC CNI (pod-level security groups) ────────────────────────────
 module "vpc_cni_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
+  version = "5.60.0"
 
   role_name             = "${var.name_prefix}-vpc-cni"
   attach_vpc_cni_policy = true
