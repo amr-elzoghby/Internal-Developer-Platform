@@ -14,9 +14,7 @@ on:
 # Every job declares only the permissions it needs.
 permissions: {}
 
-concurrency:
-  group: service-ci-${{ github.ref }}
-  cancel-in-progress: true
+# Delivery runs must finish independently; no pending-run replacement or cancellation.
 
 env:
   AWS_REGION: us-east-1
