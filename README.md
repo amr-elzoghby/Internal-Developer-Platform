@@ -293,6 +293,10 @@ Prometheus (`kube-prometheus-stack` chart `89.2.2`), Kubecost (`kubecost` chart 
 
 Admission updates compile versioned candidate policies while the previous Deny bindings remain enforced. Candidates receive Deny bindings before the old revision is retired. Compilation failures leave the previous rules active. The archived Kyverno installer exits with failure even when invoked directly.
 
+`make up` executes infrastructure, cluster configuration, and monitoring in order even under `make -j`. `make status` propagates errors; `make health-check` also checks API readiness, nodes, the Karpenter NodeClass, and Argo Deployments. `make validate` checks Terraform formatting before initialization and validation.
+
+The `gp3` StorageClass retains EBS volumes after PVC deletion; retained volumes still need inventory, backups, and an explicit decommission decision. Stakater Reloader chart `2.2.16` watches the tenant namespaces through scoped RBAC and restarts annotated workloads after referenced secrets change. See the [credential rotation and rollback procedure](docs/operations/secret-rotation.md); a restart alone does not guarantee uninterrupted database access.
+
 ## Repository map
 
 ```text
