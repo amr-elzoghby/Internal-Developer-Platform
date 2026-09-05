@@ -28,7 +28,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: app
-          image: ${{ values.image_repository }}:${{ values.image_tag }}
+          image: pending-build.invalid/${{ values.component_id }}:pending
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

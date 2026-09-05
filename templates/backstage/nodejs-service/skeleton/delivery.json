@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "mode": "source",
+  "container": "app",
+  "owner": "${{ values.owner }}",
+  "component": "${{ values.component_id }}"
+}

@@ -17,8 +17,6 @@ spec:
       required:
         - component_id
         - owner
-        - image_repository
-        - image_tag
       properties:
         component_id:
           title: Component Name
@@ -44,17 +42,6 @@ spec:
             - Identity Platform
             - Platform Engineering
             - Data Platform
-        image_repository:
-          title: Container Image Repository
-          type: string
-          description: Full registry/repository path without a tag
-          pattern: '^[^@\s]+$'
-        image_tag:
-          title: Immutable Image Tag
-          type: string
-          description: Full 40-character Git commit SHA for the prebuilt image; latest is not accepted
-          pattern: '^[0-9a-f]{40}$'
-
   steps:
     - id: fetch-skeleton
       name: Fetch Golden Path Skeleton
@@ -66,8 +53,6 @@ spec:
           description: ${{ parameters.description }}
           owner: ${{ parameters.owner }}
           namespace: ${{ parameters.owner }}
-          image_repository: ${{ parameters.image_repository }}
-          image_tag: ${{ parameters.image_tag }}
 
     - id: publish-github
       name: Open Service Pull Request
