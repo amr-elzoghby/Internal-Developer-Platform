@@ -38,18 +38,6 @@ spec:
             - Platform Engineering
             - Data Platform
 
-    - title: Git Repository Destination
-      required:
-        - repoUrl
-      properties:
-        repoUrl:
-          title: Target Repository URL
-          type: string
-          ui:field: RepoUrlPicker
-          ui:options:
-            allowedHosts:
-              - github.com
-
   steps:
     - id: fetch-skeleton
       name: Fetch Python Golden Path Skeleton
@@ -62,24 +50,18 @@ spec:
           owner: ${{ parameters.owner }}
 
     - id: publish-github
-      name: Publish Repository to GitHub
-      action: publish:github
+      name: Open Service Pull Request
+      action: publish:github:pull-request
       input:
-        description: ${{ parameters.description }}
-        repoUrl: ${{ parameters.repoUrl }}
-        defaultBranch: main
-
-    - id: register-catalog
-      name: Register Component in Backstage Catalog
-      action: catalog:register
-      input:
-        repoContentsUrl: ${{ steps['publish-github'].output.repoContentsUrl }}
-        catalogInfoPath: '/catalog-info.yaml'
+        repoUrl: github.com?owner=amr-elzoghby&repo=Internal-Developer-Platform
+        branchName: scaffold-${{ parameters.owner }}-${{ parameters.component_id }}
+        targetBranchName: main
+        targetPath: apps/${{ parameters.owner }}/${{ parameters.component_id }}
+        title: 'feat: scaffold ${{ parameters.owner }}/${{ parameters.component_id }}'
+        description: 'Review the service source and infrastructure prerequisites. Catalog registration follows merge; image publication and deployment promotion are separate reviewed steps.'
+        update: false
 
   output:
     links:
-      - title: GitHub Repository
+      - title: Review Service Pull Request
         url: ${{ steps['publish-github'].output.remoteUrl }}
-      - title: View in Catalog
-        icon: catalog
-        entityRef: ${{ steps['register-catalog'].output.entityRef }}
