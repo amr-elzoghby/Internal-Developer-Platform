@@ -1,0 +1,87 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ${{ values.component_id }}
+  namespace: ${{ values.owner }}
+  labels:
+    app: ${{ values.component_id }}
+    team: ${{ values.owner }}
+spec:
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: ${{ values.component_id }}
+  template:
+    metadata:
+      labels:
+        app: ${{ values.component_id }}
+        team: ${{ values.owner }}
+    spec:
+      serviceAccountName: tenant-workload
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: app
+          image: pending-build.invalid/${{ values.component_id }}:pending
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "8000"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ${{ values.component_id }}
+  namespace: ${{ values.owner }}
+  labels:
+    app: ${{ values.component_id }}
+    team: ${{ values.owner }}
+spec:
+  type: ClusterIP
+  ports:
+    - port: 80
+      targetPort: 8000
+  selector:
+    app: ${{ values.component_id }}
