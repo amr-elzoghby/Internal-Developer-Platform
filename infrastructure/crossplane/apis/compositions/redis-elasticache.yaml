@@ -58,7 +58,7 @@ spec:
                           "name": "default"
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "description": "Redis Security Group",
                           "vpcId": "${VPC_ID}",
                           "tags": resource_tags
@@ -85,7 +85,7 @@ spec:
                           "name": "default"
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "securityGroupIdSelector": {
                               "matchControllerRef": True,
                               "namespace": namespace
@@ -94,7 +94,7 @@ spec:
                           "fromPort": 6379,
                           "toPort": 6379,
                           "protocol": "tcp",
-                          "cidrBlocks": ["10.0.0.0/16"]
+                          "sourceSecurityGroupId": "${EKS_NODE_SECURITY_GROUP_ID}"
                       }
                   }
               }
@@ -118,9 +118,9 @@ spec:
                           "name": "default"
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "description": "Redis Subnet Group",
-                          "subnetIds": ["${PRIVATE_SUBNET_1}", "${PRIVATE_SUBNET_2}"],
+                          "subnetIds": ["${DATA_SUBNET_1}", "${DATA_SUBNET_2}"],
                           "tags": resource_tags
                       }
                   }
@@ -145,12 +145,29 @@ spec:
                           "name": "default"
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "description": "ElastiCache Redis cluster",
                           "engine": "redis",
                           "engineVersion": "7.1",
                           "nodeType": node_type,
-                          "numCacheClusters": 1,
+                          "numCacheClusters": 2,
+                          "automaticFailoverEnabled": True,
+                          "multiAzEnabled": True,
+                          # The pinned provider schema uses a string for this field.
+                          "atRestEncryptionEnabled": "true",
+                          "transitEncryptionEnabled": True,
+                          "transitEncryptionMode": "required",
+                          "autoGenerateAuthToken": True,
+                          "authTokenSecretRef": {
+                              "name": f"{redis_name}-auth",
+                              "key": "token",
+                          },
+                          "authTokenUpdateStrategy": "ROTATE",
+                          "autoMinorVersionUpgrade": "true",
+                          "snapshotRetentionLimit": 7,
+                          "snapshotWindow": "02:00-03:00",
+                          "maintenanceWindow": "sun:04:00-sun:05:00",
+                          "finalSnapshotIdentifier": f"idp-final-{metadata['uid'][:12]}",
                           "subnetGroupNameSelector": {
                               "matchControllerRef": True,
                               "namespace": namespace
