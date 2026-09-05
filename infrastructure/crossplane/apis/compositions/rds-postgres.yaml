@@ -51,8 +51,7 @@ spec:
               }
               instance_class = instance_classes[size]
 
-              # VPC-wide ingress remains transitional until Security Groups for Pods
-              # can replace the CIDR with a tenant workload security group.
+              # The node SG is the AWS boundary; tenant NetworkPolicy narrows clients.
               security_group = {
                   "apiVersion": "ec2.aws.m.upbound.io/v1beta1",
                   "kind": "SecurityGroup",
@@ -67,7 +66,7 @@ spec:
                           "name": "default",
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "description": f"RDS security group for {namespace}/{db_name}",
                           "vpcId": "${VPC_ID}",
                           "tags": resource_tags,
@@ -89,7 +88,7 @@ spec:
                           "name": "default",
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "securityGroupIdSelector": {
                               "namespace": namespace,
                               "matchControllerRef": True,
@@ -98,7 +97,7 @@ spec:
                           "fromPort": 5432,
                           "toPort": 5432,
                           "protocol": "tcp",
-                          "cidrBlocks": ["10.0.0.0/16"],
+                          "sourceSecurityGroupId": "${EKS_NODE_SECURITY_GROUP_ID}",
                       },
                   },
               }
@@ -117,9 +116,9 @@ spec:
                           "name": "default",
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "description": f"RDS subnet group for {namespace}/{db_name}",
-                          "subnetIds": ["${PRIVATE_SUBNET_1}", "${PRIVATE_SUBNET_2}"],
+                          "subnetIds": ["${DATA_SUBNET_1}", "${DATA_SUBNET_2}"],
                           "tags": resource_tags,
                       },
                   },
@@ -139,11 +138,23 @@ spec:
                           "name": "default",
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "allocatedStorage": storage,
                           "storageType": "gp3",
                           "storageEncrypted": True,
                           "backupRetentionPeriod": 7,
+                          "multiAz": True,
+                          "backupWindow": "01:00-02:00",
+                          "maintenanceWindow": "sun:03:00-sun:04:00",
+                          "skipFinalSnapshot": False,
+                          "finalSnapshotIdentifier": f"idp-final-{metadata['uid'][:12]}",
+                          "deleteAutomatedBackups": False,
+                          "monitoringInterval": 60,
+                          "monitoringRoleArn": "${RDS_MONITORING_ROLE_ARN}",
+                          "databaseInsightsMode": "standard",
+                          "performanceInsightsEnabled": True,
+                          "performanceInsightsRetentionPeriod": 7,
+                          "enabledCloudwatchLogsExports": ["postgresql", "upgrade"],
                           "copyTagsToSnapshot": True,
                           "deletionProtection": True,
                           "dbSubnetGroupNameSelector": {
