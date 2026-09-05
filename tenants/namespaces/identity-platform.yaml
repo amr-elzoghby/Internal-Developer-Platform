@@ -3,6 +3,7 @@ kind: Namespace
 metadata:
   name: identity-platform
   labels:
+    platform.idp.io/image-registry: 851236938302.dkr.ecr.us-east-1.amazonaws.com
     platform.idp.io/tenant: "true"
     platform.idp.io/workload-policy: baseline
     pod-security.kubernetes.io/enforce: baseline

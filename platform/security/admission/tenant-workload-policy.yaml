@@ -22,22 +22,18 @@ spec:
         scope: Namespaced
   validations:
     - expression: >-
+        has(namespaceObject.metadata.labels) &&
+        'platform.idp.io/image-registry' in namespaceObject.metadata.labels &&
         object.spec.containers.all(container,
-          (container.image.matches('^[^@[:space:]]+@sha256:[0-9a-f]{64}$') ||
-           (!container.image.contains('@') &&
-            container.image.matches('^[^[:space:]]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'))) &&
-          !container.image.endsWith(':latest')) &&
+          container.image.startsWith(namespaceObject.metadata.labels['platform.idp.io/image-registry'] + '/idp-' + namespaceObject.metadata.name + '-') &&
+          container.image.matches('^[^@:[:space:]]+@sha256:[0-9a-f]{64}$')) &&
         (!has(object.spec.initContainers) || object.spec.initContainers.all(container,
-          (container.image.matches('^[^@[:space:]]+@sha256:[0-9a-f]{64}$') ||
-           (!container.image.contains('@') &&
-            container.image.matches('^[^[:space:]]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'))) &&
-          !container.image.endsWith(':latest'))) &&
+          container.image.startsWith(namespaceObject.metadata.labels['platform.idp.io/image-registry'] + '/idp-' + namespaceObject.metadata.name + '-') &&
+          container.image.matches('^[^@:[:space:]]+@sha256:[0-9a-f]{64}$'))) &&
         (!has(object.spec.ephemeralContainers) || object.spec.ephemeralContainers.all(container,
-          (container.image.matches('^[^@[:space:]]+@sha256:[0-9a-f]{64}$') ||
-           (!container.image.contains('@') &&
-            container.image.matches('^[^[:space:]]+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$'))) &&
-          !container.image.endsWith(':latest')))
-      message: Every container image must use an explicit non-latest tag or a SHA-256 digest.
+          container.image.startsWith(namespaceObject.metadata.labels['platform.idp.io/image-registry'] + '/idp-' + namespaceObject.metadata.name + '-') &&
+          container.image.matches('^[^@:[:space:]]+@sha256:[0-9a-f]{64}$')))
+      message: Images must use this tenant's approved ECR repository and a SHA-256 digest.
       reason: Invalid
     - expression: >-
         object.spec.containers.all(container,
