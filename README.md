@@ -214,19 +214,19 @@ Crossplane uses direct namespaced v2 XRDs. A claim and its generated managed res
 
 | API | AWS resources generated | Current safety defaults |
 |---|---|---|
-| `ObjectBucket` | S3 Bucket | generated platform-prefixed name and management tags; explicit encryption/versioning/public-access resources are not implemented yet |
-| `ServerInstance` | EC2 Instance, Security Group, rule | private subnet, approved sizes, and AMI ID format validation; IMDSv2 and root-volume encryption are not declared yet |
-| `PostgresSQLInstance` | RDS Instance, subnet group, Security Group, rule | private, encrypted gp3, 7-day backups, deletion protection |
-| `RedisInstance` | ElastiCache Replication Group, subnet group, Security Group, rule | private subnet placement and approved sizes; further hardening required |
+| `ObjectBucket` | Bucket plus six configuration resources | public access blocked, ownership enforced, versioning, encryption, TLS-only access, safe retention |
+| `ServerInstance` | EC2 Instance, Security Group, rule | approved SSM utility image, private IP, no ingress, IMDSv2, encrypted gp3 root, scoped instance profile |
+| `PostgresSQLInstance` | RDS Instance, subnet group, Security Group, rule | isolated data subnets, node-SG ingress, Multi-AZ, encryption, backups, final snapshot, monitoring and log exports |
+| `RedisInstance` | ElastiCache Replication Group, subnet group, Security Group, rule | isolated data subnets, node-SG ingress, required TLS, auth, encryption, two-node failover and snapshots |
 
 The package layer is intentionally limited:
 
 - Crossplane Core `2.4.0`
-- Upbound AWS providers `2.7.1` for S3, EC2, RDS, and ElastiCache
+- Upbound AWS providers `2.7.0` for S3, EC2, RDS, and ElastiCache
 - Crossplane Function Python `0.5.0`
 - one `ClusterProviderConfig`
 - four dedicated IRSA roles
-- one ManagedResourceActivationPolicy activating exactly eight managed resource kinds
+- one ManagedResourceActivationPolicy activating exactly fourteen managed resource kinds
 
 Managed resources omit the `Delete` management policy. Removing a Git claim therefore does not automatically delete the cloud resource. This protects stateful resources from accidental Git pruning, but requires an explicit orphan cleanup and deletion runbook.
 
@@ -281,7 +281,7 @@ These are implementation controls, not audit evidence. IAM behavior, admission b
 | AWS provider | exact `6.62.0` across network and EKS |
 | Karpenter | `1.14.1` |
 | Crossplane | `2.4.0` |
-| Upbound AWS providers | `2.7.1` |
+| Upbound AWS providers | `2.7.0` |
 | Function Python | `0.5.0` |
 | Argo CD Helm chart | `10.1.4` |
 | Metrics Server chart | `3.13.1` |
@@ -407,14 +407,14 @@ The EKS Terraform validation reports deprecation warnings from the downloaded `t
 The highest-priority gaps are:
 
 1. No end-to-end deployment or live isolation evidence.
-2. Stable EKS nodes currently target public subnets.
+2. Stable and Karpenter workers use private subnets with NAT per AZ; capacity and private egress still need a sandbox load test.
 3. The EKS endpoint is private by default. Enabling public access requires explicitly approved CIDRs; deployment runners need connectivity to the private endpoint.
 4. NGINX Ingress resources exist without an installed NGINX controller.
 5. The monorepo template layout is implemented; build, digest promotion, and end-to-end deployment still require validation.
 6. Crossplane provider schemas, EC2 namespaced rendering, and connection-secret keys need live canaries.
-7. S3 and EC2 Compositions do not yet declare the required production data and instance hardening controls.
-8. tenant HTTPS egress and RDS/Redis VPC-wide ingress are broader than the target design.
-9. Redis lacks production encryption, authentication, high availability, and backup settings.
+7. S3 and EC2 hardening is declared and provider-schema checked; AWS reconciliation and SSM access still need canaries.
+8. RDS/Redis ingress now references the EKS node SG; tenant network isolation still needs integration testing.
+9. Redis security, failover and snapshot settings are declared; restoration and rotation remain untested live.
 10. Monitoring charts render locally, but cost collection, alert delivery, and storage recovery still require a sandbox test.
 11. Backstage is configuration-only, not a runnable production portal.
 
