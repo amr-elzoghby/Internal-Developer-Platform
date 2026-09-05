@@ -20,6 +20,7 @@ resource "aws_eks_cluster" "main" {
   version                       = var.cluster_version
   role_arn                      = aws_iam_role.eks_cluster.arn
   bootstrap_self_managed_addons = false
+  deletion_protection           = true
 
   enabled_cluster_log_types = var.cluster_log_types
 
@@ -43,6 +44,7 @@ resource "aws_eks_cluster" "main" {
   }
 
   lifecycle {
+    prevent_destroy = true
     precondition {
       condition     = var.endpoint_private_access && (!var.endpoint_public_access || length(var.public_access_cidrs) > 0)
       error_message = "Private API access must remain enabled; enabling public API requires an explicit restricted allowlist."
@@ -57,8 +59,12 @@ resource "aws_eks_cluster" "main" {
 # ─── KMS Key (encrypts K8s Secrets at rest) ──────────────────────────────────
 resource "aws_kms_key" "eks" {
   description             = "KMS key for EKS secrets encryption"
-  deletion_window_in_days = 7
+  deletion_window_in_days = 30
   enable_key_rotation     = true
+
+  lifecycle {
+    prevent_destroy = true
+  }
 
   tags = {
     Name = "${var.name_prefix}-eks-secrets-key"
