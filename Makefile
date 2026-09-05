@@ -8,6 +8,7 @@ NC     := \033[0m
 TF_DIR := infrastructure/terraform/stacks/prod
 TEAMS := identity-platform platform-engineering data-platform
 CLUSTER_NAME ?= idp-prod
+AWS_REGION ?= us-east-1
 override ESO_CHART_VERSION := 2.10.0
 override KUBECOST_CHART_VERSION := 3.2.4
 override PROMETHEUS_CHART_VERSION := 89.2.2
@@ -64,7 +65,7 @@ infra-down: verify-aws-destroy-target
 
 # Update local Kubernetes kubeconfig credentials
 kubeconfig:
-	aws eks update-kubeconfig --name idp-prod --region us-east-1
+	aws eks update-kubeconfig --name $(CLUSTER_NAME) --region $(AWS_REGION)
 
 # Deploy External Secrets Operator (ESO)
 eso-up:
@@ -285,7 +286,10 @@ cluster-down: confirm-destroy
 	KUBECONFIG="$$kubeconfig_snapshot" kubectl --context "$$context" delete -f platform/bootstrap/karpenter/ --ignore-not-found
 
 # Full environment bootstrap
-up: infra-up cluster-up monitoring-up
+up:
+	$(MAKE) infra-up
+	$(MAKE) cluster-up
+	$(MAKE) monitoring-up
 
 # Full environment teardown. Each sub-target runs its own target-identity guard;
 # sub-makes keep the order deterministic even with make -j.
