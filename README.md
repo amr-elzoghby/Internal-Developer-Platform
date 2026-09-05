@@ -253,7 +253,7 @@ It cannot authenticate users, enforce RBAC, write files, run Git commands, provi
 
 The Node.js and Python templates open reviewed pull requests into `apps/<team>/<service>` in this repository. Both emit root deployment manifests and a Kustomize entry point that Argo CD can discover. New services start with an empty resource list until a built image digest is promoted. The form does not request a prebuilt image; descriptions are serialized for their target formats and identifiers have shared length and character constraints. Delivery runs are no longer canceled when another service changes.
 
-Infrastructure requests declare an owner and an ownership review date, retain those values in AWS tags, and use enforced Composition references with Manual revision updates. Follow the [retained-resource lifecycle](docs/operations/crossplane-lifecycle.md) and [revision promotion](docs/operations/crossplane-revisions.md) procedures before decommissioning data or moving existing requests to a new revision.
+Infrastructure requests declare an owner and an ownership review date, retain those values in AWS tags, and use enforced Composition references with Manual revision updates. Retained-resource decommission requires inventory, a tested recovery copy, and explicit owner approval. Promote revisions only after a sandbox canary passes.
 
 ## Security controls represented in code
 
@@ -297,7 +297,7 @@ Admission updates compile versioned candidate policies while the previous Deny b
 
 `make up` executes infrastructure, cluster configuration, and monitoring in order even under `make -j`. `make status` propagates errors; `make health-check` also checks API readiness, nodes, the Karpenter NodeClass, and Argo Deployments. `make validate` checks Terraform formatting before initialization and validation.
 
-The `gp3` StorageClass retains EBS volumes after PVC deletion; retained volumes still need inventory, backups, and an explicit decommission decision. Stakater Reloader chart `2.2.16` watches the tenant namespaces through scoped RBAC and restarts annotated workloads after referenced secrets change. See the [credential rotation and rollback procedure](docs/operations/secret-rotation.md); a restart alone does not guarantee uninterrupted database access.
+The `gp3` StorageClass retains EBS volumes after PVC deletion; retained volumes still need inventory, backups, and an explicit decommission decision. Stakater Reloader chart `2.2.16` watches the tenant namespaces through scoped RBAC and restarts annotated workloads after referenced secrets change. Keep former credentials valid until replacement Pods pass readiness and new database connections; a restart alone does not guarantee uninterrupted access.
 
 ## Repository map
 
