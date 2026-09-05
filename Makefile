@@ -12,6 +12,7 @@ AWS_REGION ?= us-east-1
 override ESO_CHART_VERSION := 2.10.0
 override KUBECOST_CHART_VERSION := 3.2.4
 override PROMETHEUS_CHART_VERSION := 89.2.2
+override RELOADER_CHART_VERSION := 2.2.16
 
 # Destructive targets are intentionally pinned to the reviewed production
 # identity. GNU Make command-line assignments cannot override these values.
@@ -95,11 +96,16 @@ cluster-up: kubeconfig
 	$(MAKE) storage-up
 	$(MAKE) eso-up
 	$(MAKE) tenant-up
+	$(MAKE) reloader-up
 	$(MAKE) admission-up
 	$(MAKE) crossplane-config
 	$(MAKE) argocd-up
 
 # Configure encrypted gp3 volumes before any optional stateful tenant services.
+.PHONY: reloader-up
+reloader-up:
+	helm upgrade --install reloader reloader --repo https://stakater.github.io/stakater-charts --version $(RELOADER_CHART_VERSION) --namespace reloader --create-namespace --values platform/bootstrap/reloader/values.yaml --atomic --wait --timeout 5m
+
 storage-up:
 	kubectl apply -f platform/bootstrap/storage/gp3.yaml
 	kubectl get storageclass gp3

@@ -1,0 +1,24 @@
+reloader:
+  watchGlobally: false
+  namespaces:
+    - identity-platform
+    - platform-engineering
+    - data-platform
+  reloadStrategy: annotations
+  enableHA: true
+  readOnlyRootFileSystem: true
+  deployment:
+    replicas: 2
+    nodeSelector:
+      role: stable
+    tolerations:
+      - key: CriticalAddonsOnly
+        operator: Equal
+        value: "true"
+        effect: NoSchedule
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 200m, memory: 256Mi}
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
