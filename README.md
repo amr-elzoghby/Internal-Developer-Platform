@@ -251,7 +251,7 @@ It cannot authenticate users, enforce RBAC, write files, run Git commands, provi
 
 `platform/developer-portal/backstage-config` contains catalog/configuration material, not a self-contained Backstage application. Its Dockerfile expects a Backstage monorepo with `package.json`, `yarn.lock`, `packages`, and `plugins`, which are not present here.
 
-The Node.js and Python templates open reviewed pull requests into `apps/<team>/<service>` in this repository. Both emit root deployment manifests and a Kustomize entry point that Argo CD can discover. They do not create independent repositories or run a catalog registration step before the pull request merges.
+The Node.js and Python templates open reviewed pull requests into `apps/<team>/<service>` in this repository. Both emit root deployment manifests and a Kustomize entry point that Argo CD can discover. New services start with an empty resource list until a built image digest is promoted. The form does not request a prebuilt image; descriptions are serialized for their target formats and identifiers have shared length and character constraints. Delivery runs are no longer canceled when another service changes.
 
 Infrastructure requests declare an owner and an ownership review date, retain those values in AWS tags, and use enforced Composition references with Manual revision updates. Follow the [retained-resource lifecycle](docs/operations/crossplane-lifecycle.md) and [revision promotion](docs/operations/crossplane-revisions.md) procedures before decommissioning data or moving existing requests to a new revision.
 
@@ -277,8 +277,8 @@ These are implementation controls, not audit evidence. IAM behavior, admission b
 | Component | Version or constraint |
 |---|---|
 | Kubernetes / EKS | `1.36` |
-| Terraform | network `>=1.5.0`; EKS `>=1.5.7` |
-| AWS provider | network `~>5.0`; EKS `>=6.52,<7.0` |
+| Terraform | `>=1.11.0,<2.0` |
+| AWS provider | exact `6.62.0` across network and EKS |
 | Karpenter | `1.14.1` |
 | Crossplane | `2.4.0` |
 | Upbound AWS providers | `2.7.1` |
@@ -408,7 +408,7 @@ The highest-priority gaps are:
 
 1. No end-to-end deployment or live isolation evidence.
 2. Stable EKS nodes currently target public subnets.
-3. The EKS public endpoint has no CIDR allowlist in this module.
+3. The EKS endpoint is private by default. Enabling public access requires explicitly approved CIDRs; deployment runners need connectivity to the private endpoint.
 4. NGINX Ingress resources exist without an installed NGINX controller.
 5. The monorepo template layout is implemented; build, digest promotion, and end-to-end deployment still require validation.
 6. Crossplane provider schemas, EC2 namespaced rendering, and connection-secret keys need live canaries.
