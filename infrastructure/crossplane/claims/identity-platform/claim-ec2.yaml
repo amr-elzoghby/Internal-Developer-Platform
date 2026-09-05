@@ -1,16 +1,14 @@
 apiVersion: idp.io/v1alpha1
 kind: ServerInstance
 metadata:
-  name: identity-platform-web-server
+  name: identity-platform-utility-server
   namespace: identity-platform
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
-    platform.idp.io/ami-source: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
-    platform.idp.io/ami-reviewed-at: "2026-09-01"
 spec:
   crossplane:
     compositionUpdatePolicy: Manual
   owner: identity-platform
   expiresOn: "2026-12-31"
   size: small
-  ami: ami-081b0a6eac00b4f53
+  image: al2023-ssm

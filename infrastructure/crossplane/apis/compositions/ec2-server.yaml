@@ -32,7 +32,7 @@ spec:
               }
               spec = composite["spec"] if "spec" in composite else {}
               size = spec["size"] if "size" in spec else "small"
-              ami = spec["ami"]
+              ami = "${APPROVED_SERVER_AMI_ID}"
               
               # Map user size to EC2 Instance Class
               instance_type = "t3.micro"
@@ -55,7 +55,7 @@ spec:
                           "name": "default"
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "description": "EC2 Server Security Group",
                           "vpcId": "${VPC_ID}",
                           "tags": resource_tags
@@ -63,8 +63,8 @@ spec:
                   }
               }
 
-              # 1b. Ingress Rule for HTTP (Port 80)
-              sg_rule_http = {
+              # 1b. SSM uses outbound TLS; utility hosts have no inbound ports.
+              sg_rule_ssm = {
                   "apiVersion": "ec2.aws.m.upbound.io/v1beta1",
                   "kind": "SecurityGroupRule",
                   "spec": {
@@ -79,15 +79,15 @@ spec:
                           "name": "default"
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "securityGroupIdSelector": {
                               "matchControllerRef": True
                           },
-                          "type": "ingress",
-                          "fromPort": 80,
-                          "toPort": 80,
+                          "type": "egress",
+                          "fromPort": 443,
+                          "toPort": 443,
                           "protocol": "tcp",
-                          "cidrBlocks": ["10.0.0.0/16"]
+                          "cidrBlocks": ["0.0.0.0/0"]
                       }
                   }
               }
@@ -108,9 +108,25 @@ spec:
                           "name": "default"
                       },
                       "forProvider": {
-                          "region": "us-east-1",
+                          "region": "${AWS_REGION}",
                           "ami": ami,
                           "instanceType": instance_type,
+                          "associatePublicIpAddress": False,
+                          "iamInstanceProfile": "${EC2_INSTANCE_PROFILE_NAME}",
+                          "metadataOptions": {
+                              "httpEndpoint": "enabled",
+                              "httpTokens": "required",
+                              "httpPutResponseHopLimit": 1,
+                              "instanceMetadataTags": "disabled",
+                          },
+                          "rootBlockDevice": {
+                              "encrypted": True,
+                              "volumeType": "gp3",
+                              "volumeSize": 20,
+                              "deleteOnTermination": True,
+                          },
+                          "userData": "#!/bin/bash\nset -euo pipefail\nsystemctl enable --now amazon-ssm-agent\n",
+                          "userDataReplaceOnChange": True,
                           "subnetId": "${PRIVATE_SUBNET_1}",
                           "vpcSecurityGroupIdSelector": {
                               "matchControllerRef": True
@@ -136,9 +152,9 @@ spec:
                   fnv1.READY_TRUE if is_ready("server-sg") else fnv1.READY_FALSE
               )
 
-              rsp.desired.resources["server-sg-rule-http"].resource.update(sg_rule_http)
-              rsp.desired.resources["server-sg-rule-http"].ready = (
-                  fnv1.READY_TRUE if is_ready("server-sg-rule-http") else fnv1.READY_FALSE
+              rsp.desired.resources["server-sg-rule-ssm"].resource.update(sg_rule_ssm)
+              rsp.desired.resources["server-sg-rule-ssm"].ready = (
+                  fnv1.READY_TRUE if is_ready("server-sg-rule-ssm") else fnv1.READY_FALSE
               )
 
               rsp.desired.resources["ec2-instance"].resource.update(ec2)

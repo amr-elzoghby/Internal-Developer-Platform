@@ -36,12 +36,13 @@ spec:
                   enum:
                     - small
                     - medium
-                ami:
+                image:
                   type: string
-                  description: AMI ID that exists in the target AWS region.
-                  pattern: '^ami-([0-9a-f]{8}|[0-9a-f]{17})$'
+                  description: Platform-reviewed AL2023 image from the pinned Terraform catalog.
+                  default: al2023-ssm
+                  enum: [al2023-ssm]
               required:
                 - owner
                 - expiresOn
                 - size
-                - ami
+                - image
