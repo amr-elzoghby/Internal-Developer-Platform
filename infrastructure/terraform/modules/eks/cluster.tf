@@ -24,7 +24,7 @@ resource "aws_eks_cluster" "main" {
   enabled_cluster_log_types = var.cluster_log_types
 
   vpc_config {
-    subnet_ids              = concat(local.private_subnet_ids, local.public_subnet_ids)
+    subnet_ids              = local.private_subnet_ids
     endpoint_private_access = var.endpoint_private_access
     endpoint_public_access  = var.endpoint_public_access
     public_access_cidrs     = var.endpoint_public_access ? var.public_access_cidrs : null
@@ -100,7 +100,7 @@ resource "aws_eks_node_group" "stable" {
   cluster_name    = aws_eks_cluster.main.name
   node_group_name = "${var.name_prefix}-stable"
   node_role_arn   = aws_iam_role.eks_nodes.arn
-  subnet_ids      = local.public_subnet_ids
+  subnet_ids      = local.private_subnet_ids
 
   launch_template {
     id      = aws_launch_template.stable.id
