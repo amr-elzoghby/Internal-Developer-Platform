@@ -1,0 +1,5 @@
+site_name: ${{ values.component_id | dump }}
+plugins:
+  - techdocs-core
+nav:
+  - Overview: index.md

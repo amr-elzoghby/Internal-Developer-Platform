@@ -2,10 +2,12 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: ${{ values.component_id }}
-  description: ${{ values.description }}
+  description: ${{ values.description | dump }}
   annotations:
+    backstage.io/techdocs-ref: dir:.
     backstage.io/kubernetes-id: ${{ values.component_id }}
 spec:
+  system: platform-services
   type: service
   lifecycle: experimental
   owner: ${{ values.owner }}

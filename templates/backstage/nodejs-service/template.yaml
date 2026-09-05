@@ -23,7 +23,7 @@ spec:
           type: string
           description: Unique name for your microservice (e.g., payment-service)
           pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
-          maxLength: 63
+          maxLength: 40
           ui:autofocus: true
         description:
           title: Description

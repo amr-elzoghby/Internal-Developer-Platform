@@ -2,7 +2,7 @@ from fastapi import FastAPI
 
 app = FastAPI(
     title="${{ values.component_id }}",
-    description="${{ values.description }}"
+    description=${{ values.description | dump }}
 )
 
 @app.get("/")

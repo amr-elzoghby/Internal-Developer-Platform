@@ -1,7 +1,7 @@
 {
   "name": "${{ values.component_id }}",
   "version": "1.0.0",
-  "description": "${{ values.description }}",
+  "description": ${{ values.description | dump }},
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js"
