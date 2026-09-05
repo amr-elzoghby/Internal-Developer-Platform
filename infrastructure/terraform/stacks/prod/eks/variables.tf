@@ -79,3 +79,9 @@ variable "tenant_access_entries" {
     error_message = "Production requires both a viewer and an operator access entry for every tenant."
   }
 }
+
+variable "public_access_cidrs" {
+  description = "Trusted administrator egress IPv4 CIDRs; empty uses a private-only API and requires a VPC-connected runner/VPN"
+  type        = set(string)
+  default     = []
+}

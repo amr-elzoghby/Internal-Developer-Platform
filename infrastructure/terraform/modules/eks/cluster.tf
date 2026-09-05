@@ -27,6 +27,7 @@ resource "aws_eks_cluster" "main" {
     subnet_ids              = concat(local.private_subnet_ids, local.public_subnet_ids)
     endpoint_private_access = var.endpoint_private_access
     endpoint_public_access  = var.endpoint_public_access
+    public_access_cidrs     = var.endpoint_public_access ? var.public_access_cidrs : null
   }
 
   access_config {
@@ -39,6 +40,13 @@ resource "aws_eks_cluster" "main" {
       key_arn = aws_kms_key.eks.arn
     }
     resources = ["secrets"]
+  }
+
+  lifecycle {
+    precondition {
+      condition     = var.endpoint_private_access && (!var.endpoint_public_access || length(var.public_access_cidrs) > 0)
+      error_message = "Private API access must remain enabled; enabling public API requires an explicit restricted allowlist."
+    }
   }
 
   depends_on = [

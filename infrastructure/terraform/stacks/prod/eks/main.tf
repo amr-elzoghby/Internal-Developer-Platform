@@ -37,6 +37,9 @@ module "eks" {
   cluster_name    = var.cluster_name
   cluster_version = "1.36"
 
+  endpoint_public_access = length(var.public_access_cidrs) > 0
+  public_access_cidrs    = var.public_access_cidrs
+
   node_instance_type = "t3.medium"
   node_desired_size  = 2
   node_min_size      = 2

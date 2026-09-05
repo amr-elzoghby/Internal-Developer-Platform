@@ -1,3 +1,6 @@
+# Private-only by default. Set only verified static administrator egress CIDRs.
+public_access_cidrs = []
+
 platform_access_entries = {
   platform-admin = {
     principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_PlatformAdministrator_REPLACE_ME"

@@ -63,7 +63,17 @@ variable "endpoint_private_access" {
 variable "endpoint_public_access" {
   description = "Enable public API endpoint"
   type        = bool
-  default     = true
+  default     = false
+}
+
+variable "public_access_cidrs" {
+  description = "Explicit administration IPv4 allowlist; required only when the public API is enabled"
+  type        = set(string)
+  default     = []
+  validation {
+    condition     = alltrue([for cidr in var.public_access_cidrs : can(cidrnetmask(cidr)) && try(tonumber(split("/", cidr)[1]) >= 24, false)])
+    error_message = "Public API CIDRs must be IPv4 networks at least /24; internet-wide access is forbidden."
+  }
 }
 
 variable "platform_access_entries" {
