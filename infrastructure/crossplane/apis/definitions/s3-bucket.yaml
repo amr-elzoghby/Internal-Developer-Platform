@@ -4,6 +4,9 @@ metadata:
   name: objectbuckets.idp.io
 spec:
   scope: Namespaced
+  defaultCompositionUpdatePolicy: Manual
+  enforcedCompositionRef:
+    name: objectbuckets.idp.io
   group: idp.io
   names:
     kind: ObjectBucket
@@ -30,6 +33,7 @@ spec:
                 region:
                   type: string
                   default: us-east-1
+                  enum: [us-east-1]
               required:
                 - owner
                 - expiresOn

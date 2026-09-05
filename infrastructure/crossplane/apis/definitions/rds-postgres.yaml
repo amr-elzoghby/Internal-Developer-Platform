@@ -4,6 +4,9 @@ metadata:
   name: postgressqlinstances.idp.io
 spec:
   scope: Namespaced
+  defaultCompositionUpdatePolicy: Manual
+  enforcedCompositionRef:
+    name: postgressqlinstances.idp.io
   group: idp.io
   names:
     kind: PostgresSQLInstance

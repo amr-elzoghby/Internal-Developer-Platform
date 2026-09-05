@@ -6,6 +6,8 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
+  crossplane:
+    compositionUpdatePolicy: Manual
   owner: ${{ values.owner }}
   expiresOn: ${{ values.expires_on | dump }}
   storageGB: ${{ values.storage_gb }}

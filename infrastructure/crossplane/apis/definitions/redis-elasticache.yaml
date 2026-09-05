@@ -4,6 +4,9 @@ metadata:
   name: redisinstances.idp.io
 spec:
   scope: Namespaced
+  defaultCompositionUpdatePolicy: Manual
+  enforcedCompositionRef:
+    name: redisinstances.idp.io
   group: idp.io
   names:
     kind: RedisInstance

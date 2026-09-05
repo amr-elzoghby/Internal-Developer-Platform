@@ -4,6 +4,9 @@ metadata:
   name: serverinstances.idp.io
 spec:
   scope: Namespaced
+  defaultCompositionUpdatePolicy: Manual
+  enforcedCompositionRef:
+    name: serverinstances.idp.io
   group: idp.io
   names:
     kind: ServerInstance

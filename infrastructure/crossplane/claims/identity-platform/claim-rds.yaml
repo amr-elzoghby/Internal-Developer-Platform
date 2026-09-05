@@ -6,6 +6,8 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-options: Prune=false,Delete=false
 spec:
+  crossplane:
+    compositionUpdatePolicy: Manual
   owner: identity-platform
   expiresOn: "2026-12-31"
   storageGB: 20
