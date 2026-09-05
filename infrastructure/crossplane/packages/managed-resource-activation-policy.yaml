@@ -5,6 +5,12 @@ metadata:
 spec:
   activate:
     - buckets.s3.aws.m.upbound.io
+    - bucketpublicaccessblocks.s3.aws.m.upbound.io
+    - bucketownershipcontrols.s3.aws.m.upbound.io
+    - bucketversionings.s3.aws.m.upbound.io
+    - bucketserversideencryptionconfigurations.s3.aws.m.upbound.io
+    - bucketlifecycleconfigurations.s3.aws.m.upbound.io
+    - bucketpolicies.s3.aws.m.upbound.io
     - instances.ec2.aws.m.upbound.io
     - securitygroups.ec2.aws.m.upbound.io
     - securitygrouprules.ec2.aws.m.upbound.io

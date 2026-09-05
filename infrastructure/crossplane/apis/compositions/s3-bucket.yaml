@@ -15,6 +15,7 @@ spec:
         apiVersion: python.fn.crossplane.io/v1beta1
         kind: Script
         script: |
+          import json
           from crossplane.function.proto.v1 import run_function_pb2 as fnv1
 
           def compose(req, rsp):
@@ -32,7 +33,7 @@ spec:
               }
               spec = composite["spec"] if "spec" in composite else {}
               region = spec["region"] if "region" in spec else "us-east-1"
-              bucket_name = f"idp-prod-crossplane-{composite['metadata']['uid']}"
+              bucket_name = f"${RESOURCE_NAME_PREFIX}-crossplane-{composite['metadata']['uid']}"
 
               bucket = {
                   "apiVersion": "s3.aws.m.upbound.io/v1beta1",
@@ -56,6 +57,7 @@ spec:
                       },
                       "forProvider": {
                           "region": region,
+                          "forceDestroy": False,
                           "tags": resource_tags
                       }
                   }
@@ -76,7 +78,67 @@ spec:
                               return True
                   return False
 
-              rsp.desired.resources["bucket"].resource.update(bucket)
-              rsp.desired.resources["bucket"].ready = (
-                  fnv1.READY_TRUE if is_ready("bucket") else fnv1.READY_FALSE
-              )
+              def bucket_control(kind, settings):
+                  return {
+                      "apiVersion": "s3.aws.m.upbound.io/v1beta1",
+                      "kind": kind,
+                      "metadata": {"namespace": metadata["namespace"]},
+                      "spec": {
+                          "managementPolicies": ["Create", "Observe", "Update", "LateInitialize"],
+                          "providerConfigRef": {"kind": "ClusterProviderConfig", "name": "default"},
+                          "forProvider": {
+                              "region": region,
+                              "bucketSelector": {
+                                  "namespace": metadata["namespace"],
+                                  "matchControllerRef": True,
+                              },
+                              **settings,
+                          },
+                      },
+                  }
+
+              resources = {
+                  "bucket": bucket,
+                  "public-access-block": bucket_control("BucketPublicAccessBlock", {
+                      "blockPublicAcls": True,
+                      "blockPublicPolicy": True,
+                      "ignorePublicAcls": True,
+                      "restrictPublicBuckets": True,
+                  }),
+                  "ownership": bucket_control("BucketOwnershipControls", {
+                      "rule": {"objectOwnership": "BucketOwnerEnforced"},
+                  }),
+                  "versioning": bucket_control("BucketVersioning", {
+                      "versioningConfiguration": {"status": "Enabled"},
+                  }),
+                  "encryption": bucket_control("BucketServerSideEncryptionConfiguration", {
+                      "rule": [{"applyServerSideEncryptionByDefault": {"sseAlgorithm": "AES256"}}],
+                  }),
+                  # Never expire completed versions without a data-owner retention decision.
+                  "lifecycle": bucket_control("BucketLifecycleConfiguration", {
+                      "rule": [{
+                          "id": "abort-incomplete-uploads",
+                          "status": "Enabled",
+                          "filter": [{"prefix": ""}],
+                          "abortIncompleteMultipartUpload": [{"daysAfterInitiation": 7}],
+                      }],
+                  }),
+                  "tls-policy": bucket_control("BucketPolicy", {
+                      "policy": json.dumps({
+                          "Version": "2012-10-17",
+                          "Statement": [{
+                              "Sid": "DenyInsecureTransport",
+                              "Effect": "Deny",
+                              "Principal": "*",
+                              "Action": "s3:*",
+                              "Resource": [f"arn:aws:s3:::{bucket_name}", f"arn:aws:s3:::{bucket_name}/*"],
+                              "Condition": {"Bool": {"aws:SecureTransport": "false"}},
+                          }],
+                      }),
+                  }),
+              }
+              for name, resource in resources.items():
+                  rsp.desired.resources[name].resource.update(resource)
+                  rsp.desired.resources[name].ready = (
+                      fnv1.READY_TRUE if is_ready(name) else fnv1.READY_FALSE
+                  )
