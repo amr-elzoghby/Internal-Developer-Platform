@@ -9,6 +9,7 @@ TF_DIR := infrastructure/terraform/stacks/prod
 TEAMS := identity-platform platform-engineering data-platform
 CLUSTER_NAME ?= idp-prod
 override ESO_CHART_VERSION := 2.10.0
+override KUBECOST_CHART_VERSION := 3.2.4
 
 # Destructive targets are intentionally pinned to the reviewed production
 # identity. GNU Make command-line assignments cannot override these values.
@@ -253,11 +254,11 @@ kyverno-up:
 monitoring-up:
 	@echo "$(GREEN)Installing Prometheus, Grafana, and Kubecost...$(NC)"
 	helm repo add prometheus-community https://prometheus-community.github.io/helm-charts --force-update || true
-	helm repo add kubecost https://kubecost.github.io/cost-analyzer/ --force-update || true
+	helm repo add kubecost https://kubecost.github.io/kubecost/ --force-update
 	helm repo update
 	kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 	helm upgrade --install prometheus prometheus-community/kube-prometheus-stack -n monitoring -f platform/observability/prometheus/values.yaml
-	helm upgrade --install kubecost kubecost/cost-analyzer -n monitoring -f platform/observability/kubecost/values.yaml
+	helm upgrade --install kubecost kubecost/kubecost --version $(KUBECOST_CHART_VERSION) -n monitoring -f platform/observability/kubecost/values.yaml --set-string global.clusterId=$(CLUSTER_NAME) --atomic --wait --timeout 15m
 
 # Launch the lightweight local catalog. This is not the Backstage backend.
 portal-up:

@@ -1,19 +1,10 @@
-# Kubecost Cost Allocation & FinOps Configuration
-kubecostToken: "c2hvcHNjYWxlLWlkcC1maW5vcHMtdG9rZW4="
-
+# Fresh installation of kubecost/kubecost 3.2.4. The 3.x FinOps agent
+# collects metrics directly; the retired 2.x Prometheus URL is not consumed.
 global:
-  prometheus:
-    enabled: false
-    fqdn: http://prometheus-k8s.monitoring.svc.cluster.local:9090
-
-kubecostProductConfigs:
-  clusterName: shopscale-eks-production
-  currencyCode: USD
-  labelMappingConfigs:
-    namespaceExternalizer: "team"
-    clusterExternalizer: "cluster"
-
-costAnalyzer:
-  serviceAccount:
-    create: true
-    name: kubecost-cost-analyzer
+  clusterId: idp-prod
+  defaultStorageClass: gp3
+frontend:
+  service:
+    type: ClusterIP
+networkCosts:
+  enabled: false
