@@ -170,15 +170,8 @@ _crossplane-packages:
 	kubectl wait --for=condition=Healthy function.pkg.crossplane.io/function-python --timeout=600s
 	kubectl wait --for=condition=Healthy managedresourceactivationpolicy/idp-aws-resources --timeout=300s
 	@set -eu; \
-	for crd in \
-		buckets.s3.aws.m.upbound.io \
-		instances.ec2.aws.m.upbound.io \
-		securitygroups.ec2.aws.m.upbound.io \
-		securitygrouprules.ec2.aws.m.upbound.io \
-		instances.rds.aws.m.upbound.io \
-		subnetgroups.rds.aws.m.upbound.io \
-		replicationgroups.elasticache.aws.m.upbound.io \
-		subnetgroups.elasticache.aws.m.upbound.io; do \
+	crds="$$(python3 -c 'import yaml; print(" ".join(yaml.safe_load(open("infrastructure/crossplane/packages/managed-resource-activation-policy.yaml"))["spec"]["activate"]))')"; \
+	for crd in $$crds; do \
 		kubectl wait --for=condition=Established "crd/$$crd" --timeout=300s; \
 	done
 	kubectl wait --for=condition=Established crd/clusterproviderconfigs.aws.m.upbound.io --timeout=300s
@@ -210,19 +203,10 @@ _crossplane-definitions:
 # Render environment-specific values only after the XRD APIs exist, apply the
 # Compositions, and verify the newest generated revisions have valid pipelines.
 _crossplane-compositions:
-	@echo "$(GREEN)Fetching VPC/Subnet IDs from Terraform...$(NC)"
 	@set -eu; \
-	vpc_id="$$(cd $(TF_DIR)/network && terraform output -raw vpc_id)"; \
-	private_subnets="$$(cd $(TF_DIR)/network && terraform output -json private_subnet_ids)"; \
-	private_subnet_1="$$(printf '%s' "$$private_subnets" | python3 -c 'import json, sys; subnets = json.load(sys.stdin); assert len(subnets) >= 2, "at least two private subnets are required"; print(subnets[0])')"; \
-	private_subnet_2="$$(printf '%s' "$$private_subnets" | python3 -c 'import json, sys; subnets = json.load(sys.stdin); assert len(subnets) >= 2, "at least two private subnets are required"; print(subnets[1])')"; \
-	echo "$(GREEN)VPC: $$vpc_id | Subnets: $$private_subnet_1, $$private_subnet_2$(NC)"; \
 	render_dir="$$(mktemp -d /tmp/idp-crossplane.XXXXXX)"; \
 	trap 'rm -rf "$$render_dir"' EXIT HUP INT TERM; \
-	for file in infrastructure/crossplane/apis/compositions/*.yaml; do \
-		VPC_ID="$$vpc_id" PRIVATE_SUBNET_1="$$private_subnet_1" PRIVATE_SUBNET_2="$$private_subnet_2" \
-			envsubst '$$VPC_ID $$PRIVATE_SUBNET_1 $$PRIVATE_SUBNET_2' < "$$file" > "$$render_dir/$$(basename "$$file")"; \
-	done; \
+	python3 platform/operations/render-platform.py compositions --output-dir "$$render_dir"; \
 	kubectl apply -f "$$render_dir/"
 	@set -eu; \
 	for composition in \
