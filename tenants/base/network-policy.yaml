@@ -4,9 +4,7 @@ metadata:
   name: deny-inter-namespace
 spec:
   podSelector: {}
-  policyTypes:
-    - Ingress
-    - Egress
+  policyTypes: [Ingress, Egress]
   ingress:
     - from:
         - podSelector: {}
@@ -15,6 +13,9 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
       ports:
         - protocol: UDP
           port: 53
@@ -22,9 +23,48 @@ spec:
           port: 53
     - to:
         - podSelector: {}
-    - to:
-        - ipBlock:
-            cidr: 0.0.0.0/0
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-postgres-clients
+spec:
+  podSelector:
+    matchLabels:
+      platform.idp.io/postgres-client: "true"
+  policyTypes: [Egress]
+  egress:
+    - to: ${DATA_SUBNET_PEERS}
       ports:
         - protocol: TCP
-          port: 443
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-clients
+spec:
+  podSelector:
+    matchLabels:
+      platform.idp.io/redis-client: "true"
+  policyTypes: [Egress]
+  egress:
+    - to: ${DATA_SUBNET_PEERS}
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-alb-targets
+spec:
+  podSelector:
+    matchLabels:
+      platform.idp.io/alb-target: "true"
+  policyTypes: [Ingress]
+  ingress:
+    - from: ${PUBLIC_SUBNET_PEERS}
+      ports:
+        - protocol: TCP
+          port: http

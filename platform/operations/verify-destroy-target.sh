@@ -100,8 +100,8 @@ fi
 [[ "$kube_ca" == "$actual_cluster_ca" ]] || fail \
   "kubectl context ${kube_context} does not use the EKS cluster certificate authority"
 
-kubectl --context "$kube_context" auth can-i delete namespaces --quiet >/dev/null || fail \
-  "the current Kubernetes identity cannot delete namespaces"
+kubectl --context "$kube_context" auth can-i delete deployments --all-namespaces --quiet >/dev/null || fail \
+  "the current Kubernetes identity cannot uninstall platform deployments"
 kubectl --context "$kube_context" auth can-i delete nodepools.karpenter.sh --quiet >/dev/null || fail \
   "the current Kubernetes identity cannot delete Karpenter NodePools"
 kubectl --context "$kube_context" auth can-i delete ec2nodeclasses.karpenter.k8s.aws --quiet >/dev/null || fail \

@@ -1,27 +1,19 @@
 #!/usr/bin/env python3
 """Run a command against an independently verified, private EKS kubeconfig."""
 import json
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
 
-import re
-
-
 def read_environment():
-    # Terraform is the existing environment source of truth; do not maintain a
-    # second configuration file that can drift from the actual EKS identity.
-    root = os.environ.get("TF_DIR", "infrastructure/terraform/stacks/prod")
-    result = subprocess.run(["terraform", f"-chdir={root}/eks", "output", "-json", "platform_context"],
-                            check=True, capture_output=True, text=True)
-    config = json.loads(result.stdout)
-    for key, pattern in {"aws_account_id": r"[0-9]{12}", "aws_region": r"[a-z]{2}-[a-z]+-[0-9]+",
-                         "cluster_name": r"[A-Za-z0-9][A-Za-z0-9_-]{0,99}"}.items():
-        if not re.fullmatch(pattern, str(config.get(key, ""))):
-            raise ValueError(f"Missing or invalid Terraform platform_context field: {key}")
-    return config
+    path = Path(__file__).with_name("render-platform.py")
+    spec = importlib.util.spec_from_file_location("platform_output", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module.terraform_output("eks", "platform_context")
 
 
 def aws_json(*args):
@@ -61,7 +53,8 @@ def main():
         path = Path(directory) / "kubeconfig.json"
         path.write_text(json.dumps(snapshot))
         path.chmod(0o600)
-        env = {**os.environ, "KUBECONFIG": str(path), "IDP_VERIFIED_KUBECONFIG": str(path), "AWS_PAGER": ""}
+        env = {**os.environ, "KUBECONFIG": str(path), "IDP_VERIFIED_KUBECONFIG": str(path), "AWS_PAGER": "",
+               "CLUSTER_NAME": config["cluster_name"], "AWS_REGION": config["aws_region"]}
         subprocess.run(["kubectl", "get", "--raw=/readyz"], env=env, check=True)
         result = subprocess.run(sys.argv[1:], env=env, check=False)
         raise SystemExit(result.returncode)

@@ -26,7 +26,11 @@ help:
 	@echo "Usage: make [target]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  up                  Deploy all AWS infra and K8s platform configs"
+	@echo "  up                  Bootstrap Kubernetes on reviewed AWS infrastructure"
+	@echo "  infra-plan          Save a plan for STACK=state, network, eks, or controllers"
+	@echo "  infra-apply         Apply STACK with APPROVE_PLAN_SHA256 after review"
+	@echo "  platform-render     Render nonsecret bootstrap manifests for a Git review"
+	@echo "  platform-bootstrap-up  Attach Argo CD to the merged bootstrap bundle"
 	@echo "  portal-up           Launch the local read-only catalog on http://localhost:3000"
 	@echo "  monitoring-up       Deploy Prometheus, Grafana, and Kubecost FinOps stack"
 	@echo "  storage-up          Apply the encrypted gp3 StorageClass"
@@ -38,10 +42,17 @@ help:
 	@echo "  test-destroy-guard  Run mocked destructive-target safety tests"
 	@echo "  validate            Validate Terraform configurations"
 
-# Deploy AWS infrastructure (VPC, Subnets, EKS)
-infra-up:
-	cd $(TF_DIR)/network && terraform init && terraform apply -auto-approve
-	cd $(TF_DIR)/eks && terraform init && terraform apply -auto-approve
+# Infrastructure is reviewed one dependency layer at a time: state bootstrap,
+# network, EKS, then controllers. An exact saved-plan approval is mandatory.
+STACK ?=
+PLAN_MODE ?= apply
+export STACK PLAN_MODE
+.PHONY: infra-plan infra-apply
+infra-plan:
+	@if [ "$$PLAN_MODE" = destroy ]; then python3 platform/operations/terraform-plan.py plan --stack "$$STACK" --destroy; elif [ "$$PLAN_MODE" = apply ]; then python3 platform/operations/terraform-plan.py plan --stack "$$STACK"; else echo 'PLAN_MODE must be apply or destroy' >&2; exit 2; fi
+infra-apply:
+	@if [ "$$PLAN_MODE" = destroy ]; then python3 platform/operations/terraform-plan.py apply --stack "$$STACK" --destroy; elif [ "$$PLAN_MODE" = apply ]; then python3 platform/operations/terraform-plan.py apply --stack "$$STACK"; else echo 'PLAN_MODE must be apply or destroy' >&2; exit 2; fi
+infra-up: infra-apply
 
 # Require the full reviewed account/region/cluster identity. Read the value from
 # the recipe environment so shell metacharacters in user input are not expanded.
@@ -58,12 +69,11 @@ verify-aws-destroy-target: confirm-destroy
 	@./platform/operations/verify-destroy-target.sh aws \
 		"$(DESTROY_AWS_ACCOUNT_ID)" "$(DESTROY_AWS_REGION)" "$(DESTROY_CLUSTER_NAME)"
 
-# Tear down EKS and network infrastructure only in the reviewed AWS account.
+# Teardown requires separately reviewed plans in reverse dependency order.
 infra-down: verify-aws-destroy-target
-	cd $(TF_DIR)/eks && TF_WORKSPACE=default terraform destroy -auto-approve \
-		-var='aws_region=$(DESTROY_AWS_REGION)' -var='cluster_name=$(DESTROY_CLUSTER_NAME)'
-	cd $(TF_DIR)/network && TF_WORKSPACE=default terraform destroy -auto-approve \
-		-var='aws_region=$(DESTROY_AWS_REGION)' -var='cluster_name=$(DESTROY_CLUSTER_NAME)'
+	@echo 'Create and review destroy plans with make infra-plan PLAN_MODE=destroy STACK=controllers, then eks, then network.' >&2
+	@echo 'Apply each exact plan with make infra-apply PLAN_MODE=destroy STACK=... and APPROVE_PLAN_SHA256.' >&2
+	@exit 2
 
 # Update local Kubernetes kubeconfig credentials
 kubeconfig:
@@ -93,7 +103,7 @@ _eso-up:
 
 # Deploy Kubernetes platform components
 _cluster-up:
-	kubectl apply -f platform/bootstrap/karpenter/
+	@set -eu; rendered="$$(python3 platform/operations/render-platform.py --scope karpenter)"; printf '%s\n' "$$rendered" | kubectl apply -f -
 	$(MAKE) storage-up
 	$(MAKE) eso-up
 	$(MAKE) tenant-up
@@ -113,17 +123,7 @@ _storage-up:
 
 # Create tenant boundaries directly on the host EKS cluster.
 _tenant-up:
-	kubectl apply -f tenants/namespaces/
-	kubectl apply -f tenants/rbac/cluster-roles.yaml
-	@set -eu; \
-	roles="$$(cd $(TF_DIR)/eks && terraform output -json tenant_external_secrets_role_arns)"; \
-	for team in $(TEAMS); do \
-		kubectl apply -f tenants/base/ -n $$team; \
-		role_arn="$$(echo "$$roles" | python3 -c 'import json, sys; print(json.load(sys.stdin)[sys.argv[1]])' "$$team")"; \
-		EXTERNAL_SECRETS_ROLE_ARN="$$role_arn" envsubst '$$EXTERNAL_SECRETS_ROLE_ARN' \
-			< tenants/templates/external-secrets-service-account.yaml.tpl | kubectl apply -n $$team -f -; \
-		kubectl apply -f tenants/rbac/bindings/$$team.yaml; \
-	done
+	@set -eu; rendered="$$(python3 platform/operations/render-platform.py --scope tenants)"; printf '%s\n' "$$rendered" | kubectl apply -f -
 
 # Configure Crossplane in dependency order. Sub-makes keep the phases sequential
 # even when the top-level make command is invoked with parallel execution.
@@ -147,18 +147,7 @@ _crossplane-packages:
 		managedresourceactivationpolicies.apiextensions.crossplane.io; do \
 		kubectl wait --for=condition=Established "crd/$$crd" --timeout=180s; \
 	done
-	@set -eu; \
-	role_arns="$$(cd $(TF_DIR)/eks && terraform output -json crossplane_provider_role_arns)"; \
-	s3_role_arn="$$(printf '%s' "$$role_arns" | python3 -c 'import json, sys; print(json.load(sys.stdin)["s3"])')"; \
-	rds_role_arn="$$(printf '%s' "$$role_arns" | python3 -c 'import json, sys; print(json.load(sys.stdin)["rds"])')"; \
-	elasticache_role_arn="$$(printf '%s' "$$role_arns" | python3 -c 'import json, sys; print(json.load(sys.stdin)["elasticache"])')"; \
-	ec2_role_arn="$$(printf '%s' "$$role_arns" | python3 -c 'import json, sys; print(json.load(sys.stdin)["ec2"])')"; \
-	CROSSPLANE_S3_ROLE_ARN="$$s3_role_arn" \
-	CROSSPLANE_RDS_ROLE_ARN="$$rds_role_arn" \
-	CROSSPLANE_ELASTICACHE_ROLE_ARN="$$elasticache_role_arn" \
-	CROSSPLANE_EC2_ROLE_ARN="$$ec2_role_arn" \
-	envsubst '$$CROSSPLANE_S3_ROLE_ARN $$CROSSPLANE_RDS_ROLE_ARN $$CROSSPLANE_ELASTICACHE_ROLE_ARN $$CROSSPLANE_EC2_ROLE_ARN' \
-		< infrastructure/crossplane/packages/deployment-runtime-config.yaml | kubectl apply -f -
+	@set -eu; rendered="$$(python3 platform/operations/render-platform.py --scope runtimes)"; printf '%s\n' "$$rendered" | kubectl apply -f -
 	kubectl apply -f infrastructure/crossplane/packages/managed-resource-activation-policy.yaml
 	kubectl apply -f infrastructure/crossplane/packages/providers.yaml
 	@set -eu; \
@@ -203,11 +192,7 @@ _crossplane-definitions:
 # Render environment-specific values only after the XRD APIs exist, apply the
 # Compositions, and verify the newest generated revisions have valid pipelines.
 _crossplane-compositions:
-	@set -eu; \
-	render_dir="$$(mktemp -d /tmp/idp-crossplane.XXXXXX)"; \
-	trap 'rm -rf "$$render_dir"' EXIT HUP INT TERM; \
-	python3 platform/operations/render-platform.py compositions --output-dir "$$render_dir"; \
-	kubectl apply -f "$$render_dir/"
+	@set -eu; rendered="$$(python3 platform/operations/render-platform.py --scope compositions)"; printf '%s\n' "$$rendered" | kubectl apply -f -
 	@set -eu; \
 	for composition in \
 		objectbuckets.idp.io \
@@ -222,13 +207,24 @@ _crossplane-compositions:
 
 # Configure ArgoCD and multi-tenant GitOps
 _argocd-up:
+	@python3 platform/operations/render-platform.py --scope gitops >/dev/null
 	@echo "$(GREEN)Installing ArgoCD...$(NC)"
 	./platform/gitops/argocd/install/install.sh
 	@echo "$(GREEN)Waiting for ArgoCD CRDs...$(NC)"
 	kubectl wait --for=condition=Established crd/applicationsets.argoproj.io --timeout=120s
 	@echo "$(GREEN)Applying ArgoCD Projects and ApplicationSets...$(NC)"
-	kubectl apply -f platform/gitops/argocd/projects/
-	kubectl apply -f platform/gitops/argocd/applicationsets/
+	@set -eu; rendered="$$(python3 platform/operations/render-platform.py --scope gitops)"; printf '%s\n' "$$rendered" | kubectl apply -f -
+
+.PHONY: platform-render
+platform-render:
+	python3 platform/operations/render-platform.py --scope bundle --output-dir platform/gitops/argocd/bootstrap
+
+_platform-bootstrap-up:
+	@python3 platform/operations/render-platform.py --scope gitops >/dev/null
+	@test -s platform/gitops/argocd/bootstrap/manifest.yaml || { echo 'Render and merge the bootstrap bundle first.' >&2; exit 1; }
+	@git ls-files --error-unmatch platform/gitops/argocd/bootstrap/manifest.yaml >/dev/null
+	kubectl apply -f platform/gitops/argocd/projects/platform-bootstrap.yaml
+	kubectl apply -f platform/gitops/argocd/platform-bootstrap.yaml
 
 # Enforce policies that Kubernetes 1.36 supports natively. The installer waits
 # for CEL type-checking before it enables the deny bindings.
@@ -251,6 +247,7 @@ _monitoring-up:
 	helm repo update
 	kubectl create namespace monitoring --dry-run=client -o yaml | kubectl apply -f -
 	helm upgrade --install prometheus prometheus-community/kube-prometheus-stack --version $(PROMETHEUS_CHART_VERSION) -n monitoring -f platform/observability/prometheus/values.yaml --atomic --wait --timeout 15m
+	kubectl apply -k platform/observability/grafana
 	helm upgrade --install kubecost kubecost/kubecost --version $(KUBECOST_CHART_VERSION) -n monitoring -f platform/observability/kubecost/values.yaml --set-string global.clusterId=$(CLUSTER_NAME) --atomic --wait --timeout 15m
 
 # Launch the lightweight local catalog. This is not the Backstage backend.
@@ -258,9 +255,8 @@ portal-up:
 	@echo "$(GREEN)Launching local read-only IDP catalog on http://localhost:3000...$(NC)"
 	node platform/developer-portal/local-catalog/server.js
 
-# Clean up shared platform components. The guard returns the exact kube-context
-# it verified, and every delete stays pinned to that context. Tenant namespaces
-# are preserved.
+# Stop GitOps before uninstalling its dependencies. Preserve namespaces, CRDs,
+# claims and monitoring PVCs; Terraform owns the remaining core controllers.
 cluster-down: confirm-destroy
 	@set -eu; \
 	umask 077; \
@@ -273,20 +269,24 @@ cluster-down: confirm-destroy
 	kubectl --context "$$source_context" config view --minify --raw --flatten > "$$kubeconfig_snapshot"; \
 	context="$$(KUBECONFIG="$$kubeconfig_snapshot" ./platform/operations/verify-destroy-target.sh cluster \
 		"$(DESTROY_AWS_ACCOUNT_ID)" "$(DESTROY_AWS_REGION)" "$(DESTROY_CLUSTER_NAME)")"; \
-	KUBECONFIG="$$kubeconfig_snapshot" kubectl --context "$$context" delete namespace argocd monitoring external-secrets kyverno --ignore-not-found; \
-	KUBECONFIG="$$kubeconfig_snapshot" kubectl --context "$$context" delete -f platform/bootstrap/karpenter/ --ignore-not-found
+	command -v helm >/dev/null; \
+	for release_namespace in argocd:argocd kubecost:monitoring prometheus:monitoring reloader:reloader external-secrets:external-secrets kyverno:kyverno; do \
+		release="$${release_namespace%%:*}"; namespace="$${release_namespace#*:}"; \
+		KUBECONFIG="$$kubeconfig_snapshot" helm uninstall "$$release" --namespace "$$namespace" \
+			--kube-context "$$context" --ignore-not-found --cascade foreground --wait --timeout 10m; \
+	done; \
+	KUBECONFIG="$$kubeconfig_snapshot" kubectl --context "$$context" delete -f platform/bootstrap/karpenter/node-pool.yaml --ignore-not-found --wait=true --timeout=10m; \
+	KUBECONFIG="$$kubeconfig_snapshot" kubectl --context "$$context" delete -f platform/bootstrap/karpenter/node-class.yaml --ignore-not-found --wait=true --timeout=10m
 
-# Full environment bootstrap
+# Bootstrap Kubernetes after all infrastructure plans have been reviewed/applied.
 up:
-	$(MAKE) infra-up
 	$(MAKE) cluster-up
 	$(MAKE) monitoring-up
 
-# Full environment teardown. Each sub-target runs its own target-identity guard;
-# sub-makes keep the order deterministic even with make -j.
-down:
-	$(MAKE) cluster-down
-	$(MAKE) infra-down
+# Deliberately no one-command production destroy: each state needs its own plan.
+down: confirm-destroy
+	@echo 'Review retained-resource inventory and backups; use cluster-down, then a saved destroy plan for each Terraform layer.' >&2
+	@exit 2
 
 # Exercise every destructive guard path with local mock binaries only.
 test-destroy-guard:
@@ -308,11 +308,13 @@ _health-check:
 # Validate Terraform formatting and syntax
 validate:
 	terraform fmt -check -recursive infrastructure/terraform
-	cd $(TF_DIR)/network && terraform init -backend=false && terraform validate
-	cd $(TF_DIR)/eks && terraform init -backend=false && terraform validate
+	@set -eu; for root in infrastructure/terraform/stacks/bootstrap/state $(TF_DIR)/network $(TF_DIR)/eks $(TF_DIR)/controllers; do \
+		terraform -chdir="$$root" init -backend=false -input=false -lockfile=readonly; \
+		terraform -chdir="$$root" validate; \
+	done
 
 # Public Kubernetes entry points always use an isolated, verified EKS context.
-GUARDED_TARGETS := cluster-up eso-up tenant-up reloader-up storage-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up admission-up monitoring-up status health-check
+GUARDED_TARGETS := cluster-up eso-up tenant-up reloader-up storage-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up platform-bootstrap-up admission-up monitoring-up status health-check
 .PHONY: $(GUARDED_TARGETS) $(addprefix _,$(GUARDED_TARGETS)) _require-verified-context
 $(GUARDED_TARGETS):
 	python3 platform/operations/in-cluster.py make _$@

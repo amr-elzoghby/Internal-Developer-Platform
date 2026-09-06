@@ -77,7 +77,7 @@ case "$*" in
   "config view --minify --raw --flatten")
     printf '%s\n' 'apiVersion: v1' 'kind: Config' "current-context: $MOCK_KUBE_CONTEXT"
     ;;
-  "auth can-i delete namespaces --quiet" | \
+  "auth can-i delete deployments --all-namespaces --quiet" | \
   "auth can-i delete nodepools.karpenter.sh --quiet" | \
   "auth can-i delete ec2nodeclasses.karpenter.k8s.aws --quiet")
     [[ "$MOCK_CAN_DELETE" == "1" ]]
@@ -101,7 +101,19 @@ printf '\n' >>"$MOCK_LOG"
 [[ "$*" == "destroy -auto-approve -var=aws_region=us-east-1 -var=cluster_name=idp-prod" ]] || exit 70
 MOCK_TERRAFORM
 
-chmod +x "${mock_bin}/aws" "${mock_bin}/kubectl" "${mock_bin}/terraform"
+cat >"${mock_bin}/helm" <<'MOCK_HELM'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'helm' >>"$MOCK_LOG"
+printf ' %q' "$@" >>"$MOCK_LOG"
+printf '\n' >>"$MOCK_LOG"
+[[ "${KUBECONFIG:-}" == /tmp/idp-destroy-kubeconfig.* && -s "$KUBECONFIG" ]] || exit 75
+[[ "$*" == *"--kube-context $MOCK_KUBE_CONTEXT"* ]] || exit 76
+printf 'helm-kubeconfig %s\n' "$KUBECONFIG" >>"$MOCK_LOG"
+[[ "${MOCK_HELM_FAILURE:-0}" == "0" ]] || exit 77
+MOCK_HELM
+
+chmod +x "${mock_bin}/aws" "${mock_bin}/kubectl" "${mock_bin}/terraform" "${mock_bin}/helm"
 
 export PATH="${mock_bin}:/usr/bin:/bin"
 export MOCK_LOG="$mock_log"
@@ -132,6 +144,7 @@ reset_mocks() {
   export MOCK_KUBE_INSECURE=false
   export MOCK_KUBE_CA="$expected_ca"
   export MOCK_CAN_DELETE=1
+  export MOCK_HELM_FAILURE=0
 }
 
 fail_test() {
@@ -142,7 +155,7 @@ fail_test() {
 }
 
 assert_no_destructive_calls() {
-  if grep -Eq '^kubectl --context [^ ]+ delete |^terraform ' "$mock_log"; then
+  if grep -Eq '^kubectl --context [^ ]+ delete |^terraform |^helm uninstall ' "$mock_log"; then
     fail_test "a destructive command ran after a failed guard"
   fi
 }
@@ -236,6 +249,12 @@ expect_failure "Kubernetes API failure is fail-closed" cluster-down "$correct_co
 
 reset_mocks
 expect_success "cluster-down uses the verified context" cluster-down
+[[ "$(grep -c '^helm uninstall ' "$mock_log")" -eq 6 ]] || fail_test "cluster-down did not uninstall all six releases"
+[[ "$(awk '/^helm uninstall / { print $3 }' "$mock_log" | tr '\n' ' ')" == "argocd kubecost prometheus reloader external-secrets kyverno " ]] || \
+  fail_test "Helm dependencies were uninstalled out of order"
+if grep -Eq '^kubectl .*delete (namespace|pvc|persistentvolumeclaim|crd)' "$mock_log"; then
+  fail_test "cluster-down deleted retained namespaces, data or CRDs"
+fi
 [[ "$(grep -c '^kubectl --context [^ ]* delete ' "$mock_log")" -eq 2 ]] || fail_test "cluster-down did not issue exactly two deletes"
 if grep '^kubectl --context [^ ]* delete ' "$mock_log" | grep -Fv -- "--context $expected_arn" >/dev/null; then
   fail_test "a Kubernetes delete did not use the verified context"
@@ -245,32 +264,38 @@ fi
 delete_snapshot="$(awk '/^delete-kubeconfig / { print $2 }' "$mock_log" | sort -u)"
 [[ "$delete_snapshot" != *$'\n'* ]] || fail_test "Kubernetes deletes used more than one kubeconfig snapshot"
 [[ ! -e "$delete_snapshot" ]] || fail_test "the kubeconfig snapshot was not removed after cluster-down"
+[[ "$(awk '/^helm-kubeconfig / { print $2 }' "$mock_log" | sort -u)" == "$delete_snapshot" ]] || \
+  fail_test "Helm did not use the verified kubeconfig snapshot"
+[[ "$(awk '/^kubectl .*delete -f / { print $6 }' "$mock_log" | tr '\n' ' ')" == "platform/bootstrap/karpenter/node-pool.yaml platform/bootstrap/karpenter/node-class.yaml " ]] || \
+  fail_test "Karpenter NodePools must drain before deleting the EC2NodeClass"
 
 reset_mocks
-expect_success "infra-down verifies AWS before Terraform" infra-down
-[[ "$(grep -c '^terraform .* destroy' "$mock_log")" -eq 2 ]] || fail_test "infra-down did not issue exactly two destroys"
-[[ "$(grep -c '^kubectl --context [^ ]* delete ' "$mock_log" || true)" -eq 0 ]] || fail_test "infra-down unexpectedly deleted Kubernetes resources"
-sts_line="$(grep -n '^aws sts get-caller-identity ' "$mock_log" | head -n 1 | cut -d: -f1)"
-terraform_line="$(grep -n '^terraform ' "$mock_log" | head -n 1 | cut -d: -f1)"
-[[ "$sts_line" -lt "$terraform_line" ]] || fail_test "Terraform ran before the AWS identity check"
+export MOCK_HELM_FAILURE=1
+if CONFIRM_DESTROY="$correct_confirmation" "$make_bin" --no-print-directory -C "$repo_root" cluster-down >"$test_output" 2>&1; then
+  fail_test "cluster-down ignored Helm uninstall failure"
+fi
+[[ "$(grep -c '^helm uninstall ' "$mock_log")" -eq 1 ]] || fail_test "uninstall continued after Argo failure"
+if grep -q '^kubectl --context [^ ]* delete ' "$mock_log"; then
+  fail_test "Karpenter resources were removed before GitOps stopped"
+fi
+printf 'PASS: Helm uninstall failure stops teardown before dependencies are removed\n'
+
+reset_mocks
+expect_success "AWS guard verifies the reviewed account without changing infrastructure" verify-aws-destroy-target
+assert_no_destructive_calls
+
+reset_mocks
+expect_failure "infra-down requires a saved reviewed destroy plan" infra-down "$correct_confirmation"
 
 reset_mocks
 export TF_VAR_aws_region=eu-west-1
 export TF_VAR_cluster_name=wrong-cluster
-expect_success "infra-down pins Terraform variables and workspace" infra-down
+expect_success "AWS identity guard ignores unrelated Terraform variable overrides" verify-aws-destroy-target
+assert_no_destructive_calls
 unset TF_VAR_aws_region TF_VAR_cluster_name
 
 reset_mocks
-export MOCK_KUBE_ENDPOINT="https://WRONG_ENDPOINT.us-east-1.eks.amazonaws.com"
-expect_failure "full down stops before Terraform when kube target is wrong" down "$correct_confirmation"
-
-reset_mocks
-expect_success "full down passes every guard in order" down
-[[ "$(grep -c '^kubectl --context [^ ]* delete ' "$mock_log")" -eq 2 ]] || fail_test "full down did not issue exactly two Kubernetes deletes"
-[[ "$(grep -c '^terraform .* destroy' "$mock_log")" -eq 2 ]] || fail_test "full down did not issue exactly two Terraform destroys"
-last_kube_delete_line="$(grep -n '^kubectl --context [^ ]* delete ' "$mock_log" | tail -n 1 | cut -d: -f1)"
-first_terraform_line="$(grep -n '^terraform ' "$mock_log" | head -n 1 | cut -d: -f1)"
-[[ "$last_kube_delete_line" -lt "$first_terraform_line" ]] || fail_test "Terraform destroy ran before Kubernetes cleanup completed"
+expect_failure "full down cannot bypass per-layer plan review" down "$correct_confirmation"
 
 reset_mocks
 expect_success "reviewed target identity cannot be overridden from Make" cluster-down \
