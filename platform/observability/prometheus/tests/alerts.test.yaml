@@ -1,0 +1,82 @@
+rule_files:
+  - platform-alerts.yaml
+evaluation_interval: 1m
+tests:
+  - name: restarts and completed jobs do not imply unhealthy running workloads
+    interval: 1m
+    input_series:
+      - series: kube_pod_container_status_restarts_total{namespace="identity-platform",pod="recovered",container="app"}
+        values: 0+1x20
+      - series: kube_pod_container_status_waiting_reason{namespace="identity-platform",pod="recovered",container="app",reason="CrashLoopBackOff"}
+        values: 0x20
+      - series: kube_pod_status_ready{namespace="identity-platform",pod="completed-job",condition="true"}
+        values: 0x20
+      - series: kube_pod_status_phase{namespace="identity-platform",pod="completed-job",phase="Succeeded"}
+        values: 1x20
+      - series: kube_deployment_spec_replicas{namespace="identity-platform",deployment="healthy"}
+        values: 2x20
+      - series: kube_deployment_status_replicas_ready{namespace="identity-platform",deployment="healthy"}
+        values: 2x20
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: PodCrashLoopBackOff
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: PodNotReady
+        exp_alerts: []
+      - eval_time: 15m
+        alertname: DeploymentReplicasMismatch
+        exp_alerts: []
+  - name: failing workloads alert and resolve after recovery
+    interval: 1m
+    input_series:
+      - series: kube_pod_container_status_waiting_reason{namespace="identity-platform",pod="crashing",container="app",reason="CrashLoopBackOff"}
+        values: 1x15 0x15
+      - series: kube_pod_status_ready{namespace="identity-platform",pod="crashing",condition="true"}
+        values: 0x15 1x15
+      - series: kube_pod_status_phase{namespace="identity-platform",pod="crashing",phase="Running"}
+        values: 1x31
+      - series: kube_deployment_spec_replicas{namespace="identity-platform",deployment="recovering"}
+        values: 2x31
+      - series: kube_deployment_status_replicas_ready{namespace="identity-platform",deployment="recovering"}
+        values: 1x15 2x15
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: PodCrashLoopBackOff
+        exp_alerts:
+          - exp_labels:
+              namespace: identity-platform
+              pod: crashing
+              container: app
+              reason: CrashLoopBackOff
+              severity: critical
+            exp_annotations:
+              summary: Pod identity-platform/crashing is crash looping
+      - eval_time: 15m
+        alertname: PodNotReady
+        exp_alerts:
+          - exp_labels:
+              namespace: identity-platform
+              pod: crashing
+              condition: "true"
+              severity: warning
+            exp_annotations:
+              summary: Pod identity-platform/crashing not ready for 10m
+      - eval_time: 15m
+        alertname: DeploymentReplicasMismatch
+        exp_alerts:
+          - exp_labels:
+              namespace: identity-platform
+              deployment: recovering
+              severity: warning
+            exp_annotations:
+              summary: Deployment identity-platform/recovering replicas mismatch
+      - eval_time: 30m
+        alertname: PodCrashLoopBackOff
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: PodNotReady
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: DeploymentReplicasMismatch
+        exp_alerts: []

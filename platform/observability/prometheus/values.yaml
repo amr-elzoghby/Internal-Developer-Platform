@@ -29,7 +29,7 @@ additionalPrometheusRulesMap:
       - name: pod-health
         rules:
           - alert: PodCrashLoopBackOff
-            expr: rate(kube_pod_container_status_restarts_total[5m]) > 0
+            expr: max_over_time(kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"}[5m]) >= 1
             for: 5m
             labels:
               severity: critical
@@ -37,7 +37,10 @@ additionalPrometheusRulesMap:
               summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash looping"
 
           - alert: PodNotReady
-            expr: kube_pod_status_ready{condition="true"} == 0
+            expr: >-
+              (kube_pod_status_ready{condition="true"} == 0)
+              and on(namespace, pod)
+              (kube_pod_status_phase{phase=~"Pending|Running|Unknown"} == 1)
             for: 10m
             labels:
               severity: warning
@@ -73,7 +76,7 @@ additionalPrometheusRulesMap:
       - name: deployment-health
         rules:
           - alert: DeploymentReplicasMismatch
-            expr: kube_deployment_spec_replicas != kube_deployment_status_ready_replicas
+            expr: kube_deployment_spec_replicas != kube_deployment_status_replicas_ready
             for: 10m
             labels:
               severity: warning

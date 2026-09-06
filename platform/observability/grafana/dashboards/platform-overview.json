@@ -3,10 +3,11 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 1,
+  "id": null,
+  "uid": "idp-platform-overview",
   "schemaVersion": 39,
   "version": 1,
-  "title": "ShopScale IDP — Platform Unified Observability Dashboard",
+  "title": "ShopScale IDP - Platform Overview",
   "tags": ["kubernetes", "prometheus", "shopscale"],
   "timezone": "browser",
   "time": { "from": "now-6h", "to": "now" },
@@ -16,6 +17,7 @@
       "id": 1,
       "title": "Cluster CPU Usage (mCores)",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
       "targets": [
         { "expr": "sum(rate(container_cpu_usage_seconds_total{container!=\"\"}[5m])) * 1000", "legendFormat": "CPU Usage" }
@@ -25,6 +27,7 @@
       "id": 2,
       "title": "Cluster Memory Usage (MB)",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 0 },
       "targets": [
         { "expr": "sum(container_memory_working_set_bytes{container!=\"\"}) / 1024 / 1024", "legendFormat": "Memory Working Set" }
@@ -32,11 +35,12 @@
     },
     {
       "id": 3,
-      "title": "HTTP Request Latency (p95 ms)",
+      "title": "Ready Deployment Replicas by Namespace",
       "type": "timeseries",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
       "gridPos": { "h": 8, "w": 8, "x": 16, "y": 0 },
       "targets": [
-        { "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) * 1000", "legendFormat": "P95 Latency" }
+        { "expr": "sum by (namespace) (kube_deployment_status_replicas_ready)", "legendFormat": "{{ namespace }}" }
       ]
     }
   ]
