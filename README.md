@@ -147,7 +147,7 @@ The roots deliberately use separate state keys:
 - `prod/eks/terraform.tfstate`
 - `prod/controllers/terraform.tfstate`
 
-`stacks/bootstrap/state` independently provisions the versioned, private state bucket, KMS encryption, and state-operator permissions. Deployment roots use native S3 lock files. Keep the bootstrap root's initial local state in restricted encrypted storage; the state backend must exist before planning deployment roots. Consumers read explicit nonsecret SSM contracts instead of another stack's full state snapshot.
+`stacks/bootstrap/state` independently provisions the versioned, private state bucket, KMS encryption, and state-operator permissions. `make infra-plan STACK=state` uses a local backend at `.idp/state-bootstrap/<environment>/terraform.tfstate` because the bucket does not exist yet. Preserve that state in restricted encrypted storage. Deployment roots use native S3 lock files after the backend exists. Consumers read explicit nonsecret SSM contracts instead of another stack's full state snapshot.
 
 Changing an existing installation to these state boundaries requires a reviewed state migration. Do not apply a fresh layout over existing controller releases or recreate an existing state bucket. The saved-plan wrapper verifies backend identity, account, source digest, and exact plan approval before apply. See the [HashiCorp S3 backend reference](https://developer.hashicorp.com/terraform/language/backend/s3) for lock-file and KMS permissions.
 
@@ -386,16 +386,18 @@ Before any AWS plan:
 2. Provision or verify the independent state backend and its operator access.
 3. Copy `infrastructure/terraform/stacks/prod/eks/terraform.tfvars.example` to an ignored `terraform.tfvars`.
 4. Replace every `REPLACE_ME` IAM role ARN with a real role in the cluster account.
-5. Review and apply each saved plan in dependency order: network, EKS, controllers.
+5. Review and apply each saved plan in dependency order: state bootstrap, network, EKS, controllers.
 
 ```bash
-make infra-plan STACK=network
+make infra-plan STACK=state
 # Review the full displayed plan and use its exact printed SHA256.
-APPROVE_PLAN_SHA256=<reviewed-sha256> make infra-apply STACK=network
-# Repeat plan/review/apply for STACK=eks, then STACK=controllers.
+APPROVE_PLAN_SHA256=<reviewed-sha256> make infra-apply STACK=state
+# Repeat plan/review/apply for STACK=network, then eks, then controllers.
 ```
 
 `make up` changes the Kubernetes cluster and is not a local validation command. `infra-up` aliases the saved-plan apply workflow; no target implicitly approves a Terraform plan. Destroy requires the full account/region/cluster confirmation, a separate saved destroy plan for each layer in reverse dependency order, and current retained-resource inventory before network teardown.
+
+The platform-admin, break-glass, and tenant IAM roles in the example must already exist; replace placeholder ARNs with verified identities. An AWS account root identity cannot be used as an EKS access-entry principal. Select the exact regional AL2023 AMI release before the EKS plan. Controllers need the applied EKS SSM contract and network access to the private Kubernetes endpoint; they cannot produce a usable live plan before those prerequisites exist.
 
 For an isolated sandbox, call `platform/operations/terraform-plan.py` with explicit `--environment` (`dev` or `staging`), `--account`, `--region`, `--cluster` (`idp-dev` or `idp-staging`), `--backend-bucket`, and `--backend-region`. Its account and cluster must differ from production. Bootstrap output access uses matching `IDP_ENVIRONMENT`, `IDP_AWS_ACCOUNT_ID`, `IDP_AWS_REGION`, `IDP_CLUSTER_NAME`, `IDP_BACKEND_BUCKET`, and `IDP_BACKEND_REGION`. Identity and backend mismatches stop before Kubernetes apply. The checked-in GitOps applications and bundle directory are production-only: sandbox operators must use the direct component targets and reviewed canary manifests; bundle publication and application attachment reject sandbox outputs.
 
@@ -434,7 +436,9 @@ The highest-priority gaps are:
 
 `make down`, `make infra-down`, and `make cluster-down` require the exact `CONFIRM_DESTROY=851236938302/us-east-1/idp-prod` value. The production account, region, and cluster identity are review-pinned and cannot be overridden from the Make command line.
 
-Before Terraform destroy, the guard verifies the active AWS account, passes the reviewed region and cluster inputs, forces the default workspace, and the AWS providers and S3 backends independently reject every other account. These checks prevent accidental account/input drift; they do not prove the contents of an already initialized Terraform state, so reviewing the destroy plan remains mandatory. Before any Kubernetes deletion, the guard also verifies the live EKS ARN and `ACTIVE` status. It snapshots the selected kube-context into a private temporary file, matches that snapshot's endpoint and certificate authority to EKS, checks the required delete permissions, and uses only that verified snapshot for every delete. Any missing credential, API failure, Kubernetes identity mismatch, insecure TLS context, or insufficient permission stops `cluster-down` before the first deletion. `cluster-down` does not explicitly delete tenant namespaces, but the full `make down` path destroys the EKS infrastructure and therefore everything hosted on that cluster.
+Before Terraform destroy, the guard verifies the active AWS account, passes the reviewed region and cluster inputs, forces the default workspace, and the AWS providers and S3 backends independently reject every other account. These checks prevent accidental account/input drift; they do not prove the contents of an already initialized Terraform state, so reviewing the destroy plan remains mandatory. Before Kubernetes teardown, the guard verifies the live EKS ARN and `ACTIVE` status. It snapshots the selected kube-context into a private temporary file, matches that snapshot's endpoint and certificate authority to EKS, checks baseline delete permissions, and pins Helm and kubectl to that snapshot. A failed identity check stops before uninstall; any uninstall failure stops subsequent phases.
+
+`cluster-down` uninstalls Argo CD first, then Kubecost, Prometheus, Reloader, External Secrets and any legacy Kyverno release. It retains namespaces, CRDs, claims and monitoring PVCs, then waits for Karpenter NodePools to drain before deleting the EC2NodeClass. The pinned monitoring charts retain their persistent claims; this is not a backup or a restore guarantee. Terraform still owns the core controllers and AWS resources. `make down` deliberately refuses one-command destruction: review and approve each saved destroy plan separately. EKS destruction ultimately removes the Kubernetes control plane, even though retained AWS volumes and Crossplane resources can remain billable.
 
 Even with that guard, always inspect the active AWS account, kube-context, Terraform plan, backups, and rollback path before running a destructive command.
 
