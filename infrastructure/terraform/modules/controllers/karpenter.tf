@@ -9,6 +9,7 @@ resource "helm_release" "karpenter_crd" {
   atomic          = true
   cleanup_on_fail = true
   wait            = true
+  timeout         = 600
 
 }
 
@@ -24,6 +25,7 @@ resource "helm_release" "karpenter" {
   atomic          = true
   cleanup_on_fail = true
   wait            = true
+  timeout         = 600
 
   values = [
     templatefile("${path.module}/templates/karpenter-values.yaml.tpl", {

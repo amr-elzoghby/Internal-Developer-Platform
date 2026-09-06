@@ -4,8 +4,6 @@
 *.tfstate.backup
 *.tfvars
 !*.tfvars.example
-.terraform.lock.hcl
-!infrastructure/terraform/stacks/prod/eks/.terraform.lock.hcl
 crash.log
 
 # IDE
