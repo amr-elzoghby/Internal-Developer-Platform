@@ -64,7 +64,6 @@ module "eks" {
   }
 
   remote_state_bucket      = "amr-tf-state-2026-851236938302-us-east-1-an"
-  network_remote_state_key = "prod/network/terraform.tfstate"
 }
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────

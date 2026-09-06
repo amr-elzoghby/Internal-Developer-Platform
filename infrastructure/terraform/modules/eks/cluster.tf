@@ -1,17 +1,12 @@
-# ─── Remote State (network) ───────────────────────────────────────────────────
-data "terraform_remote_state" "network" {
-  backend = "s3"
-  config = {
-    bucket = var.remote_state_bucket
-    key    = var.network_remote_state_key
-    region = var.aws_region
-  }
+# This AWS-region-local parameter exposes only approved network outputs.
+data "aws_ssm_parameter" "network" {
+  name = "/idp/${var.environment}/network"
 }
-
 locals {
-  vpc_id             = data.terraform_remote_state.network.outputs.vpc_id
-  private_subnet_ids = data.terraform_remote_state.network.outputs.private_subnet_ids
-  public_subnet_ids  = data.terraform_remote_state.network.outputs.public_subnet_ids
+  network            = jsondecode(data.aws_ssm_parameter.network.value)
+  vpc_id             = local.network.vpc_id
+  private_subnet_ids = local.network.private_subnet_ids
+  public_subnet_ids  = local.network.public_subnet_ids
 }
 
 # ─── EKS Cluster ──────────────────────────────────────────────────────────────
@@ -45,6 +40,10 @@ resource "aws_eks_cluster" "main" {
 
   lifecycle {
     prevent_destroy = true
+    precondition {
+      condition     = local.network.schema_version == 1 && local.network.environment == var.environment && local.network.cluster_name == var.cluster_name
+      error_message = "The network contract must belong to this environment and cluster and use schema version 1."
+    }
     precondition {
       condition     = var.endpoint_private_access && (!var.endpoint_public_access || length(var.public_access_cidrs) > 0)
       error_message = "Private API access must remain enabled; enabling public API requires an explicit restricted allowlist."

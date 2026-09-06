@@ -299,12 +299,6 @@ variable "remote_state_bucket" {
   type        = string
 }
 
-variable "network_remote_state_key" {
-  description = "S3 key for the network layer state"
-  type        = string
-  default     = "prod/network/terraform.tfstate"
-}
-
 # ─── Crossplane ───────────────────────────────────────────────────────────────
 variable "crossplane_version" {
   description = "Crossplane Helm chart version"
