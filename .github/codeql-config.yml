@@ -1,0 +1,5 @@
+name: Repository application and automation code
+paths-ignore:
+  # These inputs contain Nunjucks expressions, not runnable JS/Python.
+  # The actual rendered programs are compiled by the template regression gate.
+  - templates/backstage/**/skeleton

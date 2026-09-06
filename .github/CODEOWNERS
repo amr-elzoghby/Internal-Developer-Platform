@@ -8,5 +8,6 @@
 /tenants/ @amr-elzoghby
 /templates/ @amr-elzoghby
 
-# Workload manifests changed by the image automation
-/apps/**/deployment.yaml @amr-elzoghby
+# Service source, build definitions, contracts, and deployment promotion
+/apps/ @amr-elzoghby
+/SECURITY.md @amr-elzoghby

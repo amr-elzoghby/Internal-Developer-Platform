@@ -1,0 +1,3 @@
+# Historical fixed demo literal, verified by decoding; removed from current configuration.
+# Exact finding only: new occurrences and every other secret remain scanned.
+903f11e2516eacce68797eed5d9df87b58eca4db:platform/monitoring/kubecost/values.yaml:generic-api-key:2
