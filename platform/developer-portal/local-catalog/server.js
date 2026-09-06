@@ -5,7 +5,7 @@ const { loadClaimSpecs, listServices } = require('./services/catalogService');
 
 const PORT = Number.parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '127.0.0.1';
-const PROJECTS_DIR = path.resolve(process.env.PROJECTS_DIR || '/home/amr');
+const REPOSITORY_ROOT = path.resolve(process.env.REPOSITORY_ROOT || path.join(__dirname, '../../..'));
 const CLAIMS_DIR = path.join(__dirname, 'claims');
 const PUBLIC_DIR = fs.realpathSync(path.join(__dirname, 'public'));
 
@@ -89,7 +89,14 @@ const server = http.createServer((req, res) => {
 
   // ── API 1: List Existing Workspace Microservices ───────────
   if (req.method === 'GET' && requestPath === '/api/catalog') {
-    const services = listServices(PROJECTS_DIR);
+    let services;
+    try {
+      services = listServices(REPOSITORY_ROOT);
+    } catch (error) {
+      console.error('Invalid repository catalog:', error.message);
+      res.writeHead(500, Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' }));
+      return res.end(JSON.stringify({ error: 'Repository catalog validation failed' }));
+    }
     res.writeHead(200, Object.assign({}, corsHeaders, { 'Content-Type': 'application/json' }));
     res.end(JSON.stringify(services));
     return;
@@ -127,7 +134,7 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, HOST, () => {
   console.log(`\n======================================================`);
   console.log(`🚀 Local IDP catalog available at http://${HOST}:${PORT}`);
-  console.log(`   Read-only mode: infrastructure changes must use an approved Backstage Golden Path PR`);
+  console.log(`   Read-only mode: infrastructure changes require a reviewed Git pull request`);
   console.log(`======================================================\n`);
 });
 

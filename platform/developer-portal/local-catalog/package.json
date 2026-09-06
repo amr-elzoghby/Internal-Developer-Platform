@@ -1,0 +1,7 @@
+{
+  "name": "idp-local-catalog",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {"start": "node server.js", "test": "node --test services/catalogService.test.js"},
+  "dependencies": {"yaml": "2.9.0"}
+}

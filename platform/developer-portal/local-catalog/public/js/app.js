@@ -1,4 +1,3 @@
-let currentInfraType = 'postgres';
 let currentComponentData = null;
 let allServicesData = [];
 const teamViews = Object.freeze({
@@ -35,6 +34,7 @@ async function fetchCatalog(forceRefresh) {
     return catalogCache;
   }
   const res = await fetch('/api/catalog');
+  if (!res.ok) throw new Error('Repository catalog unavailable or invalid');
   catalogCache = await res.json();
   catalogCacheTime = now;
   allServicesData = catalogCache;
@@ -55,9 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
 const infrastructureSources = {
   postgres: {
     title: 'PostgreSQL RDS',
-    linkText: 'Open Approved Golden Path',
+    linkText: 'Open Template Reference',
     url: 'https://github.com/amr-elzoghby/Internal-Developer-Platform/tree/main/templates/backstage/infra-database',
-    availability: 'Available through the approved Backstage Golden Path, which opens a pull request.'
+    availability: 'Template reference available. Use a reviewed Git PR; this local catalog does not run Backstage templates.'
   },
   redis: {
     title: 'Redis ElastiCache',
@@ -149,12 +149,12 @@ async function refreshCatalog() {
         <tr>
           <td><strong>${esc(s.name)}</strong><br/><span class="text-dim-sm">${esc(s.path)}</span></td>
           <td><code>${esc(s.owner)}</code></td>
-          <td>${esc(s.system || 'shopscale-ecommerce')}</td>
+          <td>${esc(s.system || 'platform-services')}</td>
           <td><span class="badge badge-prod">${esc(s.lifecycle)}</span></td>
           <td>${claims.join(' ')}</td>
           <td><span style="color:var(--text-muted);">○ ${esc(s.status.argocd)}</span></td>
           <td>
-            <button class="btn btn-secondary btn-inspect" data-service-name="${esc(s.name)}" onclick="inspectEntity(this.dataset.serviceName)">Single Pane View 🔍</button>
+            <button class="btn btn-secondary btn-inspect" data-service-id="${esc(s.id)}" onclick="inspectEntity(this.dataset.serviceId)">Single Pane View 🔍</button>
           </td>
         </tr>`;
     }).join('');
@@ -168,7 +168,6 @@ async function refreshCatalog() {
 }
 
 async function openInfraModal(type) {
-  currentInfraType = type;
   const source = infrastructureSources[type];
   if (!source) return;
   document.getElementById('infra-title').innerText = `${source.title} API Contract`;
@@ -210,7 +209,7 @@ async function openInfraModal(type) {
 
 async function inspectEntity(name) {
   const services = await fetchCatalog();
-  currentComponentData = services.find(x => x.name === name);
+  currentComponentData = services.find(x => x.id === name);
   if (!currentComponentData) return;
 
   document.getElementById('entity-modal-name').innerText = `Single Pane View: ${currentComponentData.name}`;
@@ -237,7 +236,7 @@ function switchInspectorTab(tab, element) {
         <p><strong>Kind:</strong> Component</p>
         <p><strong>Type:</strong> ${esc(c.type)}</p>
         <p><strong>Owner Team:</strong> <code>${esc(c.owner)}</code></p>
-        <p><strong>System:</strong> ${esc(c.system || 'shopscale-ecommerce')}</p>
+        <p><strong>System:</strong> ${esc(c.system || 'platform-services')}</p>
         <p><strong>Repository Path:</strong> <code>${esc(c.path)}</code></p>
         <p><strong>Backstage Spec:</strong> <code>${esc(c.path)}/catalog-info.yaml</code></p>
       </div>`;
@@ -262,9 +261,9 @@ function switchInspectorTab(tab, element) {
     let claimsList = c.infraFiles || [];
     content.innerHTML = `
       <div class="info-panel">
-        <p style="font-weight:600; margin-bottom:12px;">Active Crossplane / K8s Infrastructure Claims (${claimsList.length}):</p>
+        <p style="font-weight:600; margin-bottom:12px;">Declared Crossplane Infrastructure Claims (${claimsList.length}):</p>
         ${claimsList.length > 0 
-          ? claimsList.map(item => `<div class="claim-file-item">📄 infra/${esc(item)}</div>`).join('')
+          ? claimsList.map(item => `<div class="claim-file-item">📄 ${esc(item)}</div>`).join('')
           : '<p style="color:var(--text-dim);">No infrastructure claim files were detected for this component.</p>'}
       </div>`;
   }
@@ -285,12 +284,12 @@ async function loadSinglePanePage() {
 
     allServicesData.forEach(s => {
       const opt = document.createElement('option');
-      opt.value = s.name;
-      opt.innerText = s.name;
+      opt.value = s.id;
+      opt.innerText = s.id;
       sel.appendChild(opt);
     });
 
-    renderSinglePaneDashboard(allServicesData[0].name);
+    renderSinglePaneDashboard(allServicesData[0].id);
   } catch (e) {
     sel.innerHTML = '<option value="">⚠️ Failed to load services</option>';
     document.getElementById('singlepane-grid').innerHTML = '<div class="card"><h3>⚠️ Connection Error</h3><p>Could not connect to the API server.</p></div>';
@@ -312,12 +311,12 @@ async function loadTechDocsPage() {
 
     allServicesData.forEach(s => {
       const opt = document.createElement('option');
-      opt.value = s.name;
-      opt.innerText = s.name;
+      opt.value = s.id;
+      opt.innerText = s.id;
       sel.appendChild(opt);
     });
 
-    renderTechDocs(allServicesData[0].name);
+    renderTechDocs(allServicesData[0].id);
   } catch (e) {
     sel.innerHTML = '<option value="">⚠️ Failed to load services</option>';
     document.getElementById('techdocs-container').innerHTML = '<h3>⚠️ Connection Error</h3><p>Could not connect to the API server.</p>';
@@ -325,34 +324,34 @@ async function loadTechDocsPage() {
 }
 
 function renderTechDocs(name) {
-  const c = allServicesData.find(x => x.name === name);
+  const c = allServicesData.find(x => x.id === name);
   if (!c) return;
 
   const claimsList = c.infraFiles || [];
   const claimsText = claimsList.length > 0
-    ? claimsList.map(item => `<code>infra/${esc(item)}</code>`).join(', ')
-    : 'No active claims';
+    ? claimsList.map(item => `<code>${esc(item)}</code>`).join(', ')
+    : 'No declared claims';
 
   document.getElementById('techdocs-container').innerHTML = `
-    <h3>📚 ${esc(c.name)} — Architecture & Runbook</h3>
+    <h3>📚 ${esc(c.name)} — Repository Summary</h3>
     <p class="text-no-claims" style="margin-bottom:16px;">Source: <code>${esc(c.path)}/catalog-info.yaml</code> (Owner: <code>${esc(c.owner)}</code>)</p>
     <div class="techdocs-body">
       <h4>1. Service Overview</h4>
-      <p>The <strong>${esc(c.name)}</strong> component is a <code>${esc(c.type)}</code> microservice owned by <code>${esc(c.owner)}</code> running in <code>${esc(c.lifecycle)}</code> lifecycle.</p>
+      <p>The <strong>${esc(c.name)}</strong> component is a <code>${esc(c.type)}</code> microservice owned by <code>${esc(c.owner)}</code> marked <code>${esc(c.lifecycle)}</code> in the catalog.</p>
       
-      <h4>2. Active Infrastructure & Environment Binding</h4>
-      <p>Detected infrastructure files: ${claimsText}. This read-only catalog does not submit requests. Approved Backstage Golden Paths must open a pull request into the platform's watched claims path.</p>
+      <h4>2. Declared Infrastructure & Environment Binding</h4>
+      <p>Detected infrastructure files: ${claimsText}. This read-only catalog does not submit requests. Infrastructure requests require a reviewed pull request into the platform's watched claims path.</p>
       
       <h4>3. Operational Playbook</h4>
-      <p>• <strong>Health Check:</strong> <code>GET /healthz</code><br/>
-         • <strong>Argo CD GitOps Sync:</strong> Starts only after an approved claim PR is merged into a watched path<br/>
-         • <strong>Emergency Rollback:</strong> <code>argocd app sync ${esc(c.name).toLowerCase()} --revision HEAD~1</code></p>
+      <p>• <strong>Health Check:</strong> <code>${esc(c.healthCheck)}</code><br/>
+         • <strong>Argo CD GitOps Sync:</strong> Deployments follow a reviewed digest promotion merged into the watched main branch<br/>
+         • <strong>Rollback:</strong> Open a reviewed PR with <code>git revert &lt;promotion-commit&gt;</code>; Argo CD application <code>${esc(c.argoApplication)}</code> follows the merged main revision.</p>
     </div>
   `;
 }
 
 function renderSinglePaneDashboard(name) {
-  const c = allServicesData.find(x => x.name === name);
+  const c = allServicesData.find(x => x.id === name);
   if (!c) return;
 
   const claimsList = c.infraFiles || [];
@@ -362,7 +361,7 @@ function renderSinglePaneDashboard(name) {
       <h3>📁 Overview & Metadata</h3>
       <p><strong>Kind/Type:</strong> Component / ${esc(c.type)}<br/>
          <strong>Owner Team:</strong> ${esc(c.owner)}<br/>
-         <strong>System:</strong> ${esc(c.system || 'shopscale-ecommerce')}<br/>
+         <strong>System:</strong> ${esc(c.system || 'platform-services')}<br/>
          <strong>Path:</strong> <code>${esc(c.path)}</code></p>
     </div>
 
@@ -381,9 +380,9 @@ function renderSinglePaneDashboard(name) {
     </div>
 
     <div class="card">
-      <h3>🗄️ Active Claims (${claimsList.length})</h3>
+      <h3>🗄️ Declared Claims (${claimsList.length})</h3>
       <div class="claims-list">
-        ${claimsList.length > 0 ? claimsList.map(item => `<div>• 📄 infra/${esc(item)}</div>`).join('') : '<span class="text-no-claims">No Active Claims</span>'}
+        ${claimsList.length > 0 ? claimsList.map(item => `<div>• 📄 ${esc(item)}</div>`).join('') : '<span class="text-no-claims">No Declared Claims</span>'}
       </div>
     </div>
   `;
