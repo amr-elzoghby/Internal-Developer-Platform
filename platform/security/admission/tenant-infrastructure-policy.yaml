@@ -1,0 +1,66 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicy
+metadata:
+  name: idp-tenant-infrastructure
+spec:
+  failurePolicy: Fail
+  matchConstraints:
+    resourceRules:
+      - apiGroups: [idp.io]
+        apiVersions: [v1alpha1]
+        operations: [CREATE, UPDATE]
+        resources: [postgressqlinstances, redisinstances, objectbuckets, serverinstances]
+        scope: Namespaced
+  variables:
+    - name: platformWriter
+      expression: >-
+        request.userInfo.username in [
+          'system:serviceaccount:argocd:argocd-application-controller',
+          'system:serviceaccount:crossplane-system:crossplane'] ||
+        request.userInfo.groups.exists(group,
+          group in ['system:masters', 'idp:platform-admins'])
+    - name: expectedComposition
+      expression: >-
+        {'PostgresSQLInstance': 'postgressqlinstances.idp.io',
+         'RedisInstance': 'redisinstances.idp.io',
+         'ObjectBucket': 'objectbuckets.idp.io',
+         'ServerInstance': 'serverinstances.idp.io'}[object.kind]
+    - name: currentRevision
+      expression: >-
+        has(object.spec.crossplane) && has(object.spec.crossplane.compositionRevisionRef)
+          ? object.spec.crossplane.compositionRevisionRef.name : ''
+    - name: previousRevision
+      expression: >-
+        request.operation == 'UPDATE' && has(oldObject.spec.crossplane) && has(oldObject.spec.crossplane.compositionRevisionRef)
+          ? oldObject.spec.crossplane.compositionRevisionRef.name : ''
+  validations:
+    - expression: >-
+        has(object.spec.owner) && object.spec.owner == namespaceObject.metadata.name &&
+        (request.operation == 'CREATE' || object.spec.owner == oldObject.spec.owner)
+      message: Infrastructure ownership must match the tenant namespace and cannot be reassigned.
+      reason: Forbidden
+    - expression: >-
+        has(object.spec.expiresOn) && object.spec.expiresOn.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$') &&
+        (request.operation == 'CREATE' || object.spec.expiresOn == oldObject.spec.expiresOn || variables.platformWriter)
+      message: An ownership review date is required; renewal requires a reviewed platform change.
+      reason: Forbidden
+    - expression: >-
+        has(object.spec.crossplane) && has(object.spec.crossplane.compositionUpdatePolicy) &&
+        object.spec.crossplane.compositionUpdatePolicy == 'Manual' &&
+        !has(object.spec.crossplane.compositionSelector) &&
+        !has(object.spec.crossplane.compositionRevisionSelector) &&
+        (!has(object.spec.crossplane.compositionRef) ||
+          object.spec.crossplane.compositionRef.name == variables.expectedComposition)
+      message: Use Manual updates and the enforced Composition; selectors are not allowed.
+      reason: Forbidden
+    - expression: >-
+        variables.platformWriter || variables.currentRevision == variables.previousRevision
+      message: Composition revision selection and promotion require the platform GitOps controller or administrator.
+      reason: Forbidden
+    - expression: >-
+        has(object.metadata.annotations) &&
+        'argocd.argoproj.io/sync-options' in object.metadata.annotations &&
+        object.metadata.annotations['argocd.argoproj.io/sync-options'].matches('(^|.*,)Prune=false(,.*|$)') &&
+        object.metadata.annotations['argocd.argoproj.io/sync-options'].matches('(^|.*,)Delete=false(,.*|$)')
+      message: Retained infrastructure must explicitly disable Argo prune and delete.
+      reason: Forbidden

@@ -1,0 +1,11 @@
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingAdmissionPolicyBinding
+metadata:
+  name: idp-tenant-infrastructure
+spec:
+  policyName: idp-tenant-infrastructure
+  validationActions: [Deny, Audit]
+  matchResources:
+    namespaceSelector:
+      matchLabels:
+        platform.idp.io/tenant: "true"

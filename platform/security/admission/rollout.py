@@ -23,9 +23,11 @@ def apply(objects):
             payload=json.dumps({"apiVersion": "v1", "kind": "List", "items": objects}))
 
 
-def rollout():
-    policies = list(yaml.safe_load_all((HERE / "tenant-workload-policy.yaml").read_text()))
-    bindings = list(yaml.safe_load_all((HERE / "tenant-workload-binding.yaml").read_text()))
+def candidates():
+    policies, bindings = [], []
+    for stem in ("tenant-workload", "tenant-infrastructure"):
+        policies.extend(yaml.safe_load_all((HERE / (stem + "-policy.yaml")).read_text()))
+        bindings.extend(yaml.safe_load_all((HERE / (stem + "-binding.yaml")).read_text()))
     revision = hashlib.sha256(json.dumps([policies, bindings], sort_keys=True).encode()).hexdigest()[:12]
     names = {p["metadata"]["name"]: p["metadata"]["name"] + "-" + revision for p in policies}
     for obj in policies + bindings:
@@ -34,6 +36,11 @@ def rollout():
     for binding in bindings:
         binding["spec"]["policyName"] = names[binding["spec"]["policyName"]]
         assert "Deny" in binding["spec"]["validationActions"]
+    return policies, bindings, names, revision
+
+
+def rollout():
+    policies, bindings, names, revision = candidates()
     apply(policies)
     for policy in policies:
         deadline = time.monotonic() + 90
@@ -58,7 +65,7 @@ def rollout():
             name = obj["metadata"]["name"]
             if name not in current:
                 kubectl("delete", kind, name, "--ignore-not-found")
-        # Retire only the two exact legacy resources after replacement is live.
+        # Retire only exact legacy resources after their replacements are live.
         for legacy in names:
             kubectl("delete", kind, legacy, "--ignore-not-found")
     print(f"Admission revision {revision} enforces Deny.")
