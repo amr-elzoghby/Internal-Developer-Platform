@@ -5,6 +5,7 @@ public_access_cidrs = []
 
 platform_access_entries = {
   platform-admin = {
+    kubernetes_groups = ["idp:platform-admins"]
     principal_arn = "arn:aws:iam::851236938302:role/aws-reserved/sso.amazonaws.com/AWSReservedSSO_PlatformAdministrator_REPLACE_ME"
     access_policies = {
       cluster-admin = {
@@ -14,6 +15,7 @@ platform_access_entries = {
   }
 
   break-glass = {
+    kubernetes_groups = ["idp:platform-admins"]
     principal_arn = "arn:aws:iam::851236938302:role/idp-prod-break-glass"
     access_policies = {
       cluster-admin = {
@@ -55,3 +57,11 @@ tenant_access_entries = {
     access_level  = "operator"
   }
 }
+
+service_repositories = ["identity-platform/login-app"]
+
+# List only services whose standard role already exists (verified during plan).
+existing_service_linked_roles = []
+# For existing account-global identities, supply their exact reviewed ARNs.
+autoscaling_service_linked_role_arn = null
+github_oidc_provider_arn = null

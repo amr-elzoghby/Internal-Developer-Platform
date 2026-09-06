@@ -23,6 +23,13 @@ variable "platform_access_entries" {
   }))
 
   validation {
+    condition = alltrue([for name, entry in var.platform_access_entries :
+      contains(["platform-admin", "break-glass"], name) == contains(entry.kubernetes_groups, "idp:platform-admins")
+    ])
+    error_message = "Only platform-admin and break-glass must map idp:platform-admins for audited admission-policy administration."
+  }
+
+  validation {
     condition = alltrue([
       contains(keys(var.platform_access_entries), "platform-admin"),
       contains(keys(var.platform_access_entries), "break-glass"),
@@ -99,4 +106,33 @@ variable "database_password_version" {
 variable "node_ami_release_version" {
   description = "Exact approved regional EKS 1.36 AL2023 optimized AMI release; no floating latest value"
   type        = string
+}
+
+variable "service_repositories" {
+  description = "Preprovisioned team/service ECR inventory; add a service before merging its scaffold"
+  type        = set(string)
+  default     = ["identity-platform/login-app"]
+}
+
+variable "state_bucket_name" {
+  description = "Actual backend bucket, also explicitly denied to Crossplane"
+  type        = string
+  default     = "amr-tf-state-2026-851236938302-us-east-1-an"
+}
+variable "autoscaling_service_linked_role_arn" {
+  description = "Existing AWS AutoScaling service-linked role ARN, or null for a fresh account"
+  type        = string
+  default     = null
+}
+
+variable "github_oidc_provider_arn" {
+  description = "Existing account-level GitHub OIDC provider ARN, or null for a fresh account"
+  type        = string
+  default     = null
+}
+
+variable "existing_service_linked_roles" {
+  description = "Account-global RDS, ElastiCache, or Spot service principals already bootstrapped"
+  type        = set(string)
+  default     = []
 }

@@ -66,3 +66,8 @@ output "tenant_external_secrets_role_arns" {
     for tenant, role in aws_iam_role.tenant_external_secrets : tenant => role.arn
   }
 }
+
+output "node_security_group_id" {
+  value = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+}
+output "vpc_id" { value = local.vpc_id }

@@ -107,10 +107,13 @@ variable "platform_access_entries" {
 
   validation {
     condition = alltrue([
-      for entry in values(var.platform_access_entries) :
-      (length(entry.access_policies) > 0) != (length(entry.kubernetes_groups) > 0)
+      for name, entry in var.platform_access_entries :
+      (length(entry.access_policies) > 0 || length(entry.kubernetes_groups) > 0) && (
+        length(entry.access_policies) == 0 || length(entry.kubernetes_groups) == 0 ||
+        (contains(["platform-admin", "break-glass"], name) && entry.kubernetes_groups == toset(["idp:platform-admins"]))
+      )
     ])
-    error_message = "Each platform entry must use exactly one authorization path: EKS access policies or Kubernetes groups."
+    error_message = "Use one authorization path; only platform-admin/break-glass may additionally map the explicit idp:platform-admins admission group."
   }
 
   validation {
@@ -235,7 +238,7 @@ variable "tenant_access_entries" {
 variable "node_instance_type" {
   description = "EC2 instance type for stable worker nodes"
   type        = string
-  default     = "t3.medium"
+  default     = "m6i.large"
 
   validation {
     condition     = can(regex("^(t3|t3a|m5|m6i)\\.", var.node_instance_type))

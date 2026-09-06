@@ -3,7 +3,7 @@ data "aws_ssm_parameter" "network" {
   name = "/idp/${var.environment}/network"
 }
 locals {
-  network            = jsondecode(data.aws_ssm_parameter.network.value)
+  network            = jsondecode(nonsensitive(data.aws_ssm_parameter.network.value))
   vpc_id             = local.network.vpc_id
   private_subnet_ids = local.network.private_subnet_ids
   public_subnet_ids  = local.network.public_subnet_ids
@@ -52,6 +52,7 @@ resource "aws_eks_cluster" "main" {
 
   depends_on = [
     aws_iam_role_policy_attachment.eks_cluster_policy,
+    aws_cloudwatch_log_group.control_plane,
   ]
 }
 
@@ -143,6 +144,11 @@ resource "aws_eks_node_group" "stable" {
   labels = {
     role = "stable"
   }
+  taint {
+    key    = "CriticalAddonsOnly"
+    value  = "true"
+    effect = "NO_SCHEDULE"
+  }
 
   scaling_config {
     desired_size = var.node_desired_size
@@ -163,4 +169,11 @@ resource "aws_eks_node_group" "stable" {
     aws_iam_role_policy_attachment.ecr_read_only,
     aws_eks_addon.vpc_cni,
   ]
+}
+
+# Both managed and Karpenter workers use the actual cluster/node security group.
+resource "aws_ec2_tag" "karpenter_discovery" {
+  resource_id = aws_eks_cluster.main.vpc_config[0].cluster_security_group_id
+  key         = "karpenter.sh/discovery"
+  value       = var.cluster_name
 }
