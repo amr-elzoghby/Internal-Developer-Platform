@@ -4,7 +4,12 @@ metadata:
   name: default
 spec:
   template:
+    metadata:
+      labels:
+        role: workload
     spec:
+      expireAfter: 336h
+      terminationGracePeriod: 1h
       requirements:
         - key: kubernetes.io/arch
           operator: In
@@ -14,10 +19,19 @@ spec:
           values: ["linux"]
         - key: karpenter.sh/capacity-type
           operator: In
-          values: ["spot", "on-demand"]
+          values: ["spot"]
         - key: karpenter.k8s.aws/instance-category
           operator: In
           values: ["c", "m", "r"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["3"]
+        - key: karpenter.k8s.aws/instance-cpu
+          operator: In
+          values: ["2", "4", "8"]
+        - key: karpenter.k8s.aws/instance-hypervisor
+          operator: In
+          values: ["nitro"]
       nodeClassRef:
         group: karpenter.k8s.aws
         kind: EC2NodeClass
@@ -27,7 +41,9 @@ spec:
   weight: 80
   disruption:
     consolidationPolicy: WhenEmptyOrUnderutilized
-    consolidateAfter: 1m
+    consolidateAfter: 10m
+    budgets:
+      - nodes: "1"
 
 ---
 apiVersion: karpenter.sh/v1
@@ -36,7 +52,12 @@ metadata:
   name: on-demand-fallback
 spec:
   template:
+    metadata:
+      labels:
+        role: workload
     spec:
+      expireAfter: 336h
+      terminationGracePeriod: 1h
       requirements:
         - key: kubernetes.io/arch
           operator: In
@@ -50,6 +71,15 @@ spec:
         - key: karpenter.k8s.aws/instance-category
           operator: In
           values: ["c", "m", "r"]
+        - key: karpenter.k8s.aws/instance-generation
+          operator: Gt
+          values: ["3"]
+        - key: karpenter.k8s.aws/instance-cpu
+          operator: In
+          values: ["2", "4", "8"]
+        - key: karpenter.k8s.aws/instance-hypervisor
+          operator: In
+          values: ["nitro"]
       nodeClassRef:
         group: karpenter.k8s.aws
         kind: EC2NodeClass
@@ -59,4 +89,6 @@ spec:
   weight: 20
   disruption:
     consolidationPolicy: WhenEmptyOrUnderutilized
-    consolidateAfter: 1m
+    consolidateAfter: 10m
+    budgets:
+      - nodes: "1"

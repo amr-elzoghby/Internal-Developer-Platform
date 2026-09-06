@@ -4,17 +4,26 @@ metadata:
   name: default
 spec:
   amiFamily: AL2023
-  role: idp-prod-karpenter-nodes-role
-  subnetSelectorTerms:
-    - tags:
-        karpenter.sh/discovery: idp-prod
+  role: ${KARPENTER_NODE_ROLE_NAME}
+  subnetSelectorTerms: ${PRIVATE_SUBNET_SELECTORS}
   securityGroupSelectorTerms:
-    - tags:
-        "aws:eks:cluster-name": idp-prod
+    - id: ${EKS_NODE_SECURITY_GROUP_ID}
   amiSelectorTerms:
     - alias: al2023@v20260827
+  associatePublicIPAddress: false
+  blockDeviceMappings:
+    - deviceName: /dev/xvda
+      ebs:
+        volumeSize: 40Gi
+        volumeType: gp3
+        encrypted: true
+        deleteOnTermination: true
   metadataOptions:
     httpEndpoint: enabled
     httpProtocolIPv6: disabled
     httpPutResponseHopLimit: 1
     httpTokens: required
+  tags:
+    Environment: ${ENVIRONMENT}
+    Cluster: ${CLUSTER_NAME}
+    ManagedBy: Karpenter-IDP

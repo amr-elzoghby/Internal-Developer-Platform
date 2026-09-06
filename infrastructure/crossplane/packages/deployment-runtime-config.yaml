@@ -3,6 +3,20 @@ kind: DeploymentRuntimeConfig
 metadata:
   name: aws-provider-s3-runtime
 spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+          nodeSelector:
+            role: stable
+          tolerations:
+            - key: CriticalAddonsOnly
+              operator: Equal
+              value: "true"
+              effect: NoSchedule
   serviceAccountTemplate:
     metadata:
       name: provider-aws-s3
@@ -15,6 +29,20 @@ kind: DeploymentRuntimeConfig
 metadata:
   name: aws-provider-rds-runtime
 spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+          nodeSelector:
+            role: stable
+          tolerations:
+            - key: CriticalAddonsOnly
+              operator: Equal
+              value: "true"
+              effect: NoSchedule
   serviceAccountTemplate:
     metadata:
       name: provider-aws-rds
@@ -27,6 +55,20 @@ kind: DeploymentRuntimeConfig
 metadata:
   name: aws-provider-elasticache-runtime
 spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+          nodeSelector:
+            role: stable
+          tolerations:
+            - key: CriticalAddonsOnly
+              operator: Equal
+              value: "true"
+              effect: NoSchedule
   serviceAccountTemplate:
     metadata:
       name: provider-aws-elasticache
@@ -39,8 +81,44 @@ kind: DeploymentRuntimeConfig
 metadata:
   name: aws-provider-ec2-runtime
 spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+          nodeSelector:
+            role: stable
+          tolerations:
+            - key: CriticalAddonsOnly
+              operator: Equal
+              value: "true"
+              effect: NoSchedule
   serviceAccountTemplate:
     metadata:
       name: provider-aws-ec2
       annotations:
         eks.amazonaws.com/role-arn: ${CROSSPLANE_EC2_ROLE_ARN}
+
+---
+# Includes the automatically installed AWS family provider and the Python function.
+apiVersion: pkg.crossplane.io/v1beta1
+kind: DeploymentRuntimeConfig
+metadata:
+  name: default
+spec:
+  deploymentTemplate:
+    spec:
+      selector: {}
+      template:
+        spec:
+          containers:
+            - name: package-runtime
+          nodeSelector:
+            role: stable
+          tolerations:
+            - key: CriticalAddonsOnly
+              operator: Equal
+              value: "true"
+              effect: NoSchedule
