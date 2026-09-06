@@ -276,37 +276,9 @@ variable "node_max_size" {
   }
 }
 
-# ─── Karpenter ────────────────────────────────────────────────────────────────
-variable "karpenter_version" {
-  description = "Karpenter Helm chart version"
-  type        = string
-  default     = "1.14.1"
-}
-
-variable "metrics_server_chart_version" {
-  description = "Pinned Metrics Server Helm chart version"
-  type        = string
-
-  validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.metrics_server_chart_version))
-    error_message = "Metrics Server Helm chart version must use semantic version format, for example 3.13.1."
-  }
-}
-
 # ─── Network (from remote state) ─────────────────────────────────────────────
 variable "remote_state_bucket" {
   description = "S3 bucket for Terraform remote state"
   type        = string
 }
 
-# ─── Crossplane ───────────────────────────────────────────────────────────────
-variable "crossplane_version" {
-  description = "Crossplane Helm chart version"
-  type        = string
-  default     = "2.4.0"
-
-  validation {
-    condition     = can(regex("^[0-9]+\\.[0-9]+\\.[0-9]+$", var.crossplane_version))
-    error_message = "Crossplane Helm chart version must use semantic version format, for example 2.4.0."
-  }
-}

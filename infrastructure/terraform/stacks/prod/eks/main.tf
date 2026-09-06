@@ -11,18 +11,6 @@ provider "aws" {
   }
 }
 
-provider "helm" {
-  kubernetes {
-    host                   = module.eks.cluster_endpoint
-    cluster_ca_certificate = base64decode(module.eks.cluster_ca_certificate)
-    exec {
-      api_version = "client.authentication.k8s.io/v1beta1"
-      args        = ["eks", "get-token", "--cluster-name", var.cluster_name]
-      command     = "aws"
-    }
-  }
-}
-
 locals {
   tenant_namespaces = toset(["identity-platform", "platform-engineering", "data-platform"])
 }
@@ -45,12 +33,6 @@ module "eks" {
   node_min_size      = 2
   node_max_size      = 4
 
-  karpenter_version = "1.14.1"
-
-  crossplane_version = "2.4.0"
-
-  metrics_server_chart_version = "3.13.1"
-
   platform_access_entries = var.platform_access_entries
   tenant_access_entries   = var.tenant_access_entries
   tenant_namespaces       = local.tenant_namespaces
@@ -63,7 +45,7 @@ module "eks" {
     pod_identity_agent = "v1.3.10-eksbuild.3"
   }
 
-  remote_state_bucket      = "amr-tf-state-2026-851236938302-us-east-1-an"
+  remote_state_bucket = "amr-tf-state-2026-851236938302-us-east-1-an"
 }
 
 # ─── Outputs ──────────────────────────────────────────────────────────────────
