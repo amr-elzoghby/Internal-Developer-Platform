@@ -1,3 +1,5 @@
+# REFERENCE ONLY: import into a separately scaffolded Backstage development app.
+# Never deploy this localhost/guest/in-memory configuration as production.
 app:
   title: Internal Developer Platform (IDP)
   baseUrl: http://localhost:3000
@@ -45,7 +47,7 @@ catalog:
   import:
     entityFilename: catalog-info.yaml
   rules:
-    - allow: [Component, System, API, Resource, Location, Template, Group, User]
+    - allow: [Component, Domain, System, API, Resource, Location, Template, Group, User]
   locations:
     - type: file
       target: ./catalog/all-components.yaml
@@ -57,13 +59,5 @@ catalog:
     - type: file
       target: ../../../templates/backstage/infra-database/template.yaml
 
-kubernetes:
-  serviceLocatorMethod:
-    type: 'singleTenant'
-  clusterLocatorMethods:
-    - type: 'config'
-      clusters:
-        - name: idp-prod-eks
-          url: ${KUBERNETES_EXEC_HOST}
-          authProvider: 'serviceAccount'
-          skipTLSVerify: false
+# Kubernetes integration deliberately omitted until a read-only identity and
+# namespace-scoped authorization are implemented by the owning Backstage app.
