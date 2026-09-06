@@ -85,3 +85,13 @@ variable "public_access_cidrs" {
   type        = set(string)
   default     = []
 }
+
+variable "database_password_version" {
+  description = "Explicit rotation sequence; increment only with a reviewed database/consumer rotation procedure"
+  type        = number
+  default     = 1
+  validation {
+    condition     = var.database_password_version >= 1 && floor(var.database_password_version) == var.database_password_version
+    error_message = "Secret version must be a positive integer."
+  }
+}
