@@ -19,9 +19,8 @@ function loadTeamView() {
 let activeUserSession = loadTeamView();
 
 function esc(str) {
-  const d = document.createElement('div');
-  d.appendChild(document.createTextNode(str || ''));
-  return d.innerHTML;
+  const entities = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+  return String(str ?? '').replace(/[&<>"']/g, character => entities[character]);
 }
 
 let catalogCache = null;
