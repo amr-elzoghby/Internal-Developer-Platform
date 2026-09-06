@@ -1,0 +1,7 @@
+{
+  "name": "idp-validation",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {"test": "node --test test-*.js"},
+  "dependencies": {"nunjucks": "3.2.4", "yaml": "2.9.0"}
+}
