@@ -32,8 +32,8 @@ variable "cluster_version" {
   default     = "1.36"
 
   validation {
-    condition     = contains(["1.34", "1.35", "1.36"], var.cluster_version)
-    error_message = "Supported EKS versions: 1.34, 1.35, 1.36."
+    condition     = var.cluster_version == "1.36"
+    error_message = "This tested add-on contract targets EKS 1.36 only. Add an explicit compatibility matrix before another minor."
   }
 }
 
@@ -282,3 +282,12 @@ variable "remote_state_bucket" {
   type        = string
 }
 
+
+variable "node_ami_release_version" {
+  description = "Reviewed EKS AL2023 optimized AMI release, pinned independently from control-plane upgrades"
+  type        = string
+  validation {
+    condition     = can(regex("^1\\.36\\.[0-9]+-[0-9]{8}$", var.node_ami_release_version))
+    error_message = "Supply an exact approved EKS 1.36 AL2023 release, e.g. the release_version from the regional AWS SSM recommendation after review."
+  }
+}

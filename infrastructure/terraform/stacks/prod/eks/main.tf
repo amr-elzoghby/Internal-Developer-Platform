@@ -28,10 +28,11 @@ module "eks" {
   endpoint_public_access = length(var.public_access_cidrs) > 0
   public_access_cidrs    = var.public_access_cidrs
 
-  node_instance_type = "t3.medium"
-  node_desired_size  = 2
-  node_min_size      = 2
-  node_max_size      = 4
+  node_instance_type       = "t3.medium"
+  node_desired_size        = 3
+  node_min_size            = 3
+  node_max_size            = 6
+  node_ami_release_version = var.node_ami_release_version
 
   platform_access_entries = var.platform_access_entries
   tenant_access_entries   = var.tenant_access_entries

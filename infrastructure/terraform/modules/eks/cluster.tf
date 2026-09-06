@@ -84,8 +84,19 @@ resource "aws_launch_template" "stable" {
   metadata_options {
     http_endpoint               = "enabled"
     http_tokens                 = "required"
-    http_put_response_hop_limit = 2
+    http_put_response_hop_limit = 1
     http_protocol_ipv6          = "disabled"
+  }
+
+  block_device_mappings {
+    device_name = "/dev/xvda"
+    ebs {
+      encrypted             = true
+      kms_key_id            = aws_kms_key.nodes.arn
+      volume_type           = "gp3"
+      volume_size           = 40
+      delete_on_termination = true
+    }
   }
 
   tag_specifications {
@@ -106,6 +117,23 @@ resource "aws_eks_node_group" "stable" {
   node_group_name = "${var.name_prefix}-stable"
   node_role_arn   = aws_iam_role.eks_nodes.arn
   subnet_ids      = local.private_subnet_ids
+  version         = var.cluster_version
+  ami_type        = "AL2023_x86_64_STANDARD"
+  release_version = var.node_ami_release_version
+  capacity_type   = "ON_DEMAND"
+
+  node_repair_config { enabled = true }
+
+  lifecycle {
+    precondition {
+      condition     = var.node_min_size <= var.node_desired_size && var.node_desired_size <= var.node_max_size
+      error_message = "Node capacity must satisfy min <= desired <= max."
+    }
+    precondition {
+      condition     = startswith(var.eks_addon_versions.kube_proxy, "v${var.cluster_version}.") && startswith(var.node_ami_release_version, "${var.cluster_version}.")
+      error_message = "AMI release and kube-proxy must match the approved cluster minor version."
+    }
+  }
 
   launch_template {
     id      = aws_launch_template.stable.id
@@ -132,7 +160,6 @@ resource "aws_eks_node_group" "stable" {
 
   depends_on = [
     aws_iam_role_policy_attachment.eks_worker_node_policy,
-    aws_iam_role_policy_attachment.eks_cni_policy,
     aws_iam_role_policy_attachment.ecr_read_only,
     aws_eks_addon.vpc_cni,
   ]

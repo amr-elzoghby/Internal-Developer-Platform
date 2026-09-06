@@ -1,3 +1,5 @@
+node_ami_release_version = "REPLACE_WITH_REVIEWED_1.36_RELEASE"
+
 # Private-only by default. Set only verified static administrator egress CIDRs.
 public_access_cidrs = []
 

@@ -36,11 +36,6 @@ resource "aws_iam_role_policy_attachment" "eks_worker_node_policy" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy"
 }
 
-resource "aws_iam_role_policy_attachment" "eks_cni_policy" {
-  role       = aws_iam_role.eks_nodes.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
-}
-
 resource "aws_iam_role_policy_attachment" "ecr_read_only" {
   role       = aws_iam_role.eks_nodes.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
@@ -62,19 +57,48 @@ resource "aws_iam_openid_connect_provider" "eks" {
   url             = aws_eks_cluster.main.identity[0].oidc[0].issuer
 }
 
-# ─── IRSA for VPC CNI (pod-level security groups) ────────────────────────────
-module "vpc_cni_irsa" {
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "5.60.0"
-
-  role_name             = "${var.name_prefix}-vpc-cni"
-  attach_vpc_cni_policy = true
-  vpc_cni_enable_ipv4   = true
-
-  oidc_providers = {
-    ex = {
-      provider_arn               = aws_iam_openid_connect_provider.eks.arn
-      namespace_service_accounts = ["kube-system:aws-node"]
+# Explicit IRSA avoids module-major drift and scopes each trust to one SA.
+locals {
+  addon_identities = {
+    ebs-csi = {
+      role_name       = "${var.name_prefix}-ebs-csi-driver"
+      service_account = "ebs-csi-controller-sa"
+      policy_arn      = "arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy"
+    }
+    vpc-cni = {
+      role_name       = "${var.name_prefix}-vpc-cni"
+      service_account = "aws-node"
+      policy_arn      = "arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy"
     }
   }
+}
+data "aws_iam_policy_document" "addon_trust" {
+  for_each = local.addon_identities
+  statement {
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:sub"
+      values   = ["system:serviceaccount:kube-system:${each.value.service_account}"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${replace(aws_iam_openid_connect_provider.eks.url, "https://", "")}:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+  }
+}
+resource "aws_iam_role" "addon" {
+  for_each           = local.addon_identities
+  name               = each.value.role_name
+  assume_role_policy = data.aws_iam_policy_document.addon_trust[each.key].json
+}
+resource "aws_iam_role_policy_attachment" "addon" {
+  for_each   = local.addon_identities
+  role       = aws_iam_role.addon[each.key].name
+  policy_arn = each.value.policy_arn
 }

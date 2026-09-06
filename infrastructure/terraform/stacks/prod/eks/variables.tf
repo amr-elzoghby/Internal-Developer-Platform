@@ -95,3 +95,8 @@ variable "database_password_version" {
     error_message = "Secret version must be a positive integer."
   }
 }
+
+variable "node_ami_release_version" {
+  description = "Exact approved regional EKS 1.36 AL2023 optimized AMI release; no floating latest value"
+  type        = string
+}
