@@ -1,28 +1,35 @@
+# Private bootstrap: use authenticated kubectl port-forward on loopback.
+# External SSO and ingress require a reviewed optional values file.
 global:
   logging:
     level: info
-
+  networkPolicy:
+    create: false
+  nodeSelector:
+    role: stable
+  tolerations:
+  - key: CriticalAddonsOnly
+    operator: Equal
+    value: 'true'
+    effect: NoSchedule
 server:
   service:
     type: ClusterIP
   metrics:
     enabled: true
   ingress:
+    enabled: false
+  replicas: 2
+  pdb:
     enabled: true
-    ingressClassName: nginx
-    annotations:
-      nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
-      nginx.ingress.kubernetes.io/ssl-redirect: "true"
-      nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    hosts:
-      - argocd.idp-prod.local
-    paths:
-      - /
-    tls:
-      - secretName: argocd-server-tls
-        hosts:
-          - argocd.idp-prod.local
-
+    minAvailable: 1
+  topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: argocd-server
 controller:
   resources:
     limits:
@@ -31,7 +38,6 @@ controller:
     requests:
       cpu: 100m
       memory: 256Mi
-
 repoServer:
   resources:
     limits:
@@ -40,7 +46,17 @@ repoServer:
     requests:
       cpu: 100m
       memory: 256Mi
-
+  replicas: 2
+  pdb:
+    enabled: true
+    minAvailable: 1
+  topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: argocd-repo-server
 applicationSet:
   enabled: true
   resources:
@@ -50,13 +66,127 @@ applicationSet:
     requests:
       cpu: 100m
       memory: 256Mi
-
+  replicas: 2
+  pdb:
+    enabled: true
+    minAvailable: 1
+  topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: kubernetes.io/hostname
+    whenUnsatisfiable: ScheduleAnyway
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: argocd-applicationset-controller
 configs:
   cm:
-    users.anonymous.enabled: "false"
+    users.anonymous.enabled: 'false'
+    admin.enabled: 'true'
+    resource.customizations.health.admissionregistration.k8s.io_ValidatingAdmissionPolicy: |
+      hs = {status = "Progressing", message = "Waiting for CEL type checking"}
+      if obj.status ~= nil and obj.status.observedGeneration == obj.metadata.generation and obj.status.typeChecking ~= nil then
+        local warnings = obj.status.typeChecking.expressionWarnings
+        if warnings ~= nil and #warnings > 0 then
+          hs.status = "Degraded"
+          hs.message = "CEL type checking failed; existing Deny bindings stay active"
+        else
+          hs.status = "Healthy"
+          hs.message = "CEL type checking passed for this generation"
+        end
+      end
+      return hs
+    resource.customizations.health.idp.io_PostgresSQLInstance: &controllerHealth |
+      local hs = {status = "Progressing", message = "Waiting for controller reconciliation"}
+      local readyTypes = {
+        CompositeResourceDefinition = "Established",
+        Provider = "Healthy",
+        Function = "Healthy",
+        ManagedResourceActivationPolicy = "Healthy"
+      }
+      local readyType = readyTypes[obj.kind] or "Ready"
+      local function current(condition)
+        return condition.observedGeneration == nil or
+          condition.observedGeneration == obj.metadata.generation
+      end
+      if obj.status == nil then
+        return hs
+      end
+      if obj.status.observedGeneration ~= nil and obj.status.observedGeneration ~= obj.metadata.generation then
+        return hs
+      end
+      if obj.status.conditions ~= nil then
+        for _, condition in ipairs(obj.status.conditions) do
+          if current(condition) and condition.type == "Synced" and condition.status == "False" then
+            hs.status = "Degraded"
+            hs.message = condition.message or "Reconciliation failed"
+            return hs
+          end
+        end
+        for _, condition in ipairs(obj.status.conditions) do
+          if current(condition) and condition.type == readyType and condition.status == "True" then
+            hs.status = "Healthy"
+            hs.message = "Controller reports " .. readyType
+          end
+        end
+      end
+      return hs
+    resource.customizations.health.idp.io_RedisInstance: *controllerHealth
+    resource.customizations.health.idp.io_ObjectBucket: *controllerHealth
+    resource.customizations.health.idp.io_ServerInstance: *controllerHealth
+    resource.customizations.health.apiextensions.crossplane.io_CompositeResourceDefinition: *controllerHealth
+    resource.customizations.health.pkg.crossplane.io_Provider: *controllerHealth
+    resource.customizations.health.pkg.crossplane.io_Function: *controllerHealth
+    resource.customizations.health.apiextensions.crossplane.io_ManagedResourceActivationPolicy: *controllerHealth
+    resource.customizations.health.karpenter.k8s.aws_EC2NodeClass: *controllerHealth
+    resource.customizations.health.karpenter.sh_NodePool: *controllerHealth
   rbac:
-    # Authenticated users receive no permissions unless an explicit group mapping grants them.
     policy.default: role:authenticated
     scopes: '[groups, email]'
-    policy.csv: |
-      g, platform-admin, role:admin
+    policy.csv: ''
+  params:
+    applicationsetcontroller.enable.leader.election: 'true'
+dex:
+  enabled: false
+extraObjects:
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: argocd-default-deny
+    namespace: argocd
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: argocd-internal-components
+    namespace: argocd
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+    ingress:
+    - from:
+      - podSelector:
+          matchLabels:
+            app.kubernetes.io/part-of: argocd
+- apiVersion: networking.k8s.io/v1
+  kind: NetworkPolicy
+  metadata:
+    name: argocd-monitoring
+    namespace: argocd
+  spec:
+    podSelector: {}
+    policyTypes:
+    - Ingress
+    ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: monitoring
+        podSelector:
+          matchLabels:
+            app.kubernetes.io/name: prometheus
+      ports:
+      - port: metrics
+        protocol: TCP

@@ -1,0 +1,5 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+# No environment exists yet. Render only from verified, applied Terraform outputs,
+# then review and merge that nonsecret bundle before enabling reconciliation.
+resources: []

@@ -1,0 +1,66 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: platform-bootstrap
+  namespace: argocd
+spec:
+  description: Privileged platform configuration from the reviewed environment bundle only.
+  sourceRepos:
+    - https://github.com/amr-elzoghby/Internal-Developer-Platform.git
+  destinations:
+    - namespace: argocd
+      server: https://kubernetes.default.svc
+    - namespace: identity-platform
+      server: https://kubernetes.default.svc
+    - namespace: platform-engineering
+      server: https://kubernetes.default.svc
+    - namespace: data-platform
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: storage.k8s.io
+      kind: StorageClass
+    - group: ''
+      kind: Namespace
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+    - group: apiextensions.crossplane.io
+      kind: CompositeResourceDefinition
+    - group: apiextensions.crossplane.io
+      kind: Composition
+    - group: apiextensions.crossplane.io
+      kind: ManagedResourceActivationPolicy
+    - group: pkg.crossplane.io
+      kind: DeploymentRuntimeConfig
+    - group: pkg.crossplane.io
+      kind: Provider
+    - group: pkg.crossplane.io
+      kind: Function
+    - group: aws.m.upbound.io
+      kind: ClusterProviderConfig
+    - group: karpenter.k8s.aws
+      kind: EC2NodeClass
+    - group: karpenter.sh
+      kind: NodePool
+    - group: admissionregistration.k8s.io
+      kind: ValidatingAdmissionPolicy
+    - group: admissionregistration.k8s.io
+      kind: ValidatingAdmissionPolicyBinding
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: ServiceAccount
+    - group: ''
+      kind: ResourceQuota
+    - group: ''
+      kind: LimitRange
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: external-secrets.io
+      kind: SecretStore
+    - group: argoproj.io
+      kind: AppProject
+    - group: argoproj.io
+      kind: ApplicationSet
+  orphanedResources:
+    warn: true

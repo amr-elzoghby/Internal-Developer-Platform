@@ -1,0 +1,25 @@
+# Copy to an ignored local values file, replace the placeholders, and set
+# ARGOCD_SSO_VALUES_FILE to its absolute path when invoking the installer.
+# Secret argocd-oidc must have label app.kubernetes.io/part-of=argocd and a
+# clientSecret key, populated by the approved secret-management process.
+# Routing remains private until a separate reviewed TLS ingress is configured.
+configs:
+  cm:
+    url: https://REPLACE_WITH_REAL_ARGOCD_HOST
+    admin.enabled: "false"
+    users.anonymous.enabled: "false"
+    oidc.config: |
+      name: Platform SSO
+      issuer: https://REPLACE_WITH_REAL_OIDC_ISSUER
+      clientID: REPLACE_WITH_REAL_CLIENT_ID
+      clientSecret: $argocd-oidc:clientSecret
+      requestedScopes: [openid, profile, email, groups]
+      requestedIDTokenClaims:
+        groups:
+          essential: true
+      skipAudienceCheckWhenTokenHasNoAudience: false
+  rbac:
+    policy.default: role:authenticated
+    scopes: '[groups]'
+    policy.csv: |
+      g, REPLACE_WITH_REAL_ADMIN_GROUP, role:admin
