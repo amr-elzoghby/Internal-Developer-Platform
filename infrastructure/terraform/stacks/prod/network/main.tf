@@ -1,21 +1,22 @@
 provider "aws" {
   region              = var.aws_region
-  allowed_account_ids = ["851236938302"]
+  allowed_account_ids = [var.aws_account_id]
 
   default_tags {
     tags = {
       Project     = "internal-developer-platform"
-      Environment = "prod"
+      Environment = var.environment
       ManagedBy   = "Terraform"
     }
   }
 }
 
 module "network" {
-  source = "../../../modules/network"
+  depends_on = [terraform_data.deployment_identity]
+  source     = "../../../modules/network"
 
-  environment  = "prod"
-  name_prefix  = "idp-prod"
+  environment  = var.environment
+  name_prefix  = "idp-${var.environment}"
   aws_region   = var.aws_region
   cluster_name = var.cluster_name
 
@@ -58,9 +59,7 @@ output "private_subnet_ids" {
   value = module.network.private_subnet_ids
 }
 
-output "eks_nodes_security_group_id" {
-  value = module.network.eks_nodes_security_group_id
-}
+
 
 output "data_subnet_ids" { value = module.network.data_subnet_ids }
 output "data_subnet_cidrs" { value = module.network.data_subnet_cidrs }

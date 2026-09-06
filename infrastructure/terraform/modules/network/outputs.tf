@@ -18,10 +18,7 @@ output "private_subnet_ids" {
   value       = values(aws_subnet.private)[*].id
 }
 
-output "eks_nodes_security_group_id" {
-  description = "Security group ID for EKS worker nodes"
-  value       = aws_security_group.eks_nodes.id
-}
+
 
 output "data_subnet_ids" {
   value = values(aws_subnet.data)[*].id
