@@ -1,0 +1,72 @@
+name: Verify deployment images
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
+permissions: {}
+jobs:
+  verify-images:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      attestations: read
+    steps:
+      # This workflow and every executable verifier come from the trusted base.
+      # Candidate files are data only: no install/build/script from a PR is run.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          path: candidate
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Inspect candidate release data using trusted validation code
+        id: images
+        run: |
+          python3 -m pip install PyYAML==6.0.3
+          cd candidate
+          python3 ../trusted/platform/validation/delivery.py validate
+          python3 ../trusted/platform/validation/delivery.py images > "$RUNNER_TEMP/candidate-images"
+          if [[ -s "$RUNNER_TEMP/candidate-images" ]]; then echo 'present=true' >> "$GITHUB_OUTPUT"; fi
+      - name: Prepare scanner before assuming the registry read role
+        if: steps.images.outputs.present == 'true'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: trusted/platform/validation
+          scanners: vuln
+          exit-code: '0'
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+        if: steps.images.outputs.present == 'true'
+        with:
+          role-to-assume: arn:aws:iam::851236938302:role/idp-prod-github-actions-read-role
+          aws-region: us-east-1
+          role-duration-seconds: 900
+      - name: Verify approved workflow provenance and SBOM; pull exact digests
+        if: steps.images.outputs.present == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          registry=851236938302.dkr.ecr.us-east-1.amazonaws.com
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$registry"
+          python3 trusted/platform/validation/verify-releases.py candidate
+          docker logout "$registry"
+      - name: Clear temporary AWS credentials
+        if: always()
+        run: |
+          for key in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
+            echo "$key=" >> "$GITHUB_ENV"
+          done
+      - name: Rescan verified local images against the current vulnerability database
+        if: steps.images.outputs.present == 'true'
+        run: |
+          set -euo pipefail
+          while IFS= read -r image; do
+            trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 "$image"
+          done < "$RUNNER_TEMP/verified-images"

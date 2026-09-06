@@ -1,349 +1,209 @@
 name: Service CI/CD
-
 on:
   push:
     branches: [main]
-    paths:
-      - 'apps/**'
+    paths: ['apps/**', '.github/workflows/service-ci.yaml', 'platform/validation/**']
+  schedule:
+    - cron: '17 4 * * 1'
   workflow_dispatch:
-    inputs:
-      service_path:
-        description: 'Service path (e.g. apps/identity-platform/login-app)'
-        required: false
-
-# Every job declares only the permissions it needs.
 permissions: {}
-
-# Delivery runs must finish independently; no pending-run replacement or cancellation.
-
+# Runs are independent. Every run reconciles all source services, including a
+# service whose earlier run failed. No workflow-wide pending-run cancellation.
 env:
   AWS_REGION: us-east-1
   AWS_ROLE_ARN: arn:aws:iam::851236938302:role/idp-prod-github-actions-role
   ECR_REGISTRY: 851236938302.dkr.ecr.us-east-1.amazonaws.com
-
 jobs:
-  detect_changes:
-    runs-on: ubuntu-latest
+  inventory:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions:
       contents: read
     outputs:
-      services: ${{ steps.detect.outputs.services }}
+      services: ${{ steps.services.outputs.services }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Detect changed services
-        id: detect
+      - run: python3 -m pip install PyYAML==6.0.3
+      - id: services
         env:
-          BASE_SHA: ${{ github.event.before }}
-          HEAD_SHA: ${{ github.sha }}
-          REQUESTED_SERVICE_PATH: ${{ inputs.service_path }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: echo "services=$(python3 platform/validation/delivery.py inventory --changed-since "$BEFORE_SHA")" >> "$GITHUB_OUTPUT"
+  build_scan:
+    needs: inventory
+    if: needs.inventory.outputs.services != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        service_path: ${{ fromJSON(needs.inventory.outputs.services) }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - run: python3 -m pip install PyYAML==6.0.3
+      - name: Build and exercise the isolated container
+        env:
+          SERVICE_PATH: ${{ matrix.service_path }}
         run: |
           set -euo pipefail
-
-          declare -A services=()
-
-          add_service() {
-            local service_path="$1"
-
-            if [[ ! "$service_path" =~ ^apps/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
-              echo "Invalid service path: $service_path" >&2
-              exit 1
-            fi
-
-            if [[ -L "$service_path" || ! -f "$service_path/Dockerfile" ]]; then
-              echo "Service path must be a real directory containing a Dockerfile: $service_path" >&2
-              exit 1
-            fi
-
-            services["$service_path"]=1
-          }
-
-          if [[ -n "${REQUESTED_SERVICE_PATH:-}" ]]; then
-            add_service "$REQUESTED_SERVICE_PATH"
-          elif [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
-            while IFS= read -r -d '' dockerfile; do
-              add_service "${dockerfile%/Dockerfile}"
-            done < <(git ls-files -z 'apps/*/*/Dockerfile')
-          else
-            if git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
-              changed_files=(git diff --name-only -z "$BASE_SHA" "$HEAD_SHA" -- apps/)
-            else
-              changed_files=(git ls-tree -r --name-only -z "$HEAD_SHA" -- apps/)
-            fi
-
-            while IFS= read -r -d '' changed_file; do
-              # A manifest-only image bump must not start another image build.
-              if [[ "$changed_file" =~ ^apps/[^/]+/[^/]+/deployment\.yaml$ ]]; then
-                continue
-              fi
-
-              IFS='/' read -r root team app remainder <<< "$changed_file"
-              if [[ "$root" != "apps" || -z "$team" || -z "$app" ]]; then
-                continue
-              fi
-
-              service_path="apps/$team/$app"
-              if [[ -d "$service_path" && -f "$service_path/Dockerfile" ]]; then
-                add_service "$service_path"
-              fi
-            done < <("${changed_files[@]}")
-          fi
-
-          services_json='['
-          separator=''
-          while IFS= read -r -d '' service_path; do
-            services_json+="${separator}\"${service_path}\""
-            separator=','
-          done < <({ printf '%s\0' "${!services[@]}" || true; } | sort -z)
-          services_json+=']'
-
-          printf 'services=%s\n' "$services_json" >> "$GITHUB_OUTPUT"
-          printf 'Detected services: %s\n' "$services_json"
-
-  build_images:
-    needs: detect_changes
-    if: needs.detect_changes.outputs.services != '[]' && needs.detect_changes.outputs.services != ''
-    runs-on: ubuntu-latest
+          docker build --tag idp-ci:build "$SERVICE_PATH"
+          python3 platform/validation/smoke-container.py "$SERVICE_PATH" idp-ci:build
+          mkdir -p artifact
+          docker save idp-ci:build --output artifact/image.tar
+          python3 platform/validation/delivery.py revision "$SERVICE_PATH" > artifact/source-revision
+          sha256sum artifact/image.tar > artifact/image.sha256
+      - name: Scan before obtaining any cloud credentials
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: idp-ci:build
+          format: table
+          exit-code: '1'
+          ignore-unfixed: false
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+      - name: Produce SPDX SBOM without cloud credentials
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: idp-ci:build
+          format: spdx-json
+          output: artifact/sbom.spdx.json
+          skip-setup-trivy: true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: image-${{ strategy.job-index }}
+          path: artifact/
+          retention-days: 1
+          if-no-files-found: error
+  publish:
+    needs: [inventory, build_scan]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
       id-token: write
+      attestations: write
     strategy:
       fail-fast: false
       matrix:
-        service_path: ${{ fromJson(needs.detect_changes.outputs.services) }}
+        service_path: ${{ fromJSON(needs.inventory.outputs.services) }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
           persist-credentials: false
-
-      - name: Extract service information
-        id: info
-        env:
-          SERVICE_PATH: ${{ matrix.service_path }}
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: image-${{ strategy.job-index }}
+          path: artifact
+      - name: Validate and load scanned artifact
         run: |
-          set -euo pipefail
-
-          if [[ ! "$SERVICE_PATH" =~ ^apps/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
-            echo "Invalid service path: $SERVICE_PATH" >&2
-            exit 1
-          fi
-
-          IFS='/' read -r root team app remainder <<< "$SERVICE_PATH"
-          if [[ "$root" != "apps" || -z "$team" || -z "$app" || -n "${remainder:-}" ]]; then
-            echo "Service path must have the form apps/<team>/<app>: $SERVICE_PATH" >&2
-            exit 1
-          fi
-          if [[ -L "$SERVICE_PATH" || ! -f "$SERVICE_PATH/Dockerfile" ]]; then
-            echo "Service path must be a real directory containing a Dockerfile: $SERVICE_PATH" >&2
-            exit 1
-          fi
-
-          printf 'service_path=%s\n' "$SERVICE_PATH" >> "$GITHUB_OUTPUT"
-          printf 'team=%s\n' "$team" >> "$GITHUB_OUTPUT"
-          printf 'app=%s\n' "$app" >> "$GITHUB_OUTPUT"
-          printf 'ecr_repository=idp-%s-%s\n' "$team" "$app" >> "$GITHUB_OUTPUT"
-          printf 'image_tag=%s\n' "$GITHUB_SHA" >> "$GITHUB_OUTPUT"
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+          sha256sum --check artifact/image.sha256
+          docker load --input artifact/image.tar
+      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - name: Login to Amazon ECR
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Ensure ECR repository exists
+          role-duration-seconds: 900
+      - name: Publish to provisioned ECR repository
+        id: image
         env:
-          ECR_REPOSITORY: ${{ steps.info.outputs.ecr_repository }}
-        run: |
-          set -euo pipefail
-
-          set +e
-          repository_result="$(aws ecr describe-repositories \
-            --repository-names "$ECR_REPOSITORY" \
-            --query 'repositories[0].imageTagMutability' \
-            --output text 2>&1)"
-          describe_status=$?
-          set -e
-
-          if [[ "$describe_status" -eq 0 ]]; then
-            if [[ "$repository_result" != "IMMUTABLE" ]]; then
-              echo "ECR repository $ECR_REPOSITORY is mutable; migrate it to IMMUTABLE before publishing." >&2
-              exit 1
-            fi
-          elif [[ "$repository_result" == *"RepositoryNotFoundException"* ]]; then
-            aws ecr create-repository \
-              --repository-name "$ECR_REPOSITORY" \
-              --image-tag-mutability IMMUTABLE \
-              --image-scanning-configuration scanOnPush=true \
-              --encryption-configuration encryptionType=AES256
-          else
-            echo "$repository_result" >&2
-            exit "$describe_status"
-          fi
-
-      - name: Prepare container image
-        id: prepare-image
-        env:
-          ECR_REPOSITORY: ${{ steps.info.outputs.ecr_repository }}
-          IMAGE_TAG: ${{ steps.info.outputs.image_tag }}
-          SERVICE_PATH: ${{ steps.info.outputs.service_path }}
-        run: |
-          set -euo pipefail
-          image_ref="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-
-          set +e
-          image_result="$(aws ecr describe-images \
-            --repository-name "$ECR_REPOSITORY" \
-            --image-ids "imageTag=$IMAGE_TAG" \
-            --query 'imageDetails[0].imageDigest' \
-            --output text 2>&1)"
-          describe_status=$?
-          set -e
-
-          if [[ "$describe_status" -eq 0 ]]; then
-            echo "Reusing immutable image: $image_result"
-            docker pull "$image_ref"
-            echo 'exists=true' >> "$GITHUB_OUTPUT"
-          elif [[ "$image_result" == *"ImageNotFoundException"* ]]; then
-            docker build --tag "$image_ref" "$SERVICE_PATH"
-            echo 'exists=false' >> "$GITHUB_OUTPUT"
-          else
-            echo "$image_result" >&2
-            exit "$describe_status"
-          fi
-
-      - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ env.ECR_REGISTRY }}/${{ steps.info.outputs.ecr_repository }}:${{ steps.info.outputs.image_tag }}
-          format: 'table'
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL'
-
-      - name: Push image to ECR
-        if: steps.prepare-image.outputs.exists != 'true'
-        env:
-          ECR_REPOSITORY: ${{ steps.info.outputs.ecr_repository }}
-          IMAGE_TAG: ${{ steps.info.outputs.image_tag }}
-        run: |
-          set -euo pipefail
-          image_ref="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-          docker push "$image_ref"
-
-  update_manifests:
-    needs: [detect_changes, build_images]
-    if: needs.detect_changes.outputs.services != '[]' && needs.detect_changes.outputs.services != ''
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    strategy:
-      fail-fast: false
-      matrix:
-        service_path: ${{ fromJson(needs.detect_changes.outputs.services) }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Update manifest on a dedicated branch
-        env:
-          GH_TOKEN: ${{ github.token }}
           SERVICE_PATH: ${{ matrix.service_path }}
         run: |
           set -euo pipefail
-
-          if [[ ! "$SERVICE_PATH" =~ ^apps/[a-z0-9]([a-z0-9-]*[a-z0-9])?/[a-z0-9]([a-z0-9-]*[a-z0-9])?$ ]]; then
-            echo "Invalid service path: $SERVICE_PATH" >&2
-            exit 1
-          fi
-
-          IFS='/' read -r root team app remainder <<< "$SERVICE_PATH"
-          if [[ "$root" != "apps" || -z "$team" || -z "$app" || -n "${remainder:-}" ]]; then
-            echo "Service path must have the form apps/<team>/<app>: $SERVICE_PATH" >&2
-            exit 1
-          fi
-
-          manifest_file="$SERVICE_PATH/deployment.yaml"
-          if [[ ! -f "$manifest_file" ]]; then
-            echo "No deployment manifest found for $SERVICE_PATH; no GitOps update is required."
-            exit 0
-          fi
-          if [[ -L "$manifest_file" ]]; then
-            echo "Refusing to update a symbolic-link manifest: $manifest_file" >&2
-            exit 1
-          fi
-
-          ecr_repository="idp-${team}-${app}"
-          image_tag="$GITHUB_SHA"
-          image_ref="${ECR_REGISTRY}/${ecr_repository}:${image_tag}"
-          image_lines="$(grep -Ec '^[[:space:]]+image:[[:space:]]+' "$manifest_file" || true)"
-
-          if [[ "$image_lines" -ne 1 ]]; then
-            echo "Expected exactly one container image in $manifest_file; found $image_lines." >&2
-            exit 1
-          fi
-
-          sed -i -E \
-            "0,/^[[:space:]]*image:[[:space:]]/{s|^([[:space:]]*)image:[[:space:]].*|\\1image: ${image_ref}|}" \
-            "$manifest_file"
-
-          if ! grep -Fq "image: $image_ref" "$manifest_file"; then
-            echo "The image reference was not updated as expected." >&2
-            exit 1
-          fi
-
-          if git diff --quiet -- "$manifest_file"; then
-            echo "Manifest already references $image_ref; no pull request is required."
-            exit 0
-          fi
-
-          branch_name="automation/image-${team}-${app}-${image_tag}"
-          commit_message="ci(images): update ${app} to ${image_tag} [skip ci]"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch --create "$branch_name"
-          git add -- "$manifest_file"
-          git commit -m "$commit_message"
-
-          remote_commit="$(git ls-remote --heads origin "refs/heads/$branch_name" | cut -f1)"
-          if [[ -n "$remote_commit" ]]; then
-            git fetch --no-tags --depth=1 origin "refs/heads/$branch_name"
-            local_tree="$(git rev-parse 'HEAD^{tree}')"
-            remote_tree="$(git rev-parse 'FETCH_HEAD^{tree}')"
-            if [[ "$local_tree" != "$remote_tree" ]]; then
-              echo "Remote automation branch has unexpected content; refusing to overwrite it." >&2
-              exit 1
-            fi
-            echo "Remote branch already contains the expected update: $branch_name"
-          else
-            git push --set-upstream origin "HEAD:refs/heads/$branch_name"
-          fi
-
-          existing_pr="$(gh pr list \
-            --repo "$GITHUB_REPOSITORY" \
-            --head "$branch_name" \
-            --state all \
-            --json url \
-            --jq '.[0].url // empty')"
-
-          if [[ -n "$existing_pr" ]]; then
-            echo "Pull request already exists: $existing_pr"
-            exit 0
-          fi
-
-          gh pr create \
-            --repo "$GITHUB_REPOSITORY" \
-            --base main \
-            --head "$branch_name" \
-            --title "$commit_message" \
-            --body "Automated SHA-tagged image update for \`$SERVICE_PATH\`. The image passed the build and CRITICAL-severity Trivy gate before this pull request was opened."
+          repository="idp-${SERVICE_PATH#apps/}"
+          repository="${repository//\//-}"
+          python3 platform/validation/check-ecr.py "$repository"
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+          tag="${GITHUB_SHA}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          docker tag idp-ci:build "$ECR_REGISTRY/$repository:$tag"
+          docker push "$ECR_REGISTRY/$repository:$tag"
+          digest="$(aws ecr describe-images --repository-name "$repository" --image-ids "imageTag=$tag" --query 'imageDetails[0].imageDigest' --output text)"
+          [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]
+          printf '%s\n' "$digest" > artifact/digest
+          printf '%s\n' "$ECR_REGISTRY/$repository" > artifact/repository
+          docker logout "$ECR_REGISTRY"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          echo "repository=$ECR_REGISTRY/$repository" >> "$GITHUB_OUTPUT"
+      - name: Clear AWS credentials before artifact upload
+        run: |
+          for key in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN; do
+            echo "$key=" >> "$GITHUB_ENV"
+          done
+      - name: Attest build provenance for the published digest
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-name: ${{ steps.image.outputs.repository }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          push-to-registry: false
+      - name: Attest SPDX SBOM for the same digest
+        uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v2
+        with:
+          subject-name: ${{ steps.image.outputs.repository }}
+          subject-digest: ${{ steps.image.outputs.digest }}
+          sbom-path: artifact/sbom.spdx.json
+          push-to-registry: false
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-${{ strategy.job-index }}
+          path: |
+            artifact/source-revision
+            artifact/digest
+            artifact/repository
+          retention-days: 1
+          if-no-files-found: error
+  promotion:
+    needs: [inventory, publish]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        service_path: ${{ fromJSON(needs.inventory.outputs.services) }}
+    steps:
+      - run: python3 -m pip install PyYAML==6.0.3
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: release-${{ strategy.job-index }}
+          path: /tmp/release
+      - name: Repository-scoped bot token (so PR quality workflows run)
+        id: bot
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ vars.DELIVERY_APP_ID }}
+          private-key: ${{ secrets.DELIVERY_APP_PRIVATE_KEY }}
+          repositories: ${{ github.event.repository.name }}
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ steps.bot.outputs.token }}
+      - name: Open a reviewed digest promotion
+        env:
+          GH_TOKEN: ${{ steps.bot.outputs.token }}
+          SERVICE_PATH: ${{ matrix.service_path }}
+        run: |
+          set -euo pipefail
+          python3 platform/validation/delivery.py promote "$SERVICE_PATH" \
+            --digest "$(cat /tmp/release/digest)" --revision "$(cat /tmp/release/source-revision)" --build-revision "$GITHUB_SHA"
+          python3 platform/validation/delivery.py validate
+          branch="automation/image-${SERVICE_PATH#apps/}-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          branch="${branch//\//-}"
+          git switch --create "$branch"
+          git config user.name 'idp-delivery[bot]'
+          git config user.email 'idp-delivery@users.noreply.github.com'
+          git add -- "$SERVICE_PATH/deployment.yaml" "$SERVICE_PATH/kustomization.yaml" "$SERVICE_PATH/delivery.json"
+          git commit -m "ci(images): promote $SERVICE_PATH to verified digest"
+          git push --set-upstream origin "HEAD:refs/heads/$branch"
+          cat > /tmp/promotion-body.md <<'BODY'
+          Promote the scanned image digest and enable this service's explicit Kustomize deployment. Review the image, source revision, quality checks and provenance before merging. Roll back by reverting this promotion in Git.
+          BODY
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+            --title "ci(images): promote $SERVICE_PATH" --body-file /tmp/promotion-body.md
