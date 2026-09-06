@@ -1,0 +1,103 @@
+{
+  "providerVersion": "v2.7.0",
+  "schemas": [
+    {
+      "group": "s3.aws.m.upbound.io",
+      "kind": "Bucket",
+      "filename": "s3.aws.m.upbound.io_buckets.yaml",
+      "sha256": "871b4e6b2145a7b712dda253a09d4d1a9e0874ede0fd82864202e82b98b65959",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/s3.aws.m.upbound.io_buckets.yaml"
+    },
+    {
+      "group": "ec2.aws.m.upbound.io",
+      "kind": "Instance",
+      "filename": "ec2.aws.m.upbound.io_instances.yaml",
+      "sha256": "263b9e4ce08d510c2bff2af552fec77342dba1500a4b0270a9b29d8e502dfe60",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/ec2.aws.m.upbound.io_instances.yaml"
+    },
+    {
+      "group": "s3.aws.m.upbound.io",
+      "kind": "BucketServerSideEncryptionConfiguration",
+      "filename": "s3.aws.m.upbound.io_bucketserversideencryptionconfigurations.yaml",
+      "sha256": "9c378fc13dc8601dc9b96e59cfad25c1fc88c80d933e3af082088da10b67f352",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/s3.aws.m.upbound.io_bucketserversideencryptionconfigurations.yaml"
+    },
+    {
+      "group": "s3.aws.m.upbound.io",
+      "kind": "BucketLifecycleConfiguration",
+      "filename": "s3.aws.m.upbound.io_bucketlifecycleconfigurations.yaml",
+      "sha256": "436eafa57956297a50c635daac40edaba8b39d77d7888e6c847ae28480fd6c87",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/s3.aws.m.upbound.io_bucketlifecycleconfigurations.yaml"
+    },
+    {
+      "group": "s3.aws.m.upbound.io",
+      "kind": "BucketOwnershipControls",
+      "filename": "s3.aws.m.upbound.io_bucketownershipcontrols.yaml",
+      "sha256": "09a56adaed0a3a8a3123ad05f85d7501057443a6ccc8b15a80afa5d7c8cfb21e",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/s3.aws.m.upbound.io_bucketownershipcontrols.yaml"
+    },
+    {
+      "group": "s3.aws.m.upbound.io",
+      "kind": "BucketPolicy",
+      "filename": "s3.aws.m.upbound.io_bucketpolicies.yaml",
+      "sha256": "95bfd41060466391e3ea636a1b6bc32f24671a516c1c180d8053d8c1b9cd1d32",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/s3.aws.m.upbound.io_bucketpolicies.yaml"
+    },
+    {
+      "group": "s3.aws.m.upbound.io",
+      "kind": "BucketPublicAccessBlock",
+      "filename": "s3.aws.m.upbound.io_bucketpublicaccessblocks.yaml",
+      "sha256": "58e97cfc9e0107e36351318ad6475d561d778ab6f569f7680671e065e2389cb7",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/s3.aws.m.upbound.io_bucketpublicaccessblocks.yaml"
+    },
+    {
+      "group": "rds.aws.m.upbound.io",
+      "kind": "SubnetGroup",
+      "filename": "rds.aws.m.upbound.io_subnetgroups.yaml",
+      "sha256": "37fc6723910f4ad599711f941a8b3c0a17bcb28c1de96ff6d1a437b8a772d1a7",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/rds.aws.m.upbound.io_subnetgroups.yaml"
+    },
+    {
+      "group": "rds.aws.m.upbound.io",
+      "kind": "Instance",
+      "filename": "rds.aws.m.upbound.io_instances.yaml",
+      "sha256": "b1077bcc059ef3538f4abedf3296363b3044517b7ea20cc09aac44629c8e400f",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/rds.aws.m.upbound.io_instances.yaml"
+    },
+    {
+      "group": "elasticache.aws.m.upbound.io",
+      "kind": "SubnetGroup",
+      "filename": "elasticache.aws.m.upbound.io_subnetgroups.yaml",
+      "sha256": "f8e699405c0d348c3c6510144a99df52f483f34823acef80812cfbfd3453424a",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/elasticache.aws.m.upbound.io_subnetgroups.yaml"
+    },
+    {
+      "group": "elasticache.aws.m.upbound.io",
+      "kind": "ReplicationGroup",
+      "filename": "elasticache.aws.m.upbound.io_replicationgroups.yaml",
+      "sha256": "fa8a9d1326e011e923e77d2f2c35927e7077889eba55f8efb44a7e0a3cd40714",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/elasticache.aws.m.upbound.io_replicationgroups.yaml"
+    },
+    {
+      "group": "ec2.aws.m.upbound.io",
+      "kind": "SecurityGroup",
+      "filename": "ec2.aws.m.upbound.io_securitygroups.yaml",
+      "sha256": "a18d800f300a38b16523428eb237fd9e56511a55b834b7f275772d7ce27f1ed2",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/ec2.aws.m.upbound.io_securitygroups.yaml"
+    },
+    {
+      "group": "ec2.aws.m.upbound.io",
+      "kind": "SecurityGroupRule",
+      "filename": "ec2.aws.m.upbound.io_securitygrouprules.yaml",
+      "sha256": "c440eb941c36b2845d40421329f71b9cad4657807387362d87fcb6e4eba8dccf",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/ec2.aws.m.upbound.io_securitygrouprules.yaml"
+    },
+    {
+      "group": "s3.aws.m.upbound.io",
+      "kind": "BucketVersioning",
+      "filename": "s3.aws.m.upbound.io_bucketversionings.yaml",
+      "sha256": "8591d11b59f273fb033e5d87ef3a58e152d93c57b6e50fde4819fd19beecaf0d",
+      "url": "https://raw.githubusercontent.com/crossplane-contrib/provider-upjet-aws/v2.7.0/package/crds/s3.aws.m.upbound.io_bucketversionings.yaml"
+    }
+  ]
+}

@@ -33,7 +33,7 @@ spec:
               }
               spec = composite["spec"] if "spec" in composite else {}
               region = spec["region"] if "region" in spec else "us-east-1"
-              bucket_name = f"${RESOURCE_NAME_PREFIX}-crossplane-{composite['metadata']['uid']}"
+              bucket_name = "${RESOURCE_NAME_PREFIX}-crossplane-" + metadata["uid"].replace("-", "")[:24]
 
               bucket = {
                   "apiVersion": "s3.aws.m.upbound.io/v1beta1",
