@@ -1,13 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    reloader.stakater.com/auto: "true"
   name: login-app
   namespace: identity-platform
   labels:
     app: login-app
     team: identity-platform
+    backstage.io/kubernetes-id: login-app
 spec:
-  replicas: 1
+  replicas: 2
   revisionHistoryLimit: 3
   selector:
     matchLabels:
@@ -15,79 +18,104 @@ spec:
   template:
     metadata:
       labels:
+        platform.idp.io/alb-target: "true"
+        platform.idp.io/postgres-client: "true"
         app: login-app
         team: identity-platform
+        backstage.io/kubernetes-id: login-app
     spec:
       serviceAccountName: tenant-workload
       automountServiceAccountToken: false
       securityContext:
         seccompProfile:
           type: RuntimeDefault
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
       containers:
-        - name: login-app
-          # Keep the immutable, already-published artifact address stable during
-          # the ownership rename. Move it only after copying the image to a new
-          # repository and verifying its digest.
-          image: 851236938302.dkr.ecr.us-east-1.amazonaws.com/idp-team-alpha-login-app:246b429077dd2bc39e9a8e05c635f05e62b10902
-          imagePullPolicy: IfNotPresent
-          ports:
-            - name: http
-              containerPort: 3000
-              protocol: TCP
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 500m
-              memory: 512Mi
-          startupProbe:
-            tcpSocket:
-              port: http
-            periodSeconds: 5
-            failureThreshold: 30
-          readinessProbe:
-            tcpSocket:
-              port: http
-            periodSeconds: 10
-            timeoutSeconds: 2
-            failureThreshold: 3
-          livenessProbe:
-            tcpSocket:
-              port: http
-            periodSeconds: 20
-            timeoutSeconds: 2
-            failureThreshold: 3
-          env:
-            - name: PORT
-              value: "3000"
-            - name: DB_HOST
-              valueFrom:
-                secretKeyRef:
-                  name: identity-platform-db-conn
-                  key: host
-            - name: DB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: identity-platform-db-conn
-                  key: username
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: identity-platform-db-conn
-                  key: password
-            - name: DB_NAME
-              value: postgres
-            - name: DB_PORT
-              valueFrom:
-                secretKeyRef:
-                  name: identity-platform-db-conn
-                  key: port
+      - name: login-app
+        image: pending-build.invalid/login-app:source-recovery-required
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+        startupProbe:
+          tcpSocket:
+            port: http
+          periodSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          tcpSocket:
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+        livenessProbe:
+          tcpSocket:
+            port: http
+          periodSeconds: 20
+          timeoutSeconds: 2
+          failureThreshold: 3
+        env:
+        - name: PORT
+          value: '3000'
+        - name: DB_HOST
+          valueFrom:
+            secretKeyRef:
+              name: identity-platform-db-conn
+              key: host
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: identity-platform-db-conn
+              key: username
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: identity-platform-db-conn
+              key: password
+        - name: DB_NAME
+          value: postgres
+        - name: DB_PORT
+          valueFrom:
+            secretKeyRef:
+              name: identity-platform-db-conn
+              key: port
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: login-app
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: login-app
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi
 ---
 apiVersion: v1
 kind: Service
@@ -100,31 +128,38 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 3000
-      targetPort: 3000
+  - port: 3000
+    targetPort: 3000
   selector:
     app: login-app
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+apiVersion: policy/v1
+kind: PodDisruptionBudget
 metadata:
-  name: login-app-ingress
+  name: login-app
   namespace: identity-platform
-  labels:
-    app: login-app
-    team: identity-platform
-  annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
 spec:
-  ingressClassName: nginx
-  rules:
-    - host: login.idp-prod.local
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: login-app
-                port:
-                  number: 3000
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: login-app
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: login-app
+  namespace: identity-platform
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: login-app
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70

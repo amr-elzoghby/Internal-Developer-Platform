@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "mode": "external",
+  "container": "login-app",
+  "owner": "identity-platform",
+  "component": "login-app",
+  "status": "quarantined",
+  "reason": "Application source, build provenance and a verified image digest are not available in this repository. Restore owned source and pass the normal source delivery pipeline before enabling this workload."
+}

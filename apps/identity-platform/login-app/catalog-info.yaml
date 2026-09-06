@@ -1,0 +1,14 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: login-app
+  description: Quarantined external application example; source and artifact provenance are unavailable.
+  annotations:
+    backstage.io/kubernetes-id: login-app
+spec:
+  type: service
+  lifecycle: experimental
+  owner: identity-platform
+  system: platform-services
+  dependsOn:
+    - resource:default/identity-platform-db

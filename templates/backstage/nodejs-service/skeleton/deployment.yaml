@@ -1,11 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
+  annotations:
+    reloader.stakater.com/auto: "true"
   name: ${{ values.component_id }}
   namespace: ${{ values.namespace }}
   labels:
     app: ${{ values.component_id }}
     team: ${{ values.namespace }}
+    backstage.io/kubernetes-id: ${{ values.component_id }}
 spec:
   replicas: 2
   revisionHistoryLimit: 3
@@ -15,8 +18,10 @@ spec:
   template:
     metadata:
       labels:
+        platform.idp.io/alb-target: "true"
         app: ${{ values.component_id }}
         team: ${{ values.namespace }}
+        backstage.io/kubernetes-id: ${{ values.component_id }}
     spec:
       serviceAccountName: tenant-workload
       automountServiceAccountToken: false
@@ -26,49 +31,71 @@ spec:
         runAsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
+        fsGroup: 1000
       containers:
-        - name: app
-          image: pending-build.invalid/${{ values.component_id }}:pending
-          imagePullPolicy: IfNotPresent
-          ports:
-            - name: http
-              containerPort: 3000
-              protocol: TCP
-          env:
-            - name: PORT
-              value: "3000"
-          securityContext:
-            allowPrivilegeEscalation: false
-            capabilities:
-              drop:
-                - ALL
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 250m
-              memory: 256Mi
-          startupProbe:
-            httpGet:
-              path: /healthz
-              port: http
-            periodSeconds: 5
-            failureThreshold: 30
-          readinessProbe:
-            httpGet:
-              path: /healthz
-              port: http
-            periodSeconds: 10
-            timeoutSeconds: 2
-            failureThreshold: 3
-          livenessProbe:
-            httpGet:
-              path: /healthz
-              port: http
-            periodSeconds: 20
-            timeoutSeconds: 2
-            failureThreshold: 3
+      - name: app
+        image: pending-build.invalid/${{ values.component_id }}:pending
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 3000
+          protocol: TCP
+        env:
+        - name: PORT
+          value: '3000'
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 250m
+            memory: 256Mi
+        startupProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 5
+          failureThreshold: 30
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 10
+          timeoutSeconds: 2
+          failureThreshold: 3
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: http
+          periodSeconds: 20
+          timeoutSeconds: 2
+          failureThreshold: 3
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      topologySpreadConstraints:
+      - maxSkew: 1
+        topologyKey: topology.kubernetes.io/zone
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: ${{ values.component_id }}
+      - maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
+        labelSelector:
+          matchLabels:
+            app: ${{ values.component_id }}
+      volumes:
+      - name: tmp
+        emptyDir:
+          sizeLimit: 64Mi
 ---
 apiVersion: v1
 kind: Service
@@ -81,7 +108,38 @@ metadata:
 spec:
   type: ClusterIP
   ports:
-    - port: 80
-      targetPort: 3000
+  - port: 80
+    targetPort: 3000
   selector:
     app: ${{ values.component_id }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: ${{ values.component_id }}
+  namespace: ${{ values.namespace }}
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: ${{ values.component_id }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: ${{ values.component_id }}
+  namespace: ${{ values.namespace }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: ${{ values.component_id }}
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
