@@ -397,7 +397,7 @@ APPROVE_PLAN_SHA256=<reviewed-sha256> make infra-apply STACK=network
 
 `make up` changes the Kubernetes cluster and is not a local validation command. `infra-up` aliases the saved-plan apply workflow; no target implicitly approves a Terraform plan. Destroy requires the full account/region/cluster confirmation, a separate saved destroy plan for each layer in reverse dependency order, and current retained-resource inventory before network teardown.
 
-For an isolated sandbox, call `platform/operations/terraform-plan.py` with explicit `--environment`, `--account`, `--region`, `--cluster`, `--backend-bucket`, and `--backend-region`. Its account and cluster must differ from production. Bootstrap output access uses matching `IDP_ENVIRONMENT`, `IDP_AWS_ACCOUNT_ID`, `IDP_AWS_REGION`, `IDP_CLUSTER_NAME`, `IDP_BACKEND_BUCKET`, and `IDP_BACKEND_REGION`. Identity and backend mismatches stop before Kubernetes apply.
+For an isolated sandbox, call `platform/operations/terraform-plan.py` with explicit `--environment` (`dev` or `staging`), `--account`, `--region`, `--cluster` (`idp-dev` or `idp-staging`), `--backend-bucket`, and `--backend-region`. Its account and cluster must differ from production. Bootstrap output access uses matching `IDP_ENVIRONMENT`, `IDP_AWS_ACCOUNT_ID`, `IDP_AWS_REGION`, `IDP_CLUSTER_NAME`, `IDP_BACKEND_BUCKET`, and `IDP_BACKEND_REGION`. Identity and backend mismatches stop before Kubernetes apply. The checked-in GitOps applications and bundle directory are production-only: sandbox operators must use the direct component targets and reviewed canary manifests; bundle publication and application attachment reject sandbox outputs.
 
 ## Validation evidence
 
