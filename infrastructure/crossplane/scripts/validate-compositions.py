@@ -53,7 +53,7 @@ def resource():
     return SimpleNamespace(resource=Struct(), ready=0)
 
 
-def render(script, claim, ready_names=()):
+def render(script, claim, ready_names=(), observed_resources=None):
     # Execute the exact embedded function against real protobuf Struct objects.
     # Only the SDK readiness constants are stubbed; no AWS or cluster is accessed.
     sdk_name = 'crossplane.function.proto.v1.run_function_pb2'
@@ -65,6 +65,8 @@ def render(script, claim, ready_names=()):
     for name in ready_names:
         observed[name] = resource()
         observed[name].resource.update({'status': {'conditions': [{'type': 'Ready', 'status': 'True'}]}})
+    for name, obj in (observed_resources or {}).items():
+        observed.setdefault(name, resource()).resource.update(obj)
     xr = resource()
     xr.resource.update(claim)
     req = SimpleNamespace(observed=SimpleNamespace(composite=xr, resources=observed))
@@ -73,6 +75,52 @@ def render(script, claim, ready_names=()):
     exec(compile(script, '<composition>', 'exec'), namespace)
     namespace['compose'](req, rsp)
     return {name: (MessageToDict(item.resource), item.ready) for name, item in rsp.desired.resources.items()}
+
+
+def check_database_names(template, claim):
+    if claim['kind'] not in ('PostgresSQLInstance', 'RedisInstance'):
+        return
+    instance_key = 'rds-instance' if claim['kind'] == 'PostgresSQLInstance' else 'redis-instance'
+    keys = ('subnet-group', instance_key)
+    def cloud_name(key, obj):
+        if key == 'rds-instance':
+            assert 'crossplane.io/external-name' not in obj['metadata'].get('annotations', {})
+            return obj['spec']['forProvider']['identifier']
+        return obj['metadata']['annotations']['crossplane.io/external-name']
+    for environment in ('prod', 'dev', 'staging'):
+        script = template
+        values = {**VALUES, 'ENVIRONMENT': environment, 'RESOURCE_NAME_PREFIX': 'idp-' + environment}
+        for key, value in values.items():
+            script = script.replace('${' + key + '}', value)
+        first = render(script, claim)
+        names = {key: cloud_name(key, first[key][0]) for key in keys}
+        expected = 'idp-' + environment + '-crossplane-' + hashlib.sha256(claim['metadata']['uid'].encode()).hexdigest()[:16]
+        assert all(name == expected and len(name) <= 40 for name in names.values())
+        assert re.fullmatch(r'[a-z][a-z0-9-]*[a-z0-9]', expected) and '--' not in expected
+        assert first[instance_key][0]['spec']['forProvider']['finalSnapshotIdentifier'] == expected + '-final'
+        renamed = copy.deepcopy(claim)
+        renamed['metadata']['name'] = 'a' * 63
+        assert cloud_name(instance_key, render(script, renamed)[instance_key][0]) == expected
+        replacement = copy.deepcopy(claim)
+        replacement['metadata']['uid'] = 'fedcba98-7654-3210-fedc-ba9876543210'
+        assert cloud_name(instance_key, render(script, replacement)[instance_key][0]) != expected
+        observed = {key: first[key][0] for key in keys}
+        if instance_key == 'rds-instance':
+            observed[instance_key] = copy.deepcopy(observed[instance_key])
+            observed[instance_key]['metadata']['annotations'] = {'crossplane.io/external-name': 'db-PROVIDERASSIGNEDID'}
+        assert render(script, claim, observed_resources=observed) == first
+        for key in keys:
+            foreign = copy.deepcopy(observed)
+            if key == 'rds-instance':
+                foreign[key]['spec']['forProvider']['identifier'] = 'legacy-database'
+            else:
+                foreign[key]['metadata']['annotations']['crossplane.io/external-name'] = 'legacy-database'
+            try:
+                render(script, claim, observed_resources=foreign)
+            except ValueError as error:
+                assert 'reviewed naming migration' in str(error)
+            else:
+                raise AssertionError('Existing cloud identity was silently retargeted')
 
 
 def check_security(kind, resources):
@@ -157,6 +205,7 @@ def main():
                 assert readiness == 2, 'new resources cannot be ready before observation'
                 count += 1
             check_security(kind, rendered)
+            check_database_names(definition['spec']['pipeline'][0]['input']['script'], claim)
             assert all(item[1] == 1 for item in render(script, claim, rendered).values())
             partial = render(script, claim, list(rendered)[:-1])
             assert partial[list(rendered)[-1]][1] == 2, 'missing dependent resource masked as ready'

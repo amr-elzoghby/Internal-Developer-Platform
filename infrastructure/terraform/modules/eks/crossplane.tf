@@ -5,6 +5,59 @@ locals {
     elasticache = "provider-aws-elasticache"
     ec2         = "provider-aws-ec2"
   }
+  crossplane_database_arns = {
+    rds = [for kind in ["db", "subgrp"] :
+    "arn:aws:rds:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${kind}:${var.name_prefix}-crossplane-*"]
+    elasticache = [for kind in ["replicationgroup", "subnetgroup", "cluster", "snapshot"] :
+    "arn:aws:elasticache:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${kind}:${var.name_prefix}-crossplane-*"]
+  }
+}
+
+# Neither service exposes a create-only tagging condition. Reserve names as
+# an independent boundary; never infer ownership from caller-supplied tags alone.
+data "aws_iam_policy_document" "crossplane_database_tagging" {
+  for_each = local.crossplane_database_arns
+
+  statement {
+    sid           = "DenyTaggingOutsideReservedNames"
+    effect        = "Deny"
+    actions       = ["${each.key}:AddTagsToResource"]
+    not_resources = each.value
+  }
+  statement {
+    sid       = "TagExistingOwnedResources"
+    actions   = ["${each.key}:AddTagsToResource"]
+    resources = each.value
+    dynamic "condition" {
+      for_each = { ManagedBy = "Crossplane-IDP", Environment = var.environment }
+      content {
+        test     = "StringEquals"
+        variable = "aws:ResourceTag/${condition.key}"
+        values   = [condition.value]
+      }
+    }
+  }
+  statement {
+    sid       = "InitializeReservedResourceTags"
+    actions   = ["${each.key}:AddTagsToResource"]
+    resources = each.value
+    dynamic "condition" {
+      for_each = { ManagedBy = "Crossplane-IDP", Environment = var.environment }
+      content {
+        test     = "StringEquals"
+        variable = "aws:RequestTag/${condition.key}"
+        values   = [condition.value]
+      }
+    }
+    dynamic "condition" {
+      for_each = toset(["ManagedBy", "Environment"])
+      content {
+        test     = "Null"
+        variable = "aws:ResourceTag/${condition.value}"
+        values   = ["true"]
+      }
+    }
+  }
 }
 
 data "aws_iam_policy_document" "crossplane_assume_role" {
@@ -92,6 +145,7 @@ resource "aws_iam_policy" "crossplane_s3" {
 }
 
 data "aws_iam_policy_document" "crossplane_rds" {
+  source_policy_documents = [data.aws_iam_policy_document.crossplane_database_tagging["rds"].json]
   statement {
     sid       = "ProtectOwnershipTagRemoval"
     effect    = "Deny"
@@ -138,7 +192,7 @@ data "aws_iam_policy_document" "crossplane_rds" {
     sid       = "RequireOwnershipTagsOnCreate"
     effect    = "Deny"
     actions   = ["rds:CreateDBInstance", "rds:CreateDBSubnetGroup"]
-    resources = ["*"]
+    resources = local.crossplane_database_arns.rds
 
     condition {
       test     = "StringNotEquals"
@@ -151,7 +205,7 @@ data "aws_iam_policy_document" "crossplane_rds" {
     sid    = "DenyChangesToResourcesNotOwnedByCrossplane"
     effect = "Deny"
     actions = [
-      "rds:AddTagsToResource", "rds:DeleteDBInstance", "rds:DeleteDBSubnetGroup",
+      "rds:DeleteDBInstance", "rds:DeleteDBSubnetGroup",
       "rds:ModifyDBInstance", "rds:ModifyDBSubnetGroup", "rds:RemoveTagsFromResource"
     ]
     resources = ["*"]
@@ -165,8 +219,14 @@ data "aws_iam_policy_document" "crossplane_rds" {
 
   statement {
     sid       = "ManageRDSInstancesAndSubnetGroups"
-    actions   = ["rds:AddTagsToResource", "rds:CreateDBInstance", "rds:CreateDBSubnetGroup", "rds:DeleteDBInstance", "rds:DeleteDBSubnetGroup", "rds:ListTagsForResource", "rds:ModifyDBInstance", "rds:ModifyDBSubnetGroup", "rds:RemoveTagsFromResource"]
-    resources = ["arn:aws:rds:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
+    actions   = ["rds:CreateDBInstance", "rds:CreateDBSubnetGroup", "rds:DeleteDBInstance", "rds:DeleteDBSubnetGroup", "rds:ListTagsForResource", "rds:ModifyDBInstance", "rds:ModifyDBSubnetGroup", "rds:RemoveTagsFromResource"]
+    resources = local.crossplane_database_arns.rds
+  }
+  statement {
+    sid     = "UseDefaultDatabaseParametersOnCreate"
+    actions = ["rds:CreateDBInstance"]
+    resources = [for kind in ["pg", "og"] :
+    "arn:aws:rds:${var.aws_region}:${data.aws_caller_identity.current.account_id}:${kind}:default*"]
   }
   statement {
     sid       = "RegionalDiscoveryForReconciliation"
@@ -184,7 +244,7 @@ data "aws_iam_policy_document" "crossplane_rds" {
     sid       = "EnvironmentRequireOwnershipTagsOnCreate"
     effect    = "Deny"
     actions   = ["rds:CreateDBInstance", "rds:CreateDBSubnetGroup"]
-    resources = ["*"]
+    resources = local.crossplane_database_arns.rds
 
     condition {
       test     = "StringNotEquals"
@@ -197,7 +257,7 @@ data "aws_iam_policy_document" "crossplane_rds" {
     sid    = "EnvironmentDenyChangesToResourcesNotOwnedByCrossplane"
     effect = "Deny"
     actions = [
-      "rds:AddTagsToResource", "rds:DeleteDBInstance", "rds:DeleteDBSubnetGroup",
+      "rds:DeleteDBInstance", "rds:DeleteDBSubnetGroup",
       "rds:ModifyDBInstance", "rds:ModifyDBSubnetGroup", "rds:RemoveTagsFromResource"
     ]
     resources = ["*"]
@@ -216,6 +276,7 @@ resource "aws_iam_policy" "crossplane_rds" {
 }
 
 data "aws_iam_policy_document" "crossplane_elasticache" {
+  source_policy_documents = [data.aws_iam_policy_document.crossplane_database_tagging["elasticache"].json]
   statement {
     sid       = "ProtectOwnershipTagRemoval"
     effect    = "Deny"
@@ -251,7 +312,7 @@ data "aws_iam_policy_document" "crossplane_elasticache" {
     sid       = "RequireOwnershipTagsOnCreate"
     effect    = "Deny"
     actions   = ["elasticache:CreateCacheSubnetGroup", "elasticache:CreateReplicationGroup"]
-    resources = ["*"]
+    resources = local.crossplane_database_arns.elasticache
 
     condition {
       test     = "StringNotEquals"
@@ -264,7 +325,7 @@ data "aws_iam_policy_document" "crossplane_elasticache" {
     sid    = "DenyChangesToResourcesNotOwnedByCrossplane"
     effect = "Deny"
     actions = [
-      "elasticache:AddTagsToResource", "elasticache:DeleteCacheSubnetGroup",
+      "elasticache:DeleteCacheSubnetGroup",
       "elasticache:DeleteReplicationGroup", "elasticache:ModifyCacheSubnetGroup",
       "elasticache:ModifyReplicationGroup", "elasticache:RemoveTagsFromResource"
     ]
@@ -279,8 +340,13 @@ data "aws_iam_policy_document" "crossplane_elasticache" {
 
   statement {
     sid       = "ManageElastiCacheReplicationAndSubnetGroups"
-    actions   = ["elasticache:AddTagsToResource", "elasticache:CreateCacheSubnetGroup", "elasticache:CreateReplicationGroup", "elasticache:DeleteCacheSubnetGroup", "elasticache:DeleteReplicationGroup", "elasticache:ListTagsForResource", "elasticache:ModifyCacheSubnetGroup", "elasticache:ModifyReplicationGroup", "elasticache:RemoveTagsFromResource"]
-    resources = ["arn:aws:elasticache:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"]
+    actions   = ["elasticache:CreateCacheSubnetGroup", "elasticache:CreateReplicationGroup", "elasticache:DeleteCacheSubnetGroup", "elasticache:DeleteReplicationGroup", "elasticache:ListTagsForResource", "elasticache:ModifyCacheSubnetGroup", "elasticache:ModifyReplicationGroup", "elasticache:RemoveTagsFromResource"]
+    resources = local.crossplane_database_arns.elasticache
+  }
+  statement {
+    sid       = "UseDefaultCacheParametersOnCreate"
+    actions   = ["elasticache:CreateReplicationGroup"]
+    resources = ["arn:aws:elasticache:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parametergroup:default*"]
   }
   statement {
     sid       = "RegionalDiscoveryForReconciliation"
@@ -298,7 +364,7 @@ data "aws_iam_policy_document" "crossplane_elasticache" {
     sid       = "EnvironmentRequireOwnershipTagsOnCreate"
     effect    = "Deny"
     actions   = ["elasticache:CreateCacheSubnetGroup", "elasticache:CreateReplicationGroup"]
-    resources = ["*"]
+    resources = local.crossplane_database_arns.elasticache
 
     condition {
       test     = "StringNotEquals"
@@ -311,7 +377,7 @@ data "aws_iam_policy_document" "crossplane_elasticache" {
     sid    = "EnvironmentDenyChangesToResourcesNotOwnedByCrossplane"
     effect = "Deny"
     actions = [
-      "elasticache:AddTagsToResource", "elasticache:DeleteCacheSubnetGroup",
+      "elasticache:DeleteCacheSubnetGroup",
       "elasticache:DeleteReplicationGroup", "elasticache:ModifyCacheSubnetGroup",
       "elasticache:ModifyReplicationGroup", "elasticache:RemoveTagsFromResource"
     ]

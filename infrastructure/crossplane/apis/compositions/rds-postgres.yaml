@@ -15,6 +15,7 @@ spec:
         apiVersion: python.fn.crossplane.io/v1beta1
         kind: Script
         script: |
+          import hashlib
           from crossplane.function.proto.v1 import run_function_pb2 as fnv1
 
           MANAGEMENT_POLICIES = [
@@ -41,6 +42,21 @@ spec:
               spec = composite["spec"] if "spec" in composite else {}
               namespace = metadata["namespace"]
               db_name = metadata["name"]
+              aws_name = "${RESOURCE_NAME_PREFIX}-crossplane-" + hashlib.sha256(metadata["uid"].encode()).hexdigest()[:16]
+              # Never retarget a reconciled resource when adopting this naming contract.
+              for key in ("subnet-group", "rds-instance"):
+                  if key in req.observed.resources:
+                      observed = req.observed.resources[key].resource
+                      observed_metadata = observed["metadata"] if "metadata" in observed else {}
+                      annotations = observed_metadata["annotations"] if "annotations" in observed_metadata else {}
+                      previous_name = annotations["crossplane.io/external-name"] if "crossplane.io/external-name" in annotations else None
+                      if key == "rds-instance":
+                          observed_spec = observed["spec"] if "spec" in observed else {}
+                          parameters = observed_spec["forProvider"] if "forProvider" in observed_spec else {}
+                          # RDS external-name is the provider-assigned DBI resource ID.
+                          previous_name = parameters["identifier"] if "identifier" in parameters else previous_name
+                      if previous_name and previous_name != aws_name:
+                          raise ValueError("Existing database resource requires a reviewed naming migration")
               storage = spec["storageGB"] if "storageGB" in spec else 20
               size = spec["size"] if "size" in spec else "small"
 
@@ -108,6 +124,7 @@ spec:
                   "metadata": {
                       "name": f"{db_name}-rds-subnets",
                       "namespace": namespace,
+                      "annotations": {"crossplane.io/external-name": aws_name},
                   },
                   "spec": {
                       "managementPolicies": MANAGEMENT_POLICIES,
@@ -140,6 +157,7 @@ spec:
                       "forProvider": {
                           "region": "${AWS_REGION}",
                           "allocatedStorage": storage,
+                          "identifier": aws_name,
                           "storageType": "gp3",
                           "storageEncrypted": True,
                           "backupRetentionPeriod": 7,
@@ -147,7 +165,7 @@ spec:
                           "backupWindow": "01:00-02:00",
                           "maintenanceWindow": "sun:03:00-sun:04:00",
                           "skipFinalSnapshot": False,
-                          "finalSnapshotIdentifier": f"idp-final-{metadata['uid'][:12]}",
+                          "finalSnapshotIdentifier": f"{aws_name}-final",
                           "deleteAutomatedBackups": False,
                           "monitoringInterval": 60,
                           "monitoringRoleArn": "${RDS_MONITORING_ROLE_ARN}",

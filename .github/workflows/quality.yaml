@@ -66,7 +66,11 @@ jobs:
           done
           terraform -chdir=infrastructure/terraform/stacks/prod/network test
           terraform -chdir=infrastructure/terraform/modules/eks init -backend=false -input=false -lockfile=readonly
-          terraform -chdir=infrastructure/terraform/modules/eks test
+          if ! terraform -chdir=infrastructure/terraform/modules/eks test -json -verbose > "$RUNNER_TEMP/idp-iam-test.jsonl"; then
+            cat "$RUNNER_TEMP/idp-iam-test.jsonl"
+            exit 1
+          fi
+          python3 infrastructure/terraform/modules/eks/tests/check_database_iam.py < "$RUNNER_TEMP/idp-iam-test.jsonl"
   kubernetes:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

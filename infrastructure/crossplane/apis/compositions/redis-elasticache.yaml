@@ -15,6 +15,7 @@ spec:
         apiVersion: python.fn.crossplane.io/v1beta1
         kind: Script
         script: |
+          import hashlib
           from crossplane.function.proto.v1 import run_function_pb2 as fnv1
 
           def compose(req, rsp):
@@ -34,6 +35,15 @@ spec:
               size = spec["size"] if "size" in spec else "small"
               namespace = composite["metadata"]["namespace"]
               redis_name = composite["metadata"]["name"]
+              aws_name = "${RESOURCE_NAME_PREFIX}-crossplane-" + hashlib.sha256(metadata["uid"].encode()).hexdigest()[:16]
+              # Never retarget a reconciled resource when adopting this naming contract.
+              for key in ("subnet-group", "redis-instance"):
+                  if key in req.observed.resources:
+                      observed = req.observed.resources[key].resource
+                      observed_metadata = observed["metadata"] if "metadata" in observed else {}
+                      annotations = observed_metadata["annotations"] if "annotations" in observed_metadata else {}
+                      if "crossplane.io/external-name" in annotations and annotations["crossplane.io/external-name"] != aws_name:
+                          raise ValueError("Existing database resource requires a reviewed naming migration")
 
               node_type = "cache.t3.micro"
               if size == "medium":
@@ -104,7 +114,8 @@ spec:
                   "apiVersion": "elasticache.aws.m.upbound.io/v1beta1",
                   "kind": "SubnetGroup",
                   "metadata": {
-                      "namespace": namespace
+                      "namespace": namespace,
+                      "annotations": {"crossplane.io/external-name": aws_name}
                   },
                   "spec": {
                       "managementPolicies": [
@@ -131,7 +142,8 @@ spec:
                   "apiVersion": "elasticache.aws.m.upbound.io/v1beta1",
                   "kind": "ReplicationGroup",
                   "metadata": {
-                      "namespace": namespace
+                      "namespace": namespace,
+                      "annotations": {"crossplane.io/external-name": aws_name}
                   },
                   "spec": {
                       "managementPolicies": [
@@ -167,7 +179,7 @@ spec:
                           "snapshotRetentionLimit": 7,
                           "snapshotWindow": "02:00-03:00",
                           "maintenanceWindow": "sun:04:00-sun:05:00",
-                          "finalSnapshotIdentifier": f"idp-final-{metadata['uid'][:12]}",
+                          "finalSnapshotIdentifier": f"{aws_name}-final",
                           "subnetGroupNameSelector": {
                               "matchControllerRef": True,
                               "namespace": namespace
