@@ -1,6 +1,6 @@
 FROM python:3.13-alpine@sha256:7415fbc3c9e4979cc717d92377ab2bc7b2b4a2af1ac03cc52b5f3f88efedaf3a AS base
 # Pin the available util-linux security patch instead of allowing a floating upgrade.
-RUN apk add --no-cache libuuid=2.42.3-r0
+RUN apk add --no-cache libuuid=2.42.3-r1
 
 FROM base AS dependencies
 WORKDIR /app
