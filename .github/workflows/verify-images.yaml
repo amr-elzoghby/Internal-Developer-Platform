@@ -14,12 +14,12 @@ jobs:
     steps:
       # This workflow and every executable verifier come from the trusted base.
       # Candidate files are data only: no install/build/script from a PR is run.
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.base.sha }}
           path: trusted
           persist-credentials: false
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           path: candidate
@@ -41,7 +41,7 @@ jobs:
           scan-ref: trusted/platform/validation
           scanners: vuln
           exit-code: '0'
-      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         if: steps.images.outputs.present == 'true'
         with:
           role-to-assume: arn:aws:iam::851236938302:role/idp-prod-github-actions-read-role
