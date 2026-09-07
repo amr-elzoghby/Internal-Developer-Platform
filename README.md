@@ -238,6 +238,8 @@ The package layer is intentionally limited:
 
 Managed resources omit the `Delete` management policy. Removing a Git claim therefore does not automatically delete the cloud resource. This protects stateful resources from accidental Git pruning, but requires an explicit orphan cleanup and deletion runbook.
 
+RDS and Redis names, subnet groups, and final snapshots use the reserved `idp-<environment>-crossplane-` prefix with a stable claim-UID hash. IAM permits initial ownership tagging only inside that reserved namespace and protects existing ownership tags. Inventory that namespace before first use: IAM tags alone cannot distinguish a newly created resource from an existing untagged resource. Do not place unrelated resources there. Existing claims with older external names require a reviewed migration; the Compositions reject automatic retargeting, and tightening IAM does not grant access to legacy names outside the prefix.
+
 The approved database template writes a PostgreSQL claim and ExternalSecret into the monorepo claims path through a pull request. Redis, S3, and EC2 have APIs but no reviewed Backstage request template yet.
 
 ## Developer experience
