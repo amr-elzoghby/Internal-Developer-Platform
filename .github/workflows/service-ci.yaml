@@ -22,7 +22,7 @@ jobs:
     outputs:
       services: ${{ steps.services.outputs.services }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -43,7 +43,7 @@ jobs:
       matrix:
         service_path: ${{ fromJSON(needs.inventory.outputs.services) }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -75,7 +75,7 @@ jobs:
           format: spdx-json
           output: artifact/sbom.spdx.json
           skip-setup-trivy: true
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: image-${{ strategy.job-index }}
           path: artifact/
@@ -94,10 +94,10 @@ jobs:
       matrix:
         service_path: ${{ fromJSON(needs.inventory.outputs.services) }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: image-${{ strategy.job-index }}
           path: artifact
@@ -105,7 +105,7 @@ jobs:
         run: |
           sha256sum --check artifact/image.sha256
           docker load --input artifact/image.tar
-      - uses: aws-actions/configure-aws-credentials@61815dcd50bd041e203e49132bacad1fd04d2708 # v5
+      - uses: aws-actions/configure-aws-credentials@cbe3b392738ccf3f987d68400dafcf4b0624a56c # v6.2.4
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -136,19 +136,19 @@ jobs:
             echo "$key=" >> "$GITHUB_ENV"
           done
       - name: Attest build provenance for the published digest
-        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ${{ steps.image.outputs.repository }}
           subject-digest: ${{ steps.image.outputs.digest }}
           push-to-registry: false
       - name: Attest SPDX SBOM for the same digest
-        uses: actions/attest-sbom@bd218ad0dbcb3e146bd073d1d9c6d78e08aa8a0b # v2
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
         with:
           subject-name: ${{ steps.image.outputs.repository }}
           subject-digest: ${{ steps.image.outputs.digest }}
           sbom-path: artifact/sbom.spdx.json
           push-to-registry: false
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release-${{ strategy.job-index }}
           path: |
@@ -169,18 +169,18 @@ jobs:
         service_path: ${{ fromJSON(needs.inventory.outputs.services) }}
     steps:
       - run: python3 -m pip install PyYAML==6.0.3
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: release-${{ strategy.job-index }}
           path: /tmp/release
       - name: Repository-scoped bot token (so PR quality workflows run)
         id: bot
-        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           app-id: ${{ vars.DELIVERY_APP_ID }}
           private-key: ${{ secrets.DELIVERY_APP_PRIVATE_KEY }}
           repositories: ${{ github.event.repository.name }}
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
           fetch-depth: 0
