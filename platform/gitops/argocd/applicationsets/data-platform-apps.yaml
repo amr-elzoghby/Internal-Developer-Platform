@@ -22,9 +22,16 @@ spec:
       destination:
         server: https://kubernetes.default.svc
         namespace: data-platform
+      # Keep initial replicas in Git while the HPA owns subsequent scale changes.
+      ignoreDifferences:
+        - group: apps
+          kind: Deployment
+          jsonPointers:
+            - /spec/replicas
       syncPolicy:
         automated:
           prune: true
           selfHeal: true
         syncOptions:
           - FailOnSharedResource=true
+          - RespectIgnoreDifferences=true
