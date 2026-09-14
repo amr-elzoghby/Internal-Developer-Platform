@@ -54,7 +54,7 @@ resource "aws_vpc_endpoint" "sts" {
   subnet_ids          = values(aws_subnet.private)[*].id
   security_group_ids  = [aws_security_group.vpc_endpoints[0].id]
   private_dns_enabled = true
-  policy              = data.aws_iam_policy_document.interface_endpoints.json
+  policy              = data.aws_iam_policy_document.sts_endpoint.json
 
   tags = {
     Name = "${var.name_prefix}-sts-endpoint"
@@ -192,6 +192,28 @@ data "aws_iam_policy_document" "interface_endpoints" {
     condition {
       test     = "StringEquals"
       variable = "aws:PrincipalAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+  }
+}
+
+# IRSA callers have no AWS principal before exchanging their OIDC token.
+# Keep signed callers inside the account and constrain federation by the target
+# role's account instead. Each role's OIDC trust still authorizes its token.
+data "aws_iam_policy_document" "sts_endpoint" {
+  source_policy_documents = [data.aws_iam_policy_document.interface_endpoints.json]
+
+  statement {
+    sid       = "FederateIntoAccountRoles"
+    actions   = ["sts:AssumeRoleWithWebIdentity"]
+    resources = ["*"]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "aws:ResourceAccount"
       values   = [data.aws_caller_identity.current.account_id]
     }
   }
