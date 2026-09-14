@@ -198,7 +198,9 @@ Each namespace receives:
 - a per-tenant External Secrets IRSA identity.
 - Pod Security labels: restricted enforced, audited, and warned.
 - native admission rules for tenant-owned ECR SHA-256 image digests, CPU/memory requests and limits, and a team label matching the namespace.
-- tenant NetworkPolicies for same-namespace traffic, DNS, public HTTPS, and explicitly labelled PostgreSQL/Redis clients targeting isolated data subnets.
+- tenant NetworkPolicies for same-namespace traffic, DNS, and explicitly labelled PostgreSQL/Redis clients targeting isolated data subnets.
+
+General public HTTPS egress is denied for tenant workloads. Services that call external APIs need a reviewed platform NetworkPolicy change scoped to the intended workloads, destination ranges, and ports. NAT Gateways and VPC endpoints provide network routes; they do not override the Pod egress policy.
 
 Database ingress uses the EKS node Security Group; per-workload access is enforced by tenant NetworkPolicies. Their CIDRs are rendered from reviewed Terraform outputs. Private ingress remains disabled until a real hostname, certificate, and approved load-balancer path are configured.
 
