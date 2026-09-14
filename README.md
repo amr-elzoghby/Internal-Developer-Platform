@@ -1,498 +1,142 @@
 <div align="center">
 
-<img src="docs/images/platform-architecture-hero.png" alt="Conceptual architecture of the Internal Developer Platform" width="100%"/>
+<img src="docs/images/platform-architecture-hero.png" alt="Conceptual architecture: developers, GitOps, an EKS cluster and AWS resources" width="100%"/>
 
 # Internal Developer Platform
 
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.36-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io/)
-[![Crossplane](https://img.shields.io/badge/Crossplane-2.4.0-5F43E9)](https://www.crossplane.io/)
-[![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.11.0-844FBA?logo=terraform&logoColor=white)](https://developer.hashicorp.com/terraform)
-[![AWS](https://img.shields.io/badge/AWS-EKS-FF9900?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/eks/)
+**A personal platform engineering project built around AWS, Kubernetes and GitOps.**
+
 [![Repository quality](https://github.com/amr-elzoghby/Internal-Developer-Platform/actions/workflows/quality.yaml/badge.svg?branch=main)](https://github.com/amr-elzoghby/Internal-Developer-Platform/actions/workflows/quality.yaml)
 [![Security analysis](https://github.com/amr-elzoghby/Internal-Developer-Platform/actions/workflows/security.yaml/badge.svg?branch=main)](https://github.com/amr-elzoghby/Internal-Developer-Platform/actions/workflows/security.yaml)
+[![Service CI/CD](https://github.com/amr-elzoghby/Internal-Developer-Platform/actions/workflows/service-ci.yaml/badge.svg?branch=main)](https://github.com/amr-elzoghby/Internal-Developer-Platform/actions/workflows/service-ci.yaml)
 
-A personal platform-engineering project: a shared AWS EKS cluster with isolated team namespaces, GitOps application delivery, and self-service infrastructure APIs powered by Crossplane.
+[Local demo](#local-demo) · [Architecture](#architecture) · [Code guide](#code-guide) · [Validation](#validation) · [AWS deployment guide](docs/aws-deployment.md)
 
 </div>
 
-> [!IMPORTANT]
-> CI has verified configuration, regression tests, and container build/smoke checks. The platform has **not been deployed end to end on AWS**. A passing check or Terraform plan is not evidence of a running cluster. The local catalog needs no AWS resources; cloud deployment incurs charges and is a separate, explicit step.
+## Why this project
 
-[Try locally](#try-locally) · [Architecture](#architecture) · [Validation](#validation-evidence) · [AWS setup](#aws-setup) · [Known gaps](#known-gaps)
+Deploying a service usually means assembling infrastructure, permissions, manifests, a delivery pipeline and monitoring. This project explores how a reusable platform can provide those building blocks through service templates and small infrastructure requests stored in Git.
 
-## Try locally
+The design uses one EKS cluster with three **simulated teams** to demonstrate namespace isolation. It is a personal portfolio project; the team names and `prod` directory describe the example environment, not a company deployment.
 
-From the repository root, with Node.js and npm installed:
+**Current status:** the local catalog runs without AWS. CI validates the infrastructure configuration, policies and templates, and builds, smoke-tests and scans the Node.js and Python starter images. The complete platform has **not been deployed end to end on AWS**.
+
+## What I implemented
+
+| Area | Implementation | Skills demonstrated |
+|---|---|---|
+| Infrastructure as code | Separate Terraform roots for state bootstrap, networking, EKS and controllers; explicit SSM output contracts | AWS architecture, Terraform modules, state boundaries |
+| Kubernetes isolation | Namespaces, RBAC, quotas, restricted Pod Security, native admission rules and NetworkPolicies | Access control, workload hardening, multi-tenancy |
+| GitOps | Argo CD projects and ApplicationSets scoped to each team; HPA replica counts preserved during sync | Declarative delivery, reconciliation, autoscaling |
+| Infrastructure APIs | Crossplane APIs for S3, EC2, PostgreSQL and Redis with constrained inputs and retention defaults | Platform API design, AWS IAM, resource lifecycle |
+| CI/CD | GitHub Actions with build/smoke checks, Trivy scans, OIDC publishing, signed image digests and promotion pull requests | Container delivery, supply-chain controls, automation |
+| Developer experience | Node.js, Python/FastAPI and PostgreSQL Backstage templates; a local read-only service catalog | Reusable service starters, metadata and ownership |
+| Observability | Prometheus alerts, a Grafana dashboard and Kubecost configuration | Monitoring, alert testing, cost visibility |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    DEV[Developer] -->|service or infrastructure PR| GIT[(GitHub)]
+    GIT -->|clone| WORK[Local checkout]
+    CATALOG[Local catalog] -. reads metadata .-> WORK
+    GIT --> CI[GitHub Actions]
+    CI -->|build, scan and sign| ECR[(Amazon ECR)]
+    CI -->|image digest PR| GIT
+    TF[Terraform] -->|network, cluster and controllers| EKS
+
+    subgraph EKS[Shared AWS EKS cluster]
+        ARGO[Argo CD] --> NS[Three tenant namespaces]
+        ARGO --> CP[Crossplane]
+        NS --- GUARDS[RBAC, admission and network policies]
+        OBS[Prometheus, Grafana and Kubecost]
+    end
+
+    GIT -->|reconcile apps and claims| ARGO
+    ECR -->|pull immutable images| NS
+    CP -->|dedicated IAM roles| AWS[S3, EC2, RDS and ElastiCache]
+```
+
+Terraform provides the foundation. Argo CD reconciles application manifests and infrastructure requests from Git. Crossplane translates those requests into AWS resources. The local catalog displays repository metadata so the model can be explored without creating cloud resources.
+
+### Application delivery
+
+1. A service template generates source code, a Dockerfile, catalog metadata and Kubernetes manifests under `apps/<team>/<service>`.
+2. After the source is merged, GitHub Actions builds, smoke-tests and scans it before a separate OIDC job can publish an immutable image to ECR.
+3. The workflow opens a pull request containing the verified image digest. Merging that change allows Argo CD to activate the workload.
+
+New services start with an empty Kustomization until an image is promoted. The included `login-app` is a **quarantined metadata example** with no source or active deployment. CI exercises the actual starter templates; the repository currently has no active source-owned application.
+
+### Infrastructure requests
+
+| Crossplane API | AWS service | Examples of configured defaults |
+|---|---|---|
+| `ObjectBucket` | S3 | Public access blocked, encryption, versioning, TLS-only access |
+| `ServerInstance` | EC2 | Private address, no inbound access, IMDSv2, encrypted storage |
+| `PostgresSQLInstance` | RDS PostgreSQL | Isolated data subnets, Multi-AZ, encryption, backups |
+| `RedisInstance` | ElastiCache Redis | TLS, authentication, encryption, failover and snapshots |
+
+Requests and their managed resources are namespaced. The PostgreSQL template generates a claim and an ExternalSecret through a pull request. The other APIs have example claims in the repository.
+
+## Local demo
+
+Use Node.js 24 and npm; AWS credentials and Docker are not needed.
 
 ```bash
+git clone https://github.com/amr-elzoghby/Internal-Developer-Platform.git
+cd Internal-Developer-Platform
 npm ci --ignore-scripts --prefix platform/developer-portal/local-catalog
 npm start --prefix platform/developer-portal/local-catalog
 ```
 
-Open **http://127.0.0.1:3000**. The catalog reads the local repository; it does not authenticate users, contact a cluster, or provision infrastructure. Stop it with `Ctrl+C`. CI uses Node.js 24.
+Open **http://127.0.0.1:3000**. If you already cloned the repository, start from the two npm commands. Stop the server with `Ctrl+C`.
 
-## What this repository contains
+In the demo, inspect `login-app` and its related PostgreSQL claim, and explore the four infrastructure API contracts. The catalog reads local files; it has no login, provisioning backend or live cluster connection. Its team selector changes the displayed team identity without filtering services or enforcing access. The Backstage templates require a separately installed Backstage application to run the scaffolder.
 
-- Three Terraform deployment roots for network, EKS/AWS integrations, and controller releases, plus an independent remote-state bootstrap root.
-- Three native EKS tenant namespaces with EKS access entries, Kubernetes RBAC, quotas, limits, Pod Security Admission, and NetworkPolicies.
-- Argo CD AppProjects and ApplicationSets scoped to each approved team.
-- Four direct, namespaced Crossplane v2 APIs for S3, EC2, RDS PostgreSQL, and ElastiCache Redis.
-- GitHub Actions that validate changes, build and scan monorepo services, publish signed ECR digests, and open manifest-update pull requests.
-- Backstage template definitions plus a lightweight, local, read-only catalog.
+## Design decisions
 
-It does **not** include a runnable Backstage application or a configured external Ingress path. Templates define pull requests into this monorepo; actual scaffolding requires a separate Backstage instance, and delivery through a live cluster remains unverified.
+- **One cluster, three namespaces:** demonstrates team boundaries with a shared control plane. Cluster-wide controllers and CRDs remain platform-owned.
+- **Small Terraform states:** network, EKS and controllers have separate state keys and exchange nonsecret values through SSM contracts.
+- **Git as the change path:** generated services and infrastructure requests go through pull requests; the catalog stays read-only.
+- **Restricted workload defaults:** tenant RBAC excludes Secret access and RBAC mutation; admission checks image digests, ownership labels and resource limits. Tenant policies deny general internet egress and allow specific DNS, internal and database traffic.
+- **Retention for stateful resources:** Crossplane omits the `Delete` management policy and the `gp3` StorageClass retains volumes. Removing a claim or PVC is not a complete cloud cleanup.
 
-## Current component status
+## Code guide
 
-| Area | Repository state | Live evidence |
-|---|---|---|
-| Terraform | Four roots validate; real bootstrap/network previews and mocked dependent plans pass | No end-to-end infrastructure deployment |
-| Tenant RBAC and admission | Manifest checks and local policy regressions pass | No EKS API-server isolation tests yet |
-| Argo CD | Chart and boundaries configured | No sync test yet |
-| Crossplane | 36 generated managed-resource fixtures pass locked provider schemas | No AWS reconciliation canaries yet |
-| GitHub Actions | Quality and security runs verified; both starter images build, pass HTTP smoke checks, and pass image scans | ECR promotion and live GitOps delivery remain unverified |
-| Local catalog | Read-only server and UI; local HTTP smoke passed | Local only |
-| Backstage | Service and database templates | No runnable Backstage application |
-| Monitoring | Charts render, dashboard is provisioned, and alert fixtures pass | No live collection, notification, or recovery test |
-
-## Architecture
-
-The generated image above is a high-level visual. This diagram is the source of truth for the relationships implemented in the repository:
-
-```mermaid
-flowchart LR
-    DEV[Developer or platform engineer]
-    GIT[(GitHub repository)]
-    LOCAL[Local read-only catalog]
-    TPL[Backstage templates]
-    BOOT[Explicit Make bootstrap]
-    CI[GitHub Actions]
-    ECR[(Amazon ECR)]
-
-    subgraph TF[Terraform]
-        NETROOT[stacks/prod/network root]
-        EKSROOT[stacks/prod/eks root]
-        NETCONTRACT[(SSM network contract)]
-        CTLROOT[stacks/prod/controllers root]
-    end
-
-    subgraph AWS[AWS account]
-        VPC[VPC, subnets and endpoints]
-
-        subgraph HOST[Host EKS 1.36]
-            ARGO[Argo CD]
-            CP[Crossplane 2.4]
-            ESO[External Secrets]
-            POLICY[PSA and native admission]
-            KARP[Karpenter and EKS add-ons]
-
-            subgraph TENANTS[Native tenant namespaces]
-                ID[identity-platform]
-                PE[platform-engineering]
-                DATA[data-platform]
-            end
-
-        end
-
-        CLOUD[S3, EC2, RDS and ElastiCache]
-        SM[AWS Secrets Manager]
-    end
-
-    DEV -->|pull request| GIT
-    LOCAL -. reads workspace metadata .-> GIT
-    TPL -. intended scaffolder or claim PR .-> GIT
-    DEV -->|authorized bootstrap command| BOOT
-    GIT -->|changed app with Dockerfile| CI
-    CI -->|immutable image| ECR
-    CI -->|manifest update PR| GIT
-    GIT -->|apps and claims| ARGO
-    ARGO --> TENANTS
-    ARGO -->|namespaced IDP claims| CP
-    CP -->|IRSA, one role per provider family| CLOUD
-    ESO -->|per-tenant IRSA| SM
-
-    NETROOT --> VPC
-    NETROOT --> NETCONTRACT
-    NETCONTRACT --> EKSROOT
-    EKSROOT -->|cluster, IAM and managed add-ons| KARP
-    EKSROOT -->|SSM controller contract| CTLROOT
-    CTLROOT --> KARP
-    CTLROOT --> CP
-    BOOT --> ESO
-    BOOT --> POLICY
-    BOOT --> ARGO
-    BOOT --> CP
-    BOOT --> TENANTS
-    ECR --> TENANTS
-    POLICY --> TENANTS
-    KARP --> TENANTS
-```
-
-### Terraform dependency flow
-
-```text
-infrastructure/terraform/stacks/prod/network
-  └─ module.network
-     ├─ VPC 10.0.0.0/16
-     ├─ public, private workload, and isolated data subnets in three AZs
-     ├─ route tables, Internet Gateway, and one NAT Gateway per AZ
-     ├─ endpoint Security Group and flow logs
-     └─ S3, ECR, STS, EKS/EKS Auth, EC2, SSM/SSM Messages,
-        Logs, Secrets Manager, and SQS endpoints
-
-network outputs
-  └─ explicit nonsecret SSM network contract
-     └─ read by stacks/prod/eks
-        └─ module.eks
-           ├─ EKS 1.36 and encrypted Kubernetes Secrets
-           ├─ stable managed node group
-           ├─ EKS managed add-ons and encrypted worker volumes
-           ├─ EKS access entries and tenant IRSA roles
-           ├─ GitHub Actions OIDC/ECR permissions
-           └─ nonsecret SSM controller contract
-              └─ stacks/prod/controllers
-                 └─ Karpenter, Crossplane, Metrics Server and AWS LBC releases
-```
-
-The roots deliberately use separate state keys:
-
-- `prod/network/terraform.tfstate`
-- `prod/eks/terraform.tfstate`
-- `prod/controllers/terraform.tfstate`
-
-`stacks/bootstrap/state` independently provisions the versioned, private state bucket, KMS encryption, and state-operator permissions. `make infra-plan STACK=state` uses a local backend at `.idp/state-bootstrap/<environment>/terraform.tfstate` because the bucket does not exist yet. Preserve that state in restricted encrypted storage. Deployment roots use native S3 lock files after the backend exists. Consumers read explicit nonsecret SSM contracts instead of another stack's full state snapshot.
-
-Changing an existing installation to these state boundaries requires a reviewed state migration. Do not apply a fresh layout over existing controller releases or recreate an existing state bucket. The saved-plan wrapper verifies backend identity, account, source digest, and exact plan approval before apply. See the [HashiCorp S3 backend reference](https://developer.hashicorp.com/terraform/language/backend/s3) for lock-file and KMS permissions.
-
-## Tenant model
-
-| Team | Native namespace | EKS groups | Argo CD project |
-|---|---|---|---|
-| Identity Platform | `identity-platform` | `idp:tenant:identity-platform:viewer`<br>`idp:tenant:identity-platform:operator` | `identity-platform` |
-| Platform Engineering | `platform-engineering` | `idp:tenant:platform-engineering:viewer`<br>`idp:tenant:platform-engineering:operator` | `platform-engineering` |
-| Data Platform | `data-platform` | `idp:tenant:data-platform:viewer`<br>`idp:tenant:data-platform:operator` | `data-platform` |
-
-Native namespaces are the only tenant isolation model implemented by this repository. A viewer can inspect ordinary workload resources and logs inside its own namespace. An operator adds limited pod deletion and scale operations. Neither role is granted Secret access or RBAC mutation.
-
-The access path is `IAM role -> EKS access entry -> Kubernetes group -> one or more namespaced RoleBindings`. Viewer groups bind to `idp-tenant-viewer`; operator groups bind to both `idp-tenant-viewer` and `idp-tenant-operator-actions`. The example variables use AWS IAM Identity Center roles, so a tenant user can authenticate with a matching local AWS CLI profile and verify both the intended access and the isolation boundary:
-
-```bash
-aws sso login --profile identity-platform-viewer
-aws eks update-kubeconfig \
-  --name idp-prod \
-  --region us-east-1 \
-  --profile identity-platform-viewer \
-  --alias idp-prod-identity-platform-viewer
-
-kubectl auth can-i get pods -n identity-platform       # expected: yes
-kubectl auth can-i get secrets -n identity-platform    # expected: no
-kubectl auth can-i get pods -n data-platform           # expected: no
-```
-
-Namespace-only tenancy keeps one control plane, one bootstrap path, and lower operating cost. The trade-off is a shared control-plane blast radius: tenants cannot choose an independent Kubernetes version or API server, and cluster-scoped CRDs or controllers remain platform-owned rather than tenant-owned.
-
-Each namespace receives:
-
-- `ResourceQuota` and `LimitRange`.
-- a restricted workload ServiceAccount with token automount disabled by default.
-- a per-tenant External Secrets IRSA identity.
-- Pod Security labels: restricted enforced, audited, and warned.
-- native admission rules for tenant-owned ECR SHA-256 image digests, CPU/memory requests and limits, and a team label matching the namespace.
-- tenant NetworkPolicies for same-namespace traffic, DNS, and explicitly labelled PostgreSQL/Redis clients targeting isolated data subnets.
-
-General public HTTPS egress is denied for tenant workloads. Services that call external APIs need a reviewed platform NetworkPolicy change scoped to the intended workloads, destination ranges, and ports. NAT Gateways and VPC endpoints provide network routes; they do not override the Pod egress policy.
-
-Database ingress uses the EKS node Security Group; per-workload access is enforced by tenant NetworkPolicies. Their CIDRs are rendered from reviewed Terraform outputs. Private ingress remains disabled until a real hostname, certificate, and approved load-balancer path are configured.
-
-`make cluster-up` starts with `make network-policy-up`: it installs explicit connectivity policies for the six platform namespaces, then enables VPC CNI `NETWORK_POLICY_ENFORCING_MODE=strict` through the EKS add-on API. CoreDNS and the controllers need those policies before strict startup is enabled. Argo CD keeps its existing restricted ingress; the new baseline adds only its previously unrestricted IPv4 egress. Tenant namespaces never receive the platform connectivity baseline.
-
-Terraform initially bootstraps CNI in standard mode so CoreDNS can start before Kubernetes policies exist. Terraform owns the add-on version and IRSA role; `network-policy-up` owns its `configuration_values` after creation, merging the existing settings and preserving unrelated options. Terraform ignores that field and uses `PRESERVE` during CNI upgrades so it does not reset strict enforcement. Before tenant creation or GitOps activation, `tenant-up`, `argocd-up`, and `platform-bootstrap-up` verify the live add-on configuration, node-agent enforcement, completed DaemonSet rollout, and platform policies. Failed checks stop before those targets apply workloads.
-
-The bootstrap operator needs `eks:DescribeAddon`, `eks:UpdateAddon`, and `eks:DescribeUpdate`, plus Kubernetes permissions to apply the platform namespaces and NetworkPolicies. For an existing installation, first apply the reviewed EKS plan containing this ownership change, run `make network-policy-up`, and regenerate/review the bootstrap bundle. Preserve these policies during teardown while CNI remains strict. A sandbox still needs startup/restart isolation probes and positive DNS/controller checks; rollout readiness alone is not a network-isolation test.
-
-## GitOps and application delivery
-
-Argo CD watches:
-
-- `apps/identity-platform/*`
-- `apps/platform-engineering/*`
-- `apps/data-platform/*`
-- `infrastructure/crossplane/claims/*`
-
-Team AppProjects can deploy only to their own namespace and only approved namespaced workload kinds. The default project is closed. The infrastructure project accepts only the four `idp.io` claim kinds and External Secrets resources in approved tenant namespaces.
-
-For a service already inside `apps/<team>/<service>` with a `Dockerfile`:
-
-```text
-merge app change to main
-→ GitHub Actions detects the service
-→ build and smoke-test the source image without AWS credentials
-→ fail on HIGH or CRITICAL Trivy findings
-→ assume a scoped publishing role with GitHub OIDC in a separate job
-→ push to a Terraform-owned immutable ECR repository and sign its digest
-→ open a dedicated manifest-update pull request
-→ review and merge
-→ Argo CD reconciles the manifest
-```
-
-The current `login-app` is explicitly quarantined: its source is absent and its Kustomization activates no workloads. Its external artifact cannot be promoted until ownership, provenance, runtime behavior, and a verified digest are supplied. Manifest changes pass release verification, including Kustomize restrictions that prevent overriding the checked image after verification.
-
-## Crossplane infrastructure APIs
-
-Crossplane uses direct namespaced v2 XRDs. A claim and its generated managed resources stay in the requesting namespace.
-
-| API | AWS resources generated | Current safety defaults |
-|---|---|---|
-| `ObjectBucket` | Bucket plus six configuration resources | public access blocked, ownership enforced, versioning, encryption, TLS-only access, safe retention |
-| `ServerInstance` | EC2 Instance, Security Group, rule | approved SSM utility image, private IP, no ingress, IMDSv2, encrypted gp3 root, scoped instance profile |
-| `PostgresSQLInstance` | RDS Instance, subnet group, Security Group, rule | isolated data subnets, node-SG ingress, Multi-AZ, encryption, backups, final snapshot, monitoring and log exports |
-| `RedisInstance` | ElastiCache Replication Group, subnet group, Security Group, rule | isolated data subnets, node-SG ingress, required TLS, auth, encryption, two-node failover and snapshots |
-
-The package layer is intentionally limited:
-
-- Crossplane Core `2.4.0`
-- Upbound AWS providers `2.7.0` for S3, EC2, RDS, and ElastiCache
-- Crossplane Function Python `0.5.0`
-- one `ClusterProviderConfig`
-- four dedicated IRSA roles
-- one ManagedResourceActivationPolicy activating exactly fourteen managed resource kinds
-
-Managed resources omit the `Delete` management policy. Removing a Git claim therefore does not automatically delete the cloud resource. This protects stateful resources from accidental Git pruning, but requires an explicit orphan cleanup and deletion runbook.
-
-RDS and Redis names, subnet groups, and final snapshots use the reserved `idp-<environment>-crossplane-` prefix with a stable claim-UID hash. IAM permits initial ownership tagging only inside that reserved namespace and protects existing ownership tags. Inventory that namespace before first use: IAM tags alone cannot distinguish a newly created resource from an existing untagged resource. Do not place unrelated resources there. Existing claims with older external names require a reviewed migration; the Compositions reject automatic retargeting, and tightening IAM does not grant access to legacy names outside the prefix.
-
-The approved database template writes a PostgreSQL claim and ExternalSecret into the monorepo claims path through a pull request. Redis, S3, and EC2 have APIs but no reviewed Backstage request template yet.
-
-## Developer experience
-
-### Local catalog
-
-`make portal-up` launches `platform/developer-portal/local-catalog/server.js` on `127.0.0.1:3000`.
-
-It can:
-
-- scan local `catalog-info.yaml` files;
-- show detected infrastructure YAML files;
-- display the four implemented API contracts;
-- present a local team view selector.
-
-It cannot authenticate users, enforce RBAC, write files, run Git commands, provision infrastructure, or report live Kubernetes/Argo/Trivy/SonarQube metrics. The team selector is presentation-only.
-
-### Backstage assets
-
-`templates/backstage` contains service and database templates. Running the scaffolder requires a separately maintained Backstage application with authentication and the referenced integrations. TechDocs annotations are omitted until a real build and publication path exists.
-
-The Node.js and Python templates open reviewed pull requests into `apps/<team>/<service>` in this repository. Both emit root deployment manifests and a Kustomize entry point that Argo CD can discover. New services start with an empty resource list until a built image digest is promoted. The form does not request a prebuilt image; descriptions are serialized for their target formats and identifiers have shared length and character constraints. Delivery runs are no longer canceled when another service changes.
-
-Infrastructure requests declare an owner and an ownership review date, retain those values in AWS tags, and use enforced Composition references with Manual revision updates. Retained-resource decommission requires inventory, a tested recovery copy, and explicit owner approval. Promote revisions only after a sandbox canary passes.
-
-## Security controls represented in code
-
-- EKS Secrets encryption with a rotating customer-managed KMS key.
-- EKS control-plane logging for API, audit, authenticator, controller manager, and scheduler.
-- IMDSv2 required in the stable node launch template.
-- IRSA trust restricted to exact provider or tenant ServiceAccounts.
-- separate Crossplane IAM roles for each AWS service family.
-- an explicit deny preventing the S3 provider from accessing the Terraform state bucket.
-- ownership-tag guardrails around managed RDS, ElastiCache, and EC2 resources.
-- namespace-scoped tenant RBAC with no Secret or RBAC write permissions.
-- Pod Security Admission and fail-closed native ValidatingAdmissionPolicies.
-- Argo CD destination and resource allowlists.
-- GitHub Actions OIDC, SHA-pinned actions, separate build/publish jobs, signed immutable ECR digests, and HIGH/CRITICAL Trivy gates.
-- confirmation guard before destructive Make targets.
-
-These are implementation controls, not audit evidence. IAM behavior, admission behavior, and isolation still need live positive and negative tests.
-
-## Version pins
-
-| Component | Version or constraint |
+| Path | Purpose |
 |---|---|
-| Kubernetes / EKS | `1.36` |
-| Terraform | `>=1.11.0,<2.0` |
-| AWS provider | exact `6.62.0` across all four roots |
-| Karpenter | `1.14.1` |
-| Crossplane | `2.4.0` |
-| Upbound AWS providers | `2.7.0` |
-| Function Python | `0.5.0` |
-| Argo CD Helm chart | `10.1.4` |
-| Metrics Server chart | `3.13.1` |
-| VPC CNI | `v1.22.4-eksbuild.3` |
-| CoreDNS | `v1.14.3-eksbuild.14` |
-| kube-proxy | `v1.36.0-eksbuild.17` |
-| EBS CSI | `v1.65.0-eksbuild.1` |
-| EKS Pod Identity Agent | `v1.3.10-eksbuild.3` |
+| [`infrastructure/terraform`](infrastructure/terraform) | AWS modules, deployment roots, provider locks and IAM regression tests |
+| [`infrastructure/crossplane`](infrastructure/crossplane) | Infrastructure API definitions, Compositions, claims and schema validation |
+| [`tenants`](tenants) | Namespace, RBAC, quota and network isolation manifests |
+| [`platform/gitops/argocd`](platform/gitops/argocd) | Argo CD installation, projects and ApplicationSets |
+| [`platform/operations`](platform/operations) | Saved-plan review, cluster identity checks and bootstrap automation |
+| [`platform/security/admission`](platform/security/admission) | Native Kubernetes admission policies and rollout logic |
+| [`platform/observability`](platform/observability) | Metrics, dashboard, alerts and cost configuration |
+| [`platform/developer-portal/local-catalog`](platform/developer-portal/local-catalog) | Runnable local catalog |
+| [`templates/backstage`](templates/backstage) | Node.js, Python and database templates |
+| [`apps`](apps) | Quarantined catalog example and destination for generated services |
+| [`.github/workflows`](.github/workflows) and [`platform/validation`](platform/validation) | CI pipelines, contract checks, rendering and delivery tests |
 
-Prometheus (`kube-prometheus-stack` chart `89.2.2`), Kubecost (`kubecost` chart `3.2.4`), and External Secrets (`2.10.0`) are pinned. Monitoring installs use atomic rollback, readiness waits, and explicit timeouts. Kubecost 3 uses its FinOps agent; the retired cost-analyzer chart and its external Prometheus URL are no longer configured. Its cluster ID is passed from `CLUSTER_NAME`, and persistent storage uses `gp3`.
+## Validation
 
-Admission updates compile versioned candidate policies while the previous Deny bindings remain enforced. Candidates receive Deny bindings before the old revision is retired. Compilation failures leave the previous rules active.
-
-`make up` configures Kubernetes and monitoring after the three infrastructure plans have been reviewed and applied. Bootstrap phases remain sequential under `make -j`. Public Kubernetes targets verify the AWS account and EKS identity using an isolated kubeconfig. `make status` propagates errors; `make health-check` also checks API readiness, nodes, the Karpenter NodeClass, and Argo Deployments. `make validate` checks formatting and all four Terraform roots using committed provider locks.
-
-After initial bootstrap, `make platform-render` generates nonsecret manifests in `platform/gitops/argocd/bootstrap`. Review and merge that Git diff before `make platform-bootstrap-up` attaches Argo CD. Sync waves wait for current controller conditions and admission type-checking before proceeding; chart installations remain explicitly managed by Terraform or Make.
-
-The `gp3` StorageClass retains EBS volumes after PVC deletion; retained volumes still need inventory, backups, and an explicit decommission decision. Stakater Reloader chart `2.2.16` watches the tenant namespaces through scoped RBAC and restarts annotated workloads after referenced secrets change. Keep former credentials valid until replacement Pods pass readiness and new database connections; a restart alone does not guarantee uninterrupted access.
-
-## Repository map
-
-```text
-.
-├── .github/
-│   ├── CODEOWNERS
-│   ├── dependabot.yml
-│   └── workflows/                 # quality, security, delivery, image verification
-├── apps/
-│   └── identity-platform/login-app/ # quarantined catalog example; no active workload
-├── templates/backstage/
-│   ├── infra-database/
-│   ├── nodejs-service/
-│   └── python-fastapi/
-├── infrastructure/
-│   ├── terraform/
-│   │   ├── stacks/bootstrap/state/
-│   │   ├── stacks/prod/{network,eks,controllers}/
-│   │   └── modules/{network,eks,controllers}/
-│   └── crossplane/
-│       ├── packages/
-│       ├── provider-configs/
-│       ├── apis/{definitions,compositions}/
-│       ├── claims/identity-platform/
-│       └── scripts/
-├── platform/
-│   ├── bootstrap/{karpenter,storage,reloader}/
-│   ├── developer-portal/local-catalog/
-│   ├── gitops/argocd/
-│   ├── operations/
-│   │   ├── tests/
-│   │   ├── terraform-plan.py
-│   │   ├── render-platform.py
-│   │   ├── in-cluster.py
-│   │   └── verify-destroy-target.sh
-│   ├── validation/
-│   ├── observability/{prometheus,grafana,kubecost}/
-│   └── security/admission/
-├── tenants/
-│   ├── base/
-│   ├── namespaces/
-│   ├── rbac/
-│   └── templates/
-├── Makefile
-└── README.md
-```
-
-## Safe local validation
-
-Prerequisites:
-
-- Terraform `>=1.11.0,<2.0` (CI uses `1.14.4`)
-- AWS CLI, Helm, kubectl, Make
-- Python 3.13 for the complete regression suite; dependencies are pinned in [quality.yaml](.github/workflows/quality.yaml)
-- Node.js and npm (CI uses Node.js 24)
-- Docker only for container build/smoke checks; not needed for the catalog or configuration checks
-
-Commands that do not intentionally apply infrastructure:
+After installing the catalog dependencies, its tests run locally:
 
 ```bash
-# Intended for a fresh checkout; downloads pinned providers without initializing a backend.
-make validate
-
-# Inspect the command graph without executing it.
-make -n cluster-up
-make -n tenant-up
-
-# Uses mock binaries only; does not contact or change AWS/Kubernetes.
-make test-destroy-guard
-
-# Check catalog behavior locally.
 npm test --prefix platform/developer-portal/local-catalog
+make test-destroy-guard
 ```
 
-`make validate` reuses each root's local Terraform cache. If that checkout was previously initialized against a remote backend, use an isolated checkout for local-only validation; existing backend metadata can trigger backend access even with `init -backend=false`. Do not delete real state to make validation pass.
+The destroy-guard suite uses mock commands. For Terraform checks, install Terraform `>=1.11.0,<2.0` and run `make validate` in a **fresh checkout**. It downloads locked providers and validates all four roots. Use an isolated checkout if the working copy already has remote backend metadata.
 
-The [quality workflow](.github/workflows/quality.yaml) is the executable reference for the complete suite, including template rendering, Terraform tests, database IAM regressions, Crossplane schemas, Helm rendering, alert behavior, and container checks. The database IAM checker evaluates the policy constructs used here; it is not the AWS IAM simulator.
+The [quality workflow](.github/workflows/quality.yaml) contains the full reproducible setup, including pinned Python dependencies. It covers Terraform and IAM regressions, Kubernetes rendering, Crossplane provider schemas, template serialization, GitOps/HPA behavior, bootstrap guards, alert behavior and container HTTP checks. The [security workflow](.github/workflows/security.yaml) adds repository security analysis. The badges link to current results.
 
-## AWS setup
+## Next steps
 
-> [!WARNING]
-> These steps are optional and **not** part of the local demo. Applying the configuration creates billable resources, including EKS, worker instances, NAT Gateways, interface endpoints, and storage. Do not run `infra-apply`, `infra-up`, `up`, or Kubernetes installation targets until the target account, budget, and access are ready.
+The next milestone is an AWS sandbox deployment: verify tenant isolation, Crossplane reconciliation, ECR promotion and Argo CD sync together. Live monitoring, secret rotation and restore tests also remain to be exercised. External ingress needs a real hostname, certificate and routing configuration.
 
-### Using a different account
-
-Production defaults still reference account `851236938302`, region `us-east-1`, cluster `idp-prod`, and bucket `amr-tf-state-2026-851236938302-us-east-1-an`. **Changing `AWS_PROFILE` alone is not enough.** The account checks intentionally reject a different production identity.
-
-Before using a new account, update the production identity consistently across Terraform roots/backends, `Makefile`, operations guards/rendering, GitHub Actions role and registry settings, and any checked-in account-specific manifests. Replace repository URLs and GitHub OIDC trust if using a fork. Re-run the identity guard tests against the reviewed target; do not bypass those guards. Clearing a local plan or backend cache neither migrates nor deletes cloud resources.
-
-### Plan before deployment
-
-1. Review the account configuration above and confirm the active AWS identity.
-2. Start with the independent state-bootstrap root. Its backend is local until the S3 bucket exists.
-3. Prepare an ignored `terraform.tfvars` from [the EKS example](infrastructure/terraform/stacks/prod/eks/terraform.tfvars.example). Supply real administrator, break-glass, and tenant IAM roles plus a reviewed AMI release; placeholder values are not deployable inputs.
-4. Progress through `state -> network -> eks -> controllers`, reviewing a new saved plan for each layer. Later real plans require earlier layers' outputs; a mock plan cannot replace them.
-
-```bash
-# Plan only. This does not provision the bucket or any other resource.
-make infra-plan STACK=state
-```
-
-For an explicitly approved deployment only, `infra-apply` requires `APPROVE_PLAN_SHA256` to match the saved plan you inspected. Regenerate the plan after Terraform source changes. Keep actual state protected and recoverable; do not commit state, binary plans, or secrets to Git.
-
-`make up` changes the Kubernetes cluster and is not a local validation command. `infra-up` aliases the saved-plan apply workflow; no target implicitly approves a Terraform plan. Destroy requires the full account/region/cluster confirmation, a separate saved destroy plan for each layer in reverse dependency order, and current retained-resource inventory before network teardown.
-
-The platform-admin, break-glass, and tenant IAM roles in the example must already exist; replace placeholder ARNs with verified identities. An AWS account root identity cannot be used as an EKS access-entry principal. Select the exact regional AL2023 AMI release before the EKS plan. Controllers need the applied EKS SSM contract and network access to the private Kubernetes endpoint; they cannot produce a usable live plan before those prerequisites exist.
-
-For an isolated sandbox, call `platform/operations/terraform-plan.py` with explicit `--environment` (`dev` or `staging`), `--account`, `--region`, `--cluster` (`idp-dev` or `idp-staging`), `--backend-bucket`, and `--backend-region`. Its account and cluster must differ from production. Bootstrap output access uses matching `IDP_ENVIRONMENT`, `IDP_AWS_ACCOUNT_ID`, `IDP_AWS_REGION`, `IDP_CLUSTER_NAME`, `IDP_BACKEND_BUCKET`, and `IDP_BACKEND_REGION`. Identity and backend mismatches stop before Kubernetes apply. The checked-in GitOps applications and bundle directory are production-only: sandbox operators must use the direct component targets and reviewed canary manifests; bundle publication and application attachment reject sandbox outputs.
-
-## Validation evidence
-
-Verified baseline: commit `224ee7d`, reviewed on 2026-09-08. Its [Repository quality run](https://github.com/amr-elzoghby/Internal-Developer-Platform/actions/runs/34113897157) and [Security analysis run](https://github.com/amr-elzoghby/Internal-Developer-Platform/actions/runs/34113897177) passed. The badges above show subsequent branch results, not a deployment guarantee.
-
-| Check | Verified result |
-|---|---|
-| Starter containers | Node.js and Python images built, passed HTTP smoke checks, and passed Trivy gates in CI |
-| Terraform | Formatting and all four root validations; 4 network tests and 2 IAM native tests passed |
-| Database IAM | 75 local allow/deny cases passed against rendered policies; the previous policy fails the initial-tagging regression |
-| Operations | 35 regression tests and 23 mocked destructive-target safety cases passed |
-| Crossplane | 36 managed-resource fixtures across four APIs and both tiers passed pinned schemas and safety checks |
-| Kubernetes manifests | 235 built-in resources valid; 81 custom resources skipped by Kubeconform and not covered by that result |
-| Templates and catalog | Six template serialization cases and local catalog tests/HTTP checks passed |
-| Alerts | Six rules syntax-checked, with nine behavioral expectations passing |
-
-Plan-only review of the same baseline:
-
-| Layer | Preview | What it proves |
-|---|---|---|
-| State bootstrap | 10 additions | Real saved plan with the local bootstrap backend |
-| Network | 51 additions | Real-provider preview of the unchanged root under a separate local backend |
-| EKS | 100 additions | Root plan with mocked providers, network outputs, and access identities |
-| Controllers | 7 additions | Root plan with mocked AWS/Helm providers and EKS outputs |
-
-No resources were created during these checks. Production network/EKS/controller plans stopped at the absent S3 backend; it was not created to bypass that prerequisite. Preview counts are historical test results, not fixed deployment expectations. Mock plans do not prove role existence, quotas, service authorization, private connectivity, chart installation, or runtime reconciliation. The application inventory contains no active source-owned service, so its successful CI job is not application-deployment evidence.
-
-## Known gaps
-
-The highest-priority gaps are:
-
-1. No end-to-end deployment or live isolation evidence.
-2. Stable and Karpenter workers use private subnets with NAT per AZ; capacity and private egress still need a sandbox load test.
-3. The EKS endpoint is private by default. Enabling public access requires explicitly approved CIDRs; deployment runners need connectivity to the private endpoint.
-4. AWS Load Balancer Controller is declared; ingress activation still requires an owned hostname, DNS, certificate, and sandbox routing tests.
-5. Starter images build and pass smoke checks in CI; actual ECR digest promotion and end-to-end deployment still require validation.
-6. Crossplane provider schemas, EC2 namespaced rendering, and connection-secret keys need live canaries.
-7. S3 and EC2 hardening is declared and provider-schema checked; AWS reconciliation and SSM access still need canaries.
-8. RDS/Redis ingress now references the EKS node SG; tenant network isolation still needs integration testing.
-9. Redis security, failover and snapshot settings are declared; restoration and rotation remain untested live.
-10. Monitoring charts render locally, but cost collection, alert delivery, and storage recovery still require a sandbox test.
-11. Backstage assets are templates only; the runnable portal is a local read-only catalog.
-
-## Destructive operations
-
-`make down`, `make infra-down`, and `make cluster-down` require the exact `CONFIRM_DESTROY=851236938302/us-east-1/idp-prod` value. The production account, region, and cluster identity are review-pinned and cannot be overridden from the Make command line.
-
-Before Terraform destroy, the guard verifies the active AWS account, passes the reviewed region and cluster inputs, forces the default workspace, and the AWS providers and S3 backends independently reject every other account. These checks prevent accidental account/input drift; they do not prove the contents of an already initialized Terraform state, so reviewing the destroy plan remains mandatory. Before Kubernetes teardown, the guard verifies the live EKS ARN and `ACTIVE` status. It snapshots the selected kube-context into a private temporary file, matches that snapshot's endpoint and certificate authority to EKS, checks baseline delete permissions, and pins Helm and kubectl to that snapshot. A failed identity check stops before uninstall; any uninstall failure stops subsequent phases.
-
-`cluster-down` uninstalls Argo CD first, then Kubecost, Prometheus, Reloader, External Secrets and any legacy Kyverno release. It retains namespaces, CRDs, claims and monitoring PVCs, then waits for Karpenter NodePools to drain before deleting the EC2NodeClass. The pinned monitoring charts retain their persistent claims; this is not a backup or a restore guarantee. Terraform still owns the core controllers and AWS resources. `make down` deliberately refuses one-command destruction: review and approve each saved destroy plan separately. EKS destruction ultimately removes the Kubernetes control plane, even though retained AWS volumes and Crossplane resources can remain billable.
-
-Even with that guard, always inspect the active AWS account, kube-context, Terraform plan, backups, and rollback path before running a destructive command.
+For cloud prerequisites, bootstrap order, state handling and teardown, see the [AWS deployment guide](docs/aws-deployment.md). Cloud deployment is optional and creates billable resources; the local demo is independent of it.
 
 ---
 
-Maintained by [Amr Elzoghby](https://github.com/amr-elzoghby).
+Built and maintained by [Amr Elzoghby](https://github.com/amr-elzoghby).
