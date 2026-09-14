@@ -341,7 +341,7 @@ The `gp3` StorageClass retains EBS volumes after PVC deletion; retained volumes 
 │   ├── dependabot.yml
 │   └── workflows/                 # quality, security, delivery, image verification
 ├── apps/
-│   └── identity-platform/login-app/deployment.yaml
+│   └── identity-platform/login-app/ # quarantined catalog example; no active workload
 ├── templates/backstage/
 │   ├── infra-database/
 │   ├── nodejs-service/
