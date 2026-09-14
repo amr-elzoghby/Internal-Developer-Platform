@@ -52,7 +52,7 @@ It does **not** include a runnable Backstage application or a configured externa
 | Crossplane | 36 generated managed-resource fixtures pass locked provider schemas | No AWS reconciliation canaries yet |
 | GitHub Actions | Quality and security runs verified; both starter images build, pass HTTP smoke checks, and pass image scans | ECR promotion and live GitOps delivery remain unverified |
 | Local catalog | Read-only server and UI; local HTTP smoke passed | Local only |
-| Backstage | Development configuration example, catalog entities, and templates only | No runnable Backstage application |
+| Backstage | Service and database templates | No runnable Backstage application |
 | Monitoring | Charts render, dashboard is provisioned, and alert fixtures pass | No live collection, notification, or recovery test |
 
 ## Architecture
@@ -280,7 +280,7 @@ It cannot authenticate users, enforce RBAC, write files, run Git commands, provi
 
 ### Backstage assets
 
-`platform/developer-portal/backstage-config` contains an explicitly named development configuration example. The incomplete Dockerfile has been removed. Running the scaffolder requires a separately maintained Backstage application with authentication and the referenced integrations. TechDocs annotations are omitted until a real build and publication path exists.
+`templates/backstage` contains service and database templates. Running the scaffolder requires a separately maintained Backstage application with authentication and the referenced integrations. TechDocs annotations are omitted until a real build and publication path exists.
 
 The Node.js and Python templates open reviewed pull requests into `apps/<team>/<service>` in this repository. Both emit root deployment manifests and a Kustomize entry point that Argo CD can discover. New services start with an empty resource list until a built image digest is promoted. The form does not request a prebuilt image; descriptions are serialized for their target formats and identifiers have shared length and character constraints. Delivery runs are no longer canceled when another service changes.
 
@@ -359,9 +359,7 @@ The `gp3` StorageClass retains EBS volumes after PVC deletion; retained volumes 
 │       └── scripts/
 ├── platform/
 │   ├── bootstrap/{karpenter,storage,reloader}/
-│   ├── developer-portal/
-│   │   ├── backstage-config/
-│   │   └── local-catalog/
+│   ├── developer-portal/local-catalog/
 │   ├── gitops/argocd/
 │   ├── operations/
 │   │   ├── tests/
@@ -483,7 +481,7 @@ The highest-priority gaps are:
 8. RDS/Redis ingress now references the EKS node SG; tenant network isolation still needs integration testing.
 9. Redis security, failover and snapshot settings are declared; restoration and rotation remain untested live.
 10. Monitoring charts render locally, but cost collection, alert delivery, and storage recovery still require a sandbox test.
-11. Backstage is configuration-only, not a runnable production portal.
+11. Backstage assets are templates only; the runnable portal is a local read-only catalog.
 
 ## Destructive operations
 
