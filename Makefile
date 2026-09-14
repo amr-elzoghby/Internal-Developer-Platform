@@ -35,6 +35,7 @@ help:
 	@echo "  monitoring-up       Deploy Prometheus, Grafana, and Kubecost FinOps stack"
 	@echo "  storage-up          Apply the encrypted gp3 StorageClass"
 	@echo "  tenant-up           Create and configure host-cluster tenant namespaces"
+	@echo "  network-policy-up   Prepare platform connectivity and enforce strict CNI startup"
 	@echo "  admission-up        Enforce native Kubernetes workload policies"
 	@echo "  crossplane-config   Install providers, XRDs, then Compositions in order"
 	@echo "  down                Destroy the environment (requires CONFIRM_DESTROY=$(DESTROY_CONFIRMATION))"
@@ -103,6 +104,7 @@ _eso-up:
 
 # Deploy Kubernetes platform components
 _cluster-up:
+	$(MAKE) network-policy-up
 	@set -eu; rendered="$$(python3 platform/operations/render-platform.py --scope karpenter)"; printf '%s\n' "$$rendered" | kubectl apply -f -
 	$(MAKE) storage-up
 	$(MAKE) eso-up
@@ -123,7 +125,12 @@ _storage-up:
 
 # Create tenant boundaries directly on the host EKS cluster.
 _tenant-up:
+	python3 platform/operations/network-policy.py check
 	@set -eu; rendered="$$(python3 platform/operations/render-platform.py --scope tenants)"; printf '%s\n' "$$rendered" | kubectl apply -f -
+
+# CoreDNS and controllers need their policies before strict CNI is enabled.
+_network-policy-up:
+	python3 platform/operations/network-policy.py install
 
 # Configure Crossplane in dependency order. Sub-makes keep the phases sequential
 # even when the top-level make command is invoked with parallel execution.
@@ -207,6 +214,7 @@ _crossplane-compositions:
 
 # Configure ArgoCD and multi-tenant GitOps
 _argocd-up:
+	python3 platform/operations/network-policy.py check
 	@python3 platform/operations/render-platform.py --scope gitops >/dev/null
 	@echo "$(GREEN)Installing ArgoCD...$(NC)"
 	./platform/gitops/argocd/install/install.sh
@@ -220,6 +228,7 @@ platform-render:
 	python3 platform/operations/render-platform.py --scope bundle --output-dir platform/gitops/argocd/bootstrap
 
 _platform-bootstrap-up:
+	python3 platform/operations/network-policy.py check
 	@python3 platform/operations/render-platform.py --scope gitops >/dev/null
 	@test -s platform/gitops/argocd/bootstrap/manifest.yaml || { echo 'Render and merge the bootstrap bundle first.' >&2; exit 1; }
 	@git ls-files --error-unmatch platform/gitops/argocd/bootstrap/manifest.yaml >/dev/null
@@ -300,6 +309,7 @@ _status:
 
 .PHONY: health-check
 _health-check:
+	python3 platform/operations/network-policy.py check
 	kubectl get --raw=/readyz
 	kubectl wait --for=condition=Ready nodes --all --timeout=60s
 	kubectl wait --for=condition=Ready ec2nodeclass/default --timeout=60s
@@ -314,7 +324,7 @@ validate:
 	done
 
 # Public Kubernetes entry points always use an isolated, verified EKS context.
-GUARDED_TARGETS := cluster-up eso-up tenant-up reloader-up storage-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up platform-bootstrap-up admission-up monitoring-up status health-check
+GUARDED_TARGETS := cluster-up network-policy-up eso-up tenant-up reloader-up storage-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up platform-bootstrap-up admission-up monitoring-up status health-check
 .PHONY: $(GUARDED_TARGETS) $(addprefix _,$(GUARDED_TARGETS)) _require-verified-context
 $(GUARDED_TARGETS):
 	python3 platform/operations/in-cluster.py make _$@

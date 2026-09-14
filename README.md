@@ -202,6 +202,12 @@ Each namespace receives:
 
 Database ingress uses the EKS node Security Group; per-workload access is enforced by tenant NetworkPolicies. Their CIDRs are rendered from reviewed Terraform outputs. Private ingress remains disabled until a real hostname, certificate, and approved load-balancer path are configured.
 
+`make cluster-up` starts with `make network-policy-up`: it installs explicit connectivity policies for the six platform namespaces, then enables VPC CNI `NETWORK_POLICY_ENFORCING_MODE=strict` through the EKS add-on API. CoreDNS and the controllers need those policies before strict startup is enabled. Argo CD keeps its existing restricted ingress; the new baseline adds only its previously unrestricted IPv4 egress. Tenant namespaces never receive the platform connectivity baseline.
+
+Terraform initially bootstraps CNI in standard mode so CoreDNS can start before Kubernetes policies exist. Terraform owns the add-on version and IRSA role; `network-policy-up` owns its `configuration_values` after creation, merging the existing settings and preserving unrelated options. Terraform ignores that field and uses `PRESERVE` during CNI upgrades so it does not reset strict enforcement. Before tenant creation or GitOps activation, `tenant-up`, `argocd-up`, and `platform-bootstrap-up` verify the live add-on configuration, node-agent enforcement, completed DaemonSet rollout, and platform policies. Failed checks stop before those targets apply workloads.
+
+The bootstrap operator needs `eks:DescribeAddon`, `eks:UpdateAddon`, and `eks:DescribeUpdate`, plus Kubernetes permissions to apply the platform namespaces and NetworkPolicies. For an existing installation, first apply the reviewed EKS plan containing this ownership change, run `make network-policy-up`, and regenerate/review the bootstrap bundle. Preserve these policies during teardown while CNI remains strict. A sandbox still needs startup/restart isolation probes and positive DNS/controller checks; rollout readiness alone is not a network-isolation test.
+
 ## GitOps and application delivery
 
 Argo CD watches:

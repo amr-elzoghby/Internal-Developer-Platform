@@ -196,6 +196,11 @@ def render(scope, values, tenant_roles, namespace=None):
     if scope in ('bundle', 'gitops') and values['ENVIRONMENT'] != 'prod':
         raise ValueError('The checked-in GitOps applications and bundle path are production-only; use direct bootstrap scopes for a sandbox')
     objects = []
+    if scope == 'bundle':
+        spec = importlib.util.spec_from_file_location('platform_network', ROOT / 'platform/operations/network-policy.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        objects += module.platform_objects()
     if scope in ('compositions', 'bundle'):
         for path in sorted((ROOT / 'infrastructure/crossplane/apis/compositions').glob('*.yaml')):
             objects += render_file(path, values, wave=-20)

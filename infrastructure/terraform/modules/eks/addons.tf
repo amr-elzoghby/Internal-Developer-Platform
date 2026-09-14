@@ -40,20 +40,29 @@ resource "aws_eks_addon" "coredns" {
   depends_on = [aws_eks_node_group.stable]
 }
 
-# ─── VPC CNI Addon (IRSA — enables pod-level security groups) ────────────────
+# ─── VPC CNI Addon (IRSA and native NetworkPolicy) ──────────────────────────
 resource "aws_eks_addon" "vpc_cni" {
   cluster_name                = aws_eks_cluster.main.name
   addon_name                  = "vpc-cni"
   addon_version               = var.eks_addon_versions.vpc_cni
   service_account_role_arn    = aws_iam_role.addon["vpc-cni"].arn
   resolve_conflicts_on_create = "OVERWRITE"
-  resolve_conflicts_on_update = "OVERWRITE"
+  resolve_conflicts_on_update = "PRESERVE"
 
   depends_on = [aws_iam_role_policy_attachment.addon]
 
   configuration_values = jsonencode({
     enableNetworkPolicy = "true"
   })
+
+  # CoreDNS must bootstrap before Kubernetes policies can be installed. The
+  # guarded network-policy-up phase owns configuration after initial creation:
+  # it installs platform connectivity, enables strict mode through the EKS API,
+  # and verifies the rollout before tenant or GitOps activation. Preserve that
+  # live configuration across Terraform plans and add-on version upgrades.
+  lifecycle {
+    ignore_changes = [configuration_values]
+  }
 
 }
 
@@ -78,4 +87,3 @@ resource "aws_eks_addon" "pod_identity_agent" {
 
   depends_on = [aws_eks_node_group.stable]
 }
-

@@ -21,6 +21,7 @@ render_chart reloader reloader "$(make_pin RELOADER_CHART_VERSION)" https://stak
 render_chart argocd argo-cd 10.1.4 https://argoproj.github.io/argo-helm --namespace argocd --values platform/gitops/argocd/install/values.yaml > "$render_dir/argocd.yaml"
 render_chart aws-load-balancer-controller aws-load-balancer-controller 3.5.0 https://aws.github.io/eks-charts --namespace kube-system --set clusterName=idp-validation --set region=us-east-1 --set vpcId=vpc-0123456789abcdef0 > "$render_dir/alb-controller.yaml"
 kubectl kustomize platform/observability/grafana > "$render_dir/grafana-dashboard.yaml"
+python3 platform/operations/network-policy.py render > "$render_dir/platform-network-policy.json"
 python3 - "$render_dir" <<'PY'
 import pathlib,sys
 out = pathlib.Path(sys.argv[1])
