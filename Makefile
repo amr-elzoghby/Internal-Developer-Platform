@@ -1,4 +1,4 @@
-.PHONY: help confirm-destroy verify-aws-destroy-target test-destroy-guard infra-up infra-down kubeconfig cluster-up storage-up tenant-up admission-up eso-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up kyverno-up monitoring-up portal-up cluster-down up down status validate
+.PHONY: help confirm-destroy verify-aws-destroy-target test-destroy-guard infra-up infra-down kubeconfig cluster-up storage-up tenant-up admission-up eso-up crossplane-config crossplane-packages crossplane-definitions crossplane-compositions argocd-up monitoring-up portal-up cluster-down up down status validate
 
 GREEN  := \033[0;32m
 YELLOW := \033[0;33m
@@ -240,13 +240,6 @@ _platform-bootstrap-up:
 _admission-up:
 	@echo "$(GREEN)Installing native Kubernetes admission policies...$(NC)"
 	./platform/security/admission/install.sh
-
-# Kyverno is intentionally not part of the bootstrap until an approved release
-# supports Kubernetes 1.36. Keep this target fail-closed for explicit callers.
-kyverno-up:
-	@echo "$(RED)Kyverno is disabled: the pinned policy engine is not approved for Kubernetes 1.36.$(NC)"
-	@echo "Use 'make admission-up' for the supported native controls."
-	@exit 1
 
 # Configure Prometheus, Grafana, and Kubecost Monitoring & FinOps
 _monitoring-up:
